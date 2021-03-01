@@ -1265,6 +1265,7 @@ namespace MacGruber
 					return;
 				entry.myAnchorAAtom = oldEntry.myAnchorAAtom;
 				entry.myAnchorAControl = oldEntry.myAnchorAControl;
+				entry.myAnchorMode = oldEntry.myAnchorMode;
 			}
 
 			public void SetTransition(List<State> states, int entryCount)
@@ -1459,9 +1460,12 @@ namespace MacGruber
 			public ControlEntryAnchored(IdlePoser plugin, string control)
 			{
 				Atom containingAtom = plugin.GetContainingAtom();
-				if (plugin.myOptionsDefaultToWorldAnchor.val || containingAtom.type != "Person" || control == "control")
+				if (plugin.myOptionsDefaultToWorldAnchor.val || containingAtom.type != "Person")
 					myAnchorMode = ANCHORMODE_WORLD;
-				myAnchorAAtom = myAnchorBAtom = containingAtom.uid;
+				if(control == "control" && containingAtom.parentAtom != null)
+					myAnchorAAtom = myAnchorBAtom = containingAtom.parentAtom.uid;
+				else
+					myAnchorAAtom = myAnchorBAtom = containingAtom.uid;
 			}
 
 			public void Initialize()
