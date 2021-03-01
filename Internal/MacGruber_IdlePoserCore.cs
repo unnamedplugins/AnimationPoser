@@ -101,12 +101,15 @@ namespace MacGruber
 		private const float DEFAULT_ANCHOR_DAMPING_TIME = 0.2f;
 
 		private Dictionary<string, State> myStates = new Dictionary<string, State>();
+
+		private Dictionary<string, Animation> myAnimations = new Dictionary<string, Animation>();
 		private List<ControlCapture> myControlCaptures = new List<ControlCapture>();
 		private List<MorphCapture> myMorphCaptures = new List<MorphCapture>();
 		private List<State> myTransition = new List<State>(8);
 		private List<State> myCurrentTransition = new List<State>(MAX_STATES);
 		private List<TriggerActionDiscrete> myTriggerActionsNeedingUpdate = new List<TriggerActionDiscrete>();
 		private State myCurrentState;
+		private Animation myCurrentAnimation;
 		private State myNextState;
 		private State myBlendState = State.CreateBlendState();
 
@@ -128,19 +131,7 @@ namespace MacGruber
 			myWasLoading = true;
 			myClock = 0.0f;
 
-			ControlCapture lHand = new ControlCapture(this, "lHandControl");
-			if (lHand.IsValid())
-				myControlCaptures.Add(lHand);
-			ControlCapture rHand = new ControlCapture(this, "rHandControl");
-			if (rHand.IsValid())
-				myControlCaptures.Add(rHand);
-			ControlCapture control = new ControlCapture(this, "control");
-			if (myControlCaptures.Count == 0 && control.IsValid())
-				myControlCaptures.Add(control);	
-			
-
 			InitUI();
-
 
 			mySwitchState = new JSONStorableString("SwitchState", "", SwitchStateAction);
 			mySwitchState.isStorable = mySwitchState.isRestorable = false;
@@ -165,14 +156,26 @@ namespace MacGruber
 			SuperController.singleton.onAtomUIDRenameHandlers -= OnAtomRename;
 			OnDestroyUI();
 
-			foreach (var s in myStates)
+			foreach (var ms in myAnimations)
 			{
-				State state = s.Value;
-				state.EnterBeginTrigger.Remove();
-				state.EnterEndTrigger.Remove();
-				state.ExitBeginTrigger.Remove();
-				state.ExitEndTrigger.Remove();
+				ms.Value.Clear();
 			}
+		}
+
+		private Animation CreateAnimation(string name)
+		{
+			Animation ms = new Animation(name) {
+				// myWaitDurationMin = 0.0f,
+				// myWaitDurationMax = 0.0f,
+				// myTransitionDuration = 0.1f,
+				// myStateType = STATETYPE_REGULARSTATE
+			};
+			// CaptureState(s);
+			// if(myCurrentState != null) {
+			// 	setCaptureDefaults(s, myCurrentState);
+			// }
+			myAnimations[name] = ms;
+			return ms;
 		}
 
 		private State CreateState(string name)
@@ -184,14 +187,23 @@ namespace MacGruber
 				myStateType = STATETYPE_REGULARSTATE
 			};
 			CaptureState(s);
-			myStates[name] = s;
+			if(myCurrentState != null) {
+				setCaptureDefaults(s, myCurrentState);
+			}
+			myCurrentAnimation.myStates[name] = s;
 			return s;
 		}
 
+		private void SetAnimation(Animation animation)
+		{
+			myCurrentAnimation = animation;
+		}
+
 		private void SetState(State state)
-		{			
+		{
 			myCurrentState = state;
 			myNextState = null;
+
 			myClock = 0.0f;
 			if (state.myWaitInfiniteDuration)
 				myDuration = float.MaxValue;
@@ -220,10 +232,10 @@ namespace MacGruber
 
 			myClock = 0.0f;
 			myDuration = (duration < 0) ? d : duration;
-			myDuration = Mathf.Max(myDuration, 0.001f);
+			myDuration = Mathf.Max(myDuration, 0.000f);
 			myNextState = myTransition[entryCount-1];
-			for (int i=0; i<myControlCaptures.Count; ++i)
-				myControlCaptures[i].SetTransition(myTransition, entryCount);
+			for (int i=0; i<myCurrentAnimation.myControlCaptures.Count; ++i)
+				myCurrentAnimation.myControlCaptures[i].SetTransition(myTransition, entryCount);
 			for (int i=0; i<myMorphCaptures.Count; ++i)
 				myMorphCaptures[i].SetTransition(myTransition, entryCount);
 
@@ -266,13 +278,15 @@ namespace MacGruber
 		}
 
 		private void SetBlendTransition(State state, bool debug = false)
+		private void SetBlendTransition(State state)daumaolhada
 		{
 			myTransition.Clear();
 			myTransition.Add(myCurrentState);
 			if (myCurrentState != null)
 			{
 				List<State> states = new List<State>(16);
-				myNextState = null;
+				myNextState = nulldaumaolhada;
+				myNextState = state;
 				GatherStates(1, states);
 				List<int> indices = new List<int>(4);
 				for (int i=0; i<states.Count; ++i)
@@ -429,12 +443,13 @@ namespace MacGruber
 			}
 			
 			return true;
+			return indexdaumaolhada;
 		}
 
 		private void BlendToRandomState(float duration)
 		{
-			List<State> possible = new List<State>(myStates.Count);
-			foreach (var state in myStates)
+			List<State> possible = new List<State>(myCurrentAnimation.myStates.Count);
+			foreach (var state in myCurrentAnimation.myStates)
 			{
 				if (state.Value.IsRegularState)
 					possible.Add(state.Value);
@@ -453,18 +468,26 @@ namespace MacGruber
 
 		private void CaptureState(State state)
 		{
-			for (int i=0; i<myControlCaptures.Count; ++i)
-				myControlCaptures[i].CaptureEntry(state);
+			for (int i=0; i<myCurrentAnimation.myControlCaptures.Count; ++i)
+				myCurrentAnimation.myControlCaptures[i].CaptureEntry(state);
 			for (int i=0; i<myMorphCaptures.Count; ++i)
 				myMorphCaptures[i].CaptureEntry(state);
 		}
-		
+
+		private void setCaptureDefaults(State state, State oldState)
+		{
+			for (int i=0; i<myCurrentAnimation.myControlCaptures.Count; ++i)
+				myCurrentAnimation.myControlCaptures[i].setDefaults(state, oldState);
+			// for (int i=0; i<myMorphCaptures.Count; ++i)
+			// 	myMorphCaptures[i].setDefaults(state, oldState);
+		}
+
 		private void SwitchStateAction(string v)
 		{
 			mySwitchState.valNoCallback = string.Empty;
 
 			State state;
-			if (myStates.TryGetValue(v, out state))
+			if (myCurrentAnimation.myStates.TryGetValue(v, out state))
 				SetBlendTransition(state);
 			else
 				SuperController.LogError("IdlePoser: Can't switch to unknown state '"+v+"'!");
@@ -607,17 +630,17 @@ namespace MacGruber
 			if (myNextState != null)
 			{
 				float t = Smooth(myCurrentState.myEaseOutDuration, myNextState.myEaseInDuration, myDuration, myClock);
-				for (int i=0; i<myControlCaptures.Count; ++i)
-					myControlCaptures[i].UpdateTransition(t);
+				for (int i=0; i<myCurrentAnimation.myControlCaptures.Count; ++i)
+					myCurrentAnimation.myControlCaptures[i].UpdateTransition(t);
 				for (int i=0; i<myMorphCaptures.Count; ++i)
 					myMorphCaptures[i].UpdateTransition(t);
 			}
 			else if (!paused || myPlayMode)
 			{
-				for (int i=0; i<myControlCaptures.Count; ++i)
-					myControlCaptures[i].UpdateState(myCurrentState);
-			}		
-			
+				for (int i=0; i<myCurrentAnimation.myControlCaptures.Count; ++i)
+					myCurrentAnimation.myControlCaptures[i].UpdateState(myCurrentState);
+			}
+
 			if (myClock >= myDuration)
 			{
 				if (myNextState != null)
@@ -697,7 +720,7 @@ namespace MacGruber
 
 		private void OnAtomRename(string oldid, string newid)
 		{
-			foreach (var s in myStates)
+			foreach (var s in myCurrentAnimation.myStates)
 			{
 				State state = s.Value;
 				state.EnterBeginTrigger.SyncAtomNames();
@@ -762,12 +785,12 @@ namespace MacGruber
 			jc["DefaultToWorldAnchor"].AsBool = myOptionsDefaultToWorldAnchor.val;
 
 			// save captures
-			if (myControlCaptures.Count > 0)
+			if (myCurrentAnimation.myControlCaptures.Count > 0)
 			{
 				JSONArray cclist = new JSONArray();
-				for (int i=0; i<myControlCaptures.Count; ++i)
+				for (int i=0; i<myCurrentAnimation.myControlCaptures.Count; ++i)
 				{
-					ControlCapture cc = myControlCaptures[i];
+					ControlCapture cc = myCurrentAnimation.myControlCaptures[i];
 					JSONClass ccclass = new JSONClass();
 					ccclass["Name"] = cc.myName;
 					ccclass["ApplyPos"].AsBool = cc.myApplyPosition;
@@ -792,7 +815,7 @@ namespace MacGruber
 
 			// save states
 			JSONArray slist = new JSONArray();
-			foreach (var s in myStates)
+			foreach (var s in myCurrentAnimation.myStates)
 			{
 				State state = s.Value;
 				JSONClass st = new JSONClass();
@@ -871,7 +894,7 @@ namespace MacGruber
 		private void LoadPose(JSONClass jc)
 		{
 			// reset
-			foreach (var s in myStates)
+			foreach (var s in myCurrentAnimation.myStates)
 			{
 				State state = s.Value;
 				state.EnterBeginTrigger.Remove();
@@ -880,9 +903,9 @@ namespace MacGruber
 				state.ExitEndTrigger.Remove();
 			}
 
-			myControlCaptures.Clear();
+			myCurrentAnimation.myControlCaptures.Clear();
 			myMorphCaptures.Clear();
-			myStates.Clear();
+			myCurrentAnimation.myStates.Clear();
 			myCurrentState = null;
 			myNextState = null;
 			myBlendState.myControlEntries.Clear();
@@ -913,7 +936,7 @@ namespace MacGruber
 					}
 
 					if (cc.IsValid())
-						myControlCaptures.Add(cc);
+						myCurrentAnimation.myControlCaptures.Add(cc);
 				}
 			}
 			if (jc.HasKey("MorphCaptures"))
@@ -982,17 +1005,17 @@ namespace MacGruber
 				state.ExitEndTrigger.RestoreFromJSON(st, base.subScenePrefix, base.mergeRestore, true);
 
 
-				if (myStates.ContainsKey(state.myName))
+				if (myCurrentAnimation.myStates.ContainsKey(state.myName))
 					continue;
-				myStates[state.myName] = state;
+				myCurrentAnimation.myStates[state.myName] = state;
 
 				// load control captures
-				if (myControlCaptures.Count > 0)
+				if (myCurrentAnimation.myControlCaptures.Count > 0)
 				{
 					JSONClass celist = st["ControlEntries"].AsObject;
 					foreach (string ccname in celist.Keys)
 					{
-						ControlCapture cc = myControlCaptures.Find(x => x.myName == ccname);
+						ControlCapture cc = myCurrentAnimation.myControlCaptures.Find(x => x.myName == ccname);
 						if (cc == null)
 							continue;
 
@@ -1029,10 +1052,10 @@ namespace MacGruber
 
 						state.myControlEntries.Add(cc, ce);
 					}
-					for (int j=0; j<myControlCaptures.Count; ++j)
+					for (int j=0; j<myCurrentAnimation.myControlCaptures.Count; ++j)
 					{
-						if (!state.myControlEntries.ContainsKey(myControlCaptures[j]))
-							myControlCaptures[j].CaptureEntry(state);
+						if (!state.myControlEntries.ContainsKey(myCurrentAnimation.myControlCaptures[j]))
+							myCurrentAnimation.myControlCaptures[j].CaptureEntry(state);
 					}
 				}
 
@@ -1086,7 +1109,7 @@ namespace MacGruber
 			if (jc.HasKey("InitialState"))
 			{
 				State initial;
-				if (myStates.TryGetValue(jc["InitialState"].Value, out initial))
+				if (myCurrentAnimation.myStates.TryGetValue(jc["InitialState"].Value, out initial))
 				{
 					SetState(initial);
 					myMainState.valNoCallback = initial.myName;
@@ -1097,6 +1120,30 @@ namespace MacGruber
 
 		// =======================================================================================
 
+		private class Animation 
+		{
+			public string myName;
+			public Dictionary<string, State> myStates = new Dictionary<string, State>();
+			public List<ControlCapture> myControlCaptures = new List<ControlCapture>();
+
+			public Animation(string name)
+			{
+				myName = name;
+			}
+
+			public void Clear()
+			{
+				foreach (var s in myStates)
+				{
+					State state = s.Value;
+					state.EnterBeginTrigger.Remove();
+					state.EnterEndTrigger.Remove();
+					state.ExitBeginTrigger.Remove();
+					state.ExitEndTrigger.Remove();
+				}
+			}
+
+		}
 
 		private class State
 		{

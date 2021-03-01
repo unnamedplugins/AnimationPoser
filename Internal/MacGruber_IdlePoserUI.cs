@@ -17,6 +17,7 @@ namespace MacGruber
 		private int myMenuItem = 0;
 		private JSONStorableUrl myDataFile;
 		private UIDynamicTabBar myMenuTabBar;
+		private JSONStorableStringChooser myMainAnimation;
 		private JSONStorableStringChooser myMainState;
 		private JSONStorableString myGeneralInfo;
 		private JSONStorableString myPlayInfo;
@@ -86,6 +87,10 @@ namespace MacGruber
 			FileManagerSecure.CreateDirectory(BASE_DIRECTORY);
 			
 			myDataFile = new JSONStorableUrl("IdlePose", "", UILoadJSON, FILE_EXTENSION, true);
+
+			List<string> animationItems = new List<string>();
+			myMainAnimation = new JSONStorableStringChooser("Animation", animationItems, "", "Animation");
+			myMainAnimation.setCallbackFunction += UISelectAnimationAndRefresh;
 
 			List<string> stateItems = new List<string>();
 			myMainState = new JSONStorableStringChooser("State", stateItems, "", "State");
@@ -380,18 +385,39 @@ namespace MacGruber
 
 			myPaused = (myMenuItem != MENU_PLAY || myPlayPaused.val);
 			myPlayMode = (myMenuItem == MENU_PLAY);
+			myMainAnimation.popup.visible = true; // Workaround for PopupPanel appearing behind other UI for some reason
+			myMainAnimation.popup.visible = false;
 			myMainState.popup.visible = true; // Workaround for PopupPanel appearing behind other UI for some reason
 			myMainState.popup.visible = false;
 			CleanupMenu();
 
+			List<string> animations = new List<string>();
+			foreach (var animation in myAnimations)
+				animations.Add(animation.Key);
+			animations.Sort();
+			myMainAnimation.choices = animations;
+			myMainAnimation.displayChoices = animations;
+			if (animations.Count == 0)
+			{
+				myMainAnimation.valNoCallback = "";
+			}
+			else if (!animations.Contains(myMainAnimation.val))
+			{
+				myMainAnimation.valNoCallback = animations[0];
+				Animation animation;
+				myAnimations.TryGetValue(myMainAnimation.val, out animation);
+				SetAnimation(animation);
+				UIBlendToState();
+			}
+
 			List<string> states = new List<string>();
-			foreach (var state in myStates)
+			foreach (var state in myCurrentAnimation.myStates)
 				states.Add(state.Key);
 			states.Sort();
 			List<string> stateDisplays = new List<string>(states.Count);
 			for (int i=0; i<states.Count; ++i)
 			{
-				State state = myStates[states[i]];
+				State state = myCurrentAnimation.myStates[states[i]];
 				if (state.IsIntermediate)
 					stateDisplays.Add(COLORTAG_INTERMEDIATE+state.myName+"</color>");
 				else if (state.IsControlPoint)
@@ -433,8 +459,23 @@ namespace MacGruber
 		private void UIBlendToState()
 		{
 			State state;
-			if (myStateAutoTransition.val && myStates.TryGetValue(myMainState.val, out state))
+			if (myStateAutoTransition.val && myCurrentAnimation.myStates.TryGetValue(myMainState.val, out state))
 				SetBlendTransition(state, true);
+		}
+
+		private void UISelectAnimationAndRefresh(string name)
+		{
+			Animation animation;
+			myAnimations.TryGetValue(myMainAnimation.val, out animation);
+			SetAnimation(animation);
+			List<string> states = myCurrentAnimation.myStates.Keys.ToList();
+			states.Sort();
+			if(states.Count > 0) {
+				State state;
+				myCurrentAnimation.myStates.TryGetValue(states[0], out state);
+				SetBlendTransition(state);
+			}
+			UIRefreshMenu();
 		}
 
 		private void UISelectStateAndRefresh(string name)
@@ -460,7 +501,9 @@ namespace MacGruber
 				CreateMenuButton("Save As", UISaveJSONDialog, false);
 			}
 
+			CreateMenuPopup(myMainAnimation, false);
 			CreateMenuPopup(myMainState, false);
+			CreateAnimationsMenu();
 
 			{
 				GameObject tabbarPrefab = new GameObject("TabBar");
@@ -530,7 +573,7 @@ namespace MacGruber
 
 			if (!myDebugShowInfo.val)
 			{
-				if (myStates.Count > 0)
+				if (myCurrentAnimation.myStates.Count > 0)
 					myPlayInfo.val = "IdlePoser is playing animations.";
 				else
 					myPlayInfo.val = "You need to add some states and transitions before you can play animations.";
@@ -552,7 +595,7 @@ namespace MacGruber
 				string control = atomControls[i].name;
 				if (control.StartsWith("hair"))
 					continue;
-				if (myControlCaptures.FindIndex(cc => cc.myName == control) >= 0)
+				if (myCurrentAnimation.myControlCaptures.FindIndex(cc => cc.myName == control) >= 0)
 					continue;
 				availableControls.Add(control);
 			}
@@ -568,7 +611,7 @@ namespace MacGruber
 				CreateMenuButton("Add Controller", UIAddControlCapture, false);
 			}
 
-			if (myControlCaptures.Count > 0)
+			if (myCurrentAnimation.myControlCaptures.Count > 0)
 			{
 				CreateMenuTwinButton(
 					"Toggle Positions", UIToggleControlCapturePosition,
@@ -576,7 +619,7 @@ namespace MacGruber
 				CreateMenuSpacer(15, false);
 			}
 
-			for (int i=0; i<myControlCaptures.Count; ++i)
+			for (int i=0; i<myCurrentAnimation.myControlCaptures.Count; ++i)
 			{
 				ControlCapture cc = myControlCaptures[i];
 				CreateMenuLabel2BXButton(
@@ -650,7 +693,7 @@ namespace MacGruber
 			CreateMenuSpacer(35, true);
 			CreateMenuButton("Add State", UIAddState, false);
 			State state;
-			if (!myStates.TryGetValue(myMainState.val, out state))
+			if (!myCurrentAnimation.myStates.TryGetValue(myMainState.val, out state))
 				return;
 
 			CreateMenuButton("Remove State", UIRemoveState, false);
@@ -755,15 +798,15 @@ namespace MacGruber
 			CreateMenuInfoOneLine("<size=30><b>Anchors</b></size>", false);
 
 			State state;
-			if (!myStates.TryGetValue(myMainState.val, out state))
+			if (!myCurrentAnimation.myStates.TryGetValue(myMainState.val, out state))
 			{
 				CreateMenuInfo("You need to add a state before you can configure anchors.", 100, false);
 				return;
 			}
 
-			List<string> captures = new List<string>(myControlCaptures.Count);
-			for (int i=0; i<myControlCaptures.Count; ++i)
-				captures.Add(myControlCaptures[i].myName);
+			List<string> captures = new List<string>(myCurrentAnimation.myControlCaptures.Count);
+			for (int i=0; i<myCurrentAnimation.myControlCaptures.Count; ++i)
+				captures.Add(myCurrentAnimation.myControlCaptures[i].myName);
 			myAnchorCaptureList.choices = captures;
 			if (captures.Count == 0)
 				myAnchorCaptureList.valNoCallback = "";
@@ -771,7 +814,7 @@ namespace MacGruber
 				myAnchorCaptureList.valNoCallback = captures[0];
 			CreateMenuPopup(myAnchorCaptureList, false);
 
-			ControlCapture controlCapture = myControlCaptures.Find(cc => cc.myName == myAnchorCaptureList.val);
+			ControlCapture controlCapture = myCurrentAnimation.myControlCaptures.Find(cc => cc.myName == myAnchorCaptureList.val);
 			if (controlCapture == null)
 				return;
 
@@ -851,7 +894,7 @@ namespace MacGruber
 			CreateMenuInfoOneLine("<size=30><b>Transitions</b></size>", false);
 
 			State state;
-			if (!myStates.TryGetValue(myMainState.val, out state))
+			if (!myCurrentAnimation.myStates.TryGetValue(myMainState.val, out state))
 			{
 				CreateMenuInfo("You need to add some states before you can add transitions.", 100, false);
 				return;
@@ -877,10 +920,11 @@ namespace MacGruber
 			transitions.Sort((UITransition a, UITransition b) => a.state.myName.CompareTo(b.state.myName));
 			
 			// collect available targets
+
 			List<string> availableTargets = new List<string>();
-			foreach (var s in myStates)
+			foreach (var t in myCurrentAnimation.myStates)
 			{
-				State target = s.Value;
+				State target = t.Value;
 				if (state == target)
 					continue;
 				if (transitions.FindIndex(t => t.state == target) >= 0)
@@ -893,7 +937,7 @@ namespace MacGruber
 			List<string> availableTargetDisplays = new List<string>(availableTargets.Count);
 			for (int i=0; i<availableTargets.Count; ++i)
 			{
-				State target = myStates[availableTargets[i]];
+				State target = myCurrentAnimation.myStates[availableTargets[i]];
 				if (target.IsIntermediate)
 					availableTargetDisplays.Add(COLORTAG_INTERMEDIATE+target.myName+"</color>");
 				else if (target.IsControlPoint)
@@ -978,7 +1022,7 @@ namespace MacGruber
 		{
 			CreateMenuInfoOneLine("<size=30><b>Internal Triggers</b></size>", false);
 			State state;
-			if (!myStates.TryGetValue(myMainState.val, out state))
+			if (!myCurrentAnimation.myStates.TryGetValue(myMainState.val, out state))
 			{
 				CreateMenuInfo("You need to add some states before you can add triggers.", 100, false);
 			}
@@ -1042,6 +1086,110 @@ namespace MacGruber
 			);
 		}
 
+		private void CreateAnimationsMenu()
+		{
+			CreateMenuInfoOneLine("<size=30><b>Pica</b></size>", false);
+			CreateMenuSyncSpacer(0);
+			CreateMenuButton("Add Animation", UIAddAnimation, false);
+			// State state;
+			// if (!myStates.TryGetValue(myMainState.val, out state))
+			// 	return;
+
+			CreateMenuButton("Remove Animation", UIRemoveAnimation, false);
+			// CreateMenuToggle(myStateAutoTransition, false);
+
+			// CreateMenuButton("Capture State", UICaptureState, true);
+			// CreateMenuButton("Apply Anchors", UIApplyAnchors, true);
+
+			// CreateMenuSpacer(15, false);
+
+			// CreateMenuInfoOneLine("<size=30><b>State Settings</b></size>", false);
+
+			// CreateMenuSyncSpacer(0);
+
+			// JSONStorableString name = new JSONStorableString("State Name", state.myName, UIRenameState);
+			// CreateMenuTextInput("Name", name, false);
+
+
+
+			// JSONStorableStringChooser typeChooser = new JSONStorableStringChooser("StateType", myStateTypes, myStateTypes[state.myStateType], "State\nType");
+			// typeChooser.setCallbackFunction += (string v) => {
+			// 	State s = UIGetState();
+			// 	if (s != null)
+			// 		s.myStateType = myStateTypes.IndexOf(v);
+			// 	UIRefreshMenu();
+			// };
+			// CreateMenuPopup(typeChooser, false);
+
+			// if (state.IsRegularState)
+			// {
+			// 	JSONStorableStringChooser groupChooser = new JSONStorableStringChooser("StateGroup", myStateGroups, myStateGroups[state.myStateGroup], "State\nGroup");
+			// 	groupChooser.setCallbackFunction += (string v) => {
+			// 		State s = UIGetState();
+			// 		if (s != null)
+			// 			s.myStateGroup = myStateGroups.IndexOf(v);
+			// 	};
+			// 	CreateMenuPopup(groupChooser, false);
+
+			// 	JSONStorableFloat probability = new JSONStorableFloat("Relative Probability", state.myProbability, 0.0f, 1.0f, true, true);
+			// 	probability.setCallbackFunction = (float v) => {
+			// 		State s = UIGetState();
+			// 		if (s != null)
+			// 			s.myProbability = v;
+			// 	};
+			// 	CreateMenuSlider(probability, false);
+			// }
+
+			// JSONStorableFloat transitionDuration = new JSONStorableFloat("Transition Duration", state.myTransitionDuration, 0.00f, 5.0f, true, true);
+			// transitionDuration.setCallbackFunction = (float v) => {
+			// 	State s = UIGetState();
+			// 	if (s != null)
+			// 		s.myTransitionDuration = v;
+			// };
+			// CreateMenuSlider(transitionDuration, true);
+
+			// if (state.IsRegularState || state.IsIntermediate)
+			// {
+			// 	JSONStorableBool waitInfiniteDuration = new JSONStorableBool("Wait Infinite Duration", state.myWaitInfiniteDuration);
+			// 	waitInfiniteDuration.setCallbackFunction = (bool v) => {
+			// 		State s = UIGetState();
+			// 		if (s != null)
+			// 		{
+			// 			s.myWaitInfiniteDuration = v;
+			// 			myDuration = v ? float.MaxValue : UnityEngine.Random.Range(s.myWaitDurationMin, s.myWaitDurationMax);
+			// 		}
+			// 		UIRefreshMenu();
+			// 	};
+			// 	CreateMenuToggle(waitInfiniteDuration, true);
+
+			// 	if (!state.myWaitInfiniteDuration)
+			// 	{
+			// 		JSONStorableBool waitForSync = new JSONStorableBool("Wait for TriggerSync", state.myWaitForSync);
+			// 		waitForSync.setCallbackFunction = (bool v) => {
+			// 			State s = UIGetState();
+			// 			if (s != null)
+			// 				s.myWaitForSync = v;
+			// 		};
+			// 		CreateMenuToggle(waitForSync, true);
+
+			// 		JSONStorableFloat waitDurationMin = new JSONStorableFloat("Wait Duration Min", state.myWaitDurationMin, 0.0f, 300.0f, true, true);
+			// 		waitDurationMin.setCallbackFunction = (float v) => {
+			// 			State s = UIGetState();
+			// 			if (s != null)
+			// 				s.myWaitDurationMin = v;
+			// 		};
+			// 		CreateMenuSlider(waitDurationMin, true);
+
+			// 		JSONStorableFloat waitDurationMax = new JSONStorableFloat("Wait Duration Max", state.myWaitDurationMax, 0.0f, 300.0f, true, true);
+			// 		waitDurationMax.setCallbackFunction = (float v) => {
+			// 			State s = UIGetState();
+			// 			if (s != null)
+			// 				s.myWaitDurationMax = v;
+			// 		};
+			// 		CreateMenuSlider(waitDurationMax, true);
+			// 	}
+			// }
+		}
 
 		// =======================================================================================
 
@@ -1099,16 +1247,16 @@ namespace MacGruber
 		private void UIAddControlCapture()
 		{
 			ControlCapture cc = new ControlCapture(this, myCapturesControlList.val);
-			myControlCaptures.Add(cc);
-			foreach (var state in myStates)
+			myCurrentAnimation.myControlCaptures.Add(cc);
+			foreach (var state in myCurrentAnimation.myStates)
 				cc.CaptureEntry(state.Value);
 			UIRefreshMenu();
 		}
 
 		private void UIRemoveControlCapture(ControlCapture cc)
 		{
-			myControlCaptures.Remove(cc);
-			foreach (var state in myStates)
+			myCurrentAnimation.myControlCaptures.Remove(cc);
+			foreach (var state in myCurrentAnimation.myStates)
 				state.Value.myControlEntries.Remove(cc);
 			UIRefreshMenu();
 		}
@@ -1116,20 +1264,20 @@ namespace MacGruber
 		private void UIToggleControlCapturePosition()
 		{
 			bool apply = false;
-			for (int i=0; i<myControlCaptures.Count; ++i)
-				apply |= !myControlCaptures[i].myApplyPosition;
-			for (int i=0; i<myControlCaptures.Count; ++i)
-				myControlCaptures[i].myApplyPosition = apply;
+			for (int i=0; i<myCurrentAnimation.myControlCaptures.Count; ++i)
+				apply |= !myCurrentAnimation.myControlCaptures[i].myApplyPosition;
+			for (int i=0; i<myCurrentAnimation.myControlCaptures.Count; ++i)
+				myCurrentAnimation.myControlCaptures[i].myApplyPosition = apply;
 			UIRefreshMenu();
 		}
 
 		private void UIToggleControlCaptureRotation()
 		{
 			bool apply = false;
-			for (int i=0; i<myControlCaptures.Count; ++i)
-				apply |= !myControlCaptures[i].myApplyRotation;
-			for (int i=0; i<myControlCaptures.Count; ++i)
-				myControlCaptures[i].myApplyRotation = apply;
+			for (int i=0; i<myCurrentAnimation.myControlCaptures.Count; ++i)
+				apply |= !myCurrentAnimation.myControlCaptures[i].myApplyRotation;
+			for (int i=0; i<myCurrentAnimation.myControlCaptures.Count; ++i)
+				myCurrentAnimation.myControlCaptures[i].myApplyRotation = apply;
 			UIRefreshMenu();
 		}
 
@@ -1156,7 +1304,7 @@ namespace MacGruber
 
 			MorphCapture mc = new MorphCapture(gender, morph);
 			myMorphCaptures.Add(mc);
-			foreach (var state in myStates)
+			foreach (var state in myCurrentAnimation.myStates)
 				mc.CaptureEntry(state.Value);
 
 			UIRefreshMenu();
@@ -1259,7 +1407,7 @@ namespace MacGruber
 		private void UIRemoveMorphCapture(MorphCapture mc)
 		{
 			myMorphCaptures.Remove(mc);
-			foreach (var state in myStates)
+			foreach (var state in myCurrentAnimation.myStates)
 				state.Value.myMorphEntries.Remove(mc);
 			UIRefreshMenu();
 		}
@@ -1274,12 +1422,28 @@ namespace MacGruber
 			UIRefreshMenu();
 		}
 
+		private void UIAddAnimation()
+		{
+			for (int i=1; i<1000; ++i)
+			{
+				string name = "Animation#" + i;
+				if (!myAnimations.ContainsKey(name))
+				{
+					CreateAnimation(name);
+					myMainAnimation.val = name;
+					UIRefreshMenu();
+					return;
+				}
+			}
+			SuperController.LogError("IdlePoser: Too many states!");
+		}
+
 		private void UIAddState()
 		{
 			for (int i=1; i<1000; ++i)
 			{
 				string name = "State#" + i;
-				if (!myStates.ContainsKey(name))
+				if (!myCurrentAnimation.myStates.ContainsKey(name))
 				{
 					CreateState(name);
 					myMainState.val = name;
@@ -1302,7 +1466,7 @@ namespace MacGruber
 
 		private void UIApplyAnchors()
 		{
-			foreach (var s in myStates)
+			foreach (var s in myCurrentAnimation.myStates)
 			{
 				State state = s.Value;
 				foreach (var ce in state.myControlEntries)
@@ -1312,8 +1476,27 @@ namespace MacGruber
 				}
 			}
 
-			for (int i=0; i<myControlCaptures.Count; ++i)
-				myControlCaptures[i].UpdateState(myCurrentState);
+			for (int i=0; i<myCurrentAnimation.myControlCaptures.Count; ++i)
+				myCurrentAnimation.myControlCaptures[i].UpdateState(myCurrentState);
+		}
+
+		private void UIRemoveAnimation()
+		{
+			Animation animation = UIGetAnimation();
+			SuperController.LogError(animation.myName);
+			if (animation == null)
+				return;
+
+			myAnimations.Remove(animation.myName);
+			// foreach (var s in myStates)
+			// 	s.Value.myTransitions.RemoveAll(x => x == state);
+
+			// state.EnterBeginTrigger.Remove();
+			// state.EnterEndTrigger.Remove();
+			// state.ExitBeginTrigger.Remove();
+			// state.ExitEndTrigger.Remove();
+
+			UIRefreshMenu();
 		}
 
 		private void UIRemoveState()
@@ -1322,8 +1505,8 @@ namespace MacGruber
 			if (state == null)
 				return;
 
-			myStates.Remove(state.myName);
-			foreach (var s in myStates)
+			myCurrentAnimation.myStates.Remove(state.myName);
+			foreach (var s in myCurrentAnimation.myStates)
 				s.Value.myTransitions.RemoveAll(x => x == state);
 
 			state.EnterBeginTrigger.Remove();
@@ -1342,17 +1525,17 @@ namespace MacGruber
 			if (state.myName == name)
 				return;
 
-			myStates.Remove(state.myName);
+			myCurrentAnimation.myStates.Remove(state.myName);
 
 			int altIndex = 2;
 			string baseName = name;
-			while (myStates.ContainsKey(name))
+			while (myCurrentAnimation.myStates.ContainsKey(name))
 			{
 				name = baseName + "#" + altIndex;
 				++altIndex;
 			}
 
-			myStates.Add(name, state);
+			myCurrentAnimation.myStates.Add(name, state);
 			state.myName = name;
 			state.EnterBeginTrigger.SecondaryName = name;
 			state.EnterEndTrigger.SecondaryName = name;
@@ -1368,7 +1551,7 @@ namespace MacGruber
 			if (state == null)
 				return;
 
-			ControlCapture controlCapture = myControlCaptures.Find(cc => cc.myName == myAnchorCaptureList.val);
+			ControlCapture controlCapture = myCurrentAnimation.myControlCaptures.Find(cc => cc.myName == myAnchorCaptureList.val);
 			if (controlCapture == null)
 				return;
 
@@ -1406,7 +1589,7 @@ namespace MacGruber
 			if (state == null)
 				return;
 
-			ControlCapture controlCapture = myControlCaptures.Find(cc => cc.myName == myAnchorCaptureList.val);
+			ControlCapture controlCapture = myCurrentAnimation.myControlCaptures.Find(cc => cc.myName == myAnchorCaptureList.val);
 			if (controlCapture == null)
 				return;
 
@@ -1425,7 +1608,7 @@ namespace MacGruber
 			if (source == null)
 				return;
 			State target;
-			if (!myStates.TryGetValue(myTransitionList.val, out target))
+			if (!myCurrentAnimation.myStates.TryGetValue(myTransitionList.val, out target))
 				return;
 
 			if (!source.myTransitions.Contains(target))
@@ -1451,10 +1634,24 @@ namespace MacGruber
 			UIRefreshMenu();
 		}
 
+		private Animation UIGetAnimation()
+		{
+			Animation animation;
+			if (!myAnimations.TryGetValue(myMainAnimation.val, out animation))
+			{
+				SuperController.LogError("IdlePoser: Invalid macro state selected!");
+				return null;
+			}
+			else
+			{
+				return animation;
+			}
+		}
+
 		private State UIGetState()
 		{
 			State state;
-			if (!myStates.TryGetValue(myMainState.val, out state))
+			if (!myCurrentAnimation.myStates.TryGetValue(myMainState.val, out state))
 			{
 				SuperController.LogError("IdlePoser: Invalid state selected!");
 				return null;

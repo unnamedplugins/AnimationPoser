@@ -116,7 +116,7 @@ namespace MacGruber
 			{
 				if (!myPaused || myNextState != null || myTransition.Count > 0 || myPlayMode)
 				{
-					foreach (var s in myStates)
+					foreach (var s in myCurrentAnimation.myStates)
 					{
 						State state = s.Value;
 						if (state == myCurrentState || myCurrentTransition.Contains(state))
@@ -190,7 +190,7 @@ namespace MacGruber
 			// update sphere positions
 			int sphereIndex = 0;
 			Matrix4x4 matrix = Matrix4x4.identity;
-			foreach (var s in myStates)
+			foreach (var s in myCurrentAnimation.myStates)
 			{
 				State state = s.Value;
 				int stateType = state.myStateType;
@@ -233,7 +233,7 @@ namespace MacGruber
 			myDebugTransitionHashes.Clear();
 						
 			uint index = 0;
-			foreach (var s in myStates)
+			foreach (var s in myCurrentAnimation.myStates)
 				s.Value.myDebugIndex = index++;
 				
 			if (myDebugShowTransitions.val)
@@ -246,8 +246,11 @@ namespace MacGruber
 				}
 				else
 				{
-					foreach (var s in myStates)
-						DebugGatherTransitionsForState(s.Value);
+					foreach (var s in myCurrentAnimation.myStates)
+					{
+						State state = s.Value;
+						DebugGatherTransitionLines(state);
+					}
 				}
 			}
 			
@@ -259,6 +262,18 @@ namespace MacGruber
 				myDebugTransition.Add(state);
 				DebugGather();
 				myDebugTransition.Clear();
+			}
+
+			if (myDebugPathsActive)
+				foreach (var s in myCurrentAnimation.myStates)
+				{
+					State state = s.Value;
+					if (state.IsControlPoint)
+						continue;
+					myDebugTransition.Add(state);
+					DebugGatherPathLines();
+					myDebugTransition.Clear();
+				}
 			}
 
 			if (myDebugLineVertices.Count == 0)
