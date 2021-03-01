@@ -90,17 +90,15 @@ namespace MacGruber
 		private const int STATETYPE_INTERMEDIATE = 2;
 		private const int NUM_STATETYPES = 3;
 		
-		private const float DEFAULT_TRANSITION_DURATION = 0.5f;
+		private const float DEFAULT_TRANSITION_DURATION = 0.1f;
 		private const float DEFAULT_BLEND_DURATION = 0.2f;
-		private const float DEFAULT_EASEIN_DURATION = 1.0f;
-		private const float DEFAULT_EASEOUT_DURATION = 1.0f;
+		private const float DEFAULT_EASEIN_DURATION = 0.0f;
+		private const float DEFAULT_EASEOUT_DURATION = 0.0f;
 		private const float DEFAULT_PROBABILITY = 0.5f;
-		private const float DEFAULT_WAIT_DURATION_MIN = 3.0f;
-		private const float DEFAULT_WAIT_DURATION_MAX = 3.0f;
+		private const float DEFAULT_WAIT_DURATION_MIN = 0.0f;
+		private const float DEFAULT_WAIT_DURATION_MAX = 0.0f;
 		private const float DEFAULT_ANCHOR_BLEND_RATIO = 0.5f;
 		private const float DEFAULT_ANCHOR_DAMPING_TIME = 0.2f;
-
-		private Dictionary<string, State> myStates = new Dictionary<string, State>();
 
 		private Dictionary<string, Animation> myAnimations = new Dictionary<string, Animation>();
 		private List<ControlCapture> myControlCaptures = new List<ControlCapture>();
@@ -278,15 +276,13 @@ namespace MacGruber
 		}
 
 		private void SetBlendTransition(State state, bool debug = false)
-		private void SetBlendTransition(State state)daumaolhada
 		{
 			myTransition.Clear();
 			myTransition.Add(myCurrentState);
 			if (myCurrentState != null)
 			{
 				List<State> states = new List<State>(16);
-				myNextState = nulldaumaolhada;
-				myNextState = state;
+				myNextState = null;
 				GatherStates(1, states);
 				List<int> indices = new List<int>(4);
 				for (int i=0; i<states.Count; ++i)
@@ -443,7 +439,6 @@ namespace MacGruber
 			}
 			
 			return true;
-			return indexdaumaolhada;
 		}
 
 		private void BlendToRandomState(float duration)
@@ -1084,14 +1079,14 @@ namespace MacGruber
 			{
 				JSONClass st = slist[i].AsObject;
 				State source;
-				if (!myStates.TryGetValue(st["Name"], out source))
+				if (!myCurrentAnimation.myStates.TryGetValue(st["Name"], out source))
 					continue;
 
 				JSONArray tlist = st["Transitions"].AsArray;
 				for (int j=0; j<tlist.Count; ++j)
 				{
 					State target;
-					if (myStates.TryGetValue(tlist[j].Value, out target))
+					if (myCurrentAnimation.myStates.TryGetValue(tlist[j].Value, out target))
 						source.myTransitions.Add(target);
 				}
 			}
@@ -1237,6 +1232,18 @@ namespace MacGruber
 					state.myControlEntries[this] = entry;
 				}
 				entry.Capture(myTransform.position, myTransform.rotation);
+			}
+
+			public void setDefaults(State state, State oldState)
+			{
+				ControlEntryAnchored entry;
+				ControlEntryAnchored oldEntry;
+				if (!state.myControlEntries.TryGetValue(this, out entry))
+					return;
+				if (!oldState.myControlEntries.TryGetValue(this, out oldEntry))
+					return;
+				entry.myAnchorAAtom = oldEntry.myAnchorAAtom;
+				entry.myAnchorAControl = oldEntry.myAnchorAControl;
 			}
 
 			public void SetTransition(List<State> states, int entryCount)

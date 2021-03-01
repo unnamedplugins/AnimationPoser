@@ -621,7 +621,7 @@ namespace MacGruber
 
 			for (int i=0; i<myCurrentAnimation.myControlCaptures.Count; ++i)
 			{
-				ControlCapture cc = myControlCaptures[i];
+				ControlCapture cc = myCurrentAnimation.myControlCaptures[i];
 				CreateMenuLabel2BXButton(
 					cc.myName, "POS", "ROT", cc.myApplyPosition, cc.myApplyRotation,
 					(bool v) => { cc.myApplyPosition = v; },
@@ -905,7 +905,7 @@ namespace MacGruber
 			for (int i=0; i<state.myTransitions.Count; ++i)
 				transitions.Add(new UITransition(state.myTransitions[i], false, true));
 			
-			foreach (var s in myStates)
+			foreach (var s in myCurrentAnimation.myStates)
 			{
 				State target = s.Value;
 				if (state == target || !target.myTransitions.Contains(state))
@@ -927,7 +927,7 @@ namespace MacGruber
 				State target = t.Value;
 				if (state == target)
 					continue;
-				if (transitions.FindIndex(t => t.state == target) >= 0)
+				if (transitions.FindIndex(tr => tr.state == target) >= 0)
 					continue;
 				availableTargets.Add(target.myName);
 			}
@@ -1089,7 +1089,6 @@ namespace MacGruber
 		private void CreateAnimationsMenu()
 		{
 			CreateMenuInfoOneLine("<size=30><b>Pica</b></size>", false);
-			CreateMenuSyncSpacer(0);
 			CreateMenuButton("Add Animation", UIAddAnimation, false);
 			// State state;
 			// if (!myStates.TryGetValue(myMainState.val, out state))

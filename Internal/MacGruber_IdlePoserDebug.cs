@@ -241,7 +241,7 @@ namespace MacGruber
 				if (myDebugShowSelectedOnly.val)
 				{
 					State source;
-					if (myStates.TryGetValue(myMainState.val, out source) && source != null)
+					if (myCurrentAnimation.myStates.TryGetValue(myMainState.val, out source) && source != null)
 						DebugGatherTransitionsForState(source);
 				}
 				else
@@ -249,12 +249,12 @@ namespace MacGruber
 					foreach (var s in myCurrentAnimation.myStates)
 					{
 						State state = s.Value;
-						DebugGatherTransitionLines(state);
+						DebugGatherTransitionsForState(state);
 					}
 				}
 			}
 			
-			foreach (var s in myStates)
+			foreach (var s in myCurrentAnimation.myStates)
 			{
 				State state = s.Value;
 				if (state.IsControlPoint)
@@ -262,18 +262,6 @@ namespace MacGruber
 				myDebugTransition.Add(state);
 				DebugGather();
 				myDebugTransition.Clear();
-			}
-
-			if (myDebugPathsActive)
-				foreach (var s in myCurrentAnimation.myStates)
-				{
-					State state = s.Value;
-					if (state.IsControlPoint)
-						continue;
-					myDebugTransition.Add(state);
-					DebugGatherPathLines();
-					myDebugTransition.Clear();
-				}
 			}
 
 			if (myDebugLineVertices.Count == 0)
