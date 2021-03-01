@@ -411,8 +411,11 @@ namespace MacGruber
 			}
 
 			List<string> states = new List<string>();
-			foreach (var state in myCurrentAnimation.myStates)
-				states.Add(state.Key);
+			if(myCurrentAnimation != null)
+			{
+				foreach (var state in myCurrentAnimation.myStates)
+					states.Add(state.Key);
+			}
 			states.Sort();
 			List<string> stateDisplays = new List<string>(states.Count);
 			for (int i=0; i<states.Count; ++i)
@@ -573,7 +576,7 @@ namespace MacGruber
 
 			if (!myDebugShowInfo.val)
 			{
-				if (myCurrentAnimation.myStates.Count > 0)
+				if (myCurrentAnimation != null && myCurrentAnimation.myStates.Count > 0)
 					myPlayInfo.val = "IdlePoser is playing animations.";
 				else
 					myPlayInfo.val = "You need to add some states and transitions before you can play animations.";

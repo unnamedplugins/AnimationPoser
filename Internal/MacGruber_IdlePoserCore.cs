@@ -120,6 +120,7 @@ namespace MacGruber
 		private bool myNeedRefresh = false;
 		private bool myWasLoading = true;
 
+		private JSONStorableString mySwitchAnimation;
 		private JSONStorableString mySwitchState;
 		private JSONStorableString mySetStateMask;
 		private JSONStorableString myPartialStateMask;
@@ -130,6 +131,10 @@ namespace MacGruber
 			myClock = 0.0f;
 
 			InitUI();
+
+			mySwitchAnimation = new JSONStorableString("SwitchAnimation", "", SwitchAnimationAction);
+			mySwitchAnimation.isStorable = mySwitchAnimation.isRestorable = false;
+			RegisterString(mySwitchAnimation);
 
 			mySwitchState = new JSONStorableString("SwitchState", "", SwitchStateAction);
 			mySwitchState.isStorable = mySwitchState.isRestorable = false;
@@ -475,6 +480,22 @@ namespace MacGruber
 				myCurrentAnimation.myControlCaptures[i].setDefaults(state, oldState);
 			// for (int i=0; i<myMorphCaptures.Count; ++i)
 			// 	myMorphCaptures[i].setDefaults(state, oldState);
+		}
+
+		private void SwitchAnimationAction(string v)
+		{
+			mySwitchAnimation.valNoCallback = string.Empty;
+
+			Animation animation;
+			myAnimations.TryGetValue(v, out animation);
+			SetAnimation(animation);
+			List<string> states = animation.myStates.Keys.ToList();
+			states.Sort();
+			if(states.Count > 0) {
+				State state;
+				animation.myStates.TryGetValue(states[0], out state);
+				SetBlendTransition(state);
+			}
 		}
 
 		private void SwitchStateAction(string v)
