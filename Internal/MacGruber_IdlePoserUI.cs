@@ -16,9 +16,11 @@ namespace MacGruber
 
 		private int myMenuItem = 0;
 		private JSONStorableUrl myDataFile;
+		private JSONStorableUrl myLayerFile;
 		private UIDynamicTabBar myMenuTabBar;
-		private JSONStorableStringChooser myMainAnimation;
-		private JSONStorableStringChooser myMainState;
+		private static JSONStorableStringChooser myMainAnimation;
+		private static JSONStorableStringChooser myMainLayer;
+		private static JSONStorableStringChooser myMainState;
 		private JSONStorableString myGeneralInfo;
 		private JSONStorableString myPlayInfo;
 		private JSONStorableBool myPlayPaused;
@@ -86,11 +88,16 @@ namespace MacGruber
 		{
 			FileManagerSecure.CreateDirectory(BASE_DIRECTORY);
 			
-			myDataFile = new JSONStorableUrl("IdlePose", "", UILoadJSON, FILE_EXTENSION, true);
+			myDataFile = new JSONStorableUrl("IdlePose", "", UILoadAnimationsJSON, FILE_EXTENSION, true);
+			myLayerFile = new JSONStorableUrl("IdlePose", "", UILoadJSON, FILE_EXTENSION, true);
 
 			List<string> animationItems = new List<string>();
 			myMainAnimation = new JSONStorableStringChooser("Animation", animationItems, "", "Animation");
 			myMainAnimation.setCallbackFunction += UISelectAnimationAndRefresh;
+
+			List<string> layerItems = new List<string>();
+			myMainLayer = new JSONStorableStringChooser("Layer", layerItems, "", "Layer");
+			myMainLayer.setCallbackFunction += UISelectLayerAndRefresh;
 
 			List<string> stateItems = new List<string>();
 			myMainState = new JSONStorableStringChooser("State", stateItems, "", "State");
@@ -387,6 +394,8 @@ namespace MacGruber
 			myPlayMode = (myMenuItem == MENU_PLAY);
 			myMainAnimation.popup.visible = true; // Workaround for PopupPanel appearing behind other UI for some reason
 			myMainAnimation.popup.visible = false;
+			myMainLayer.popup.visible = true; // Workaround for PopupPanel appearing behind other UI for some reason
+			myMainLayer.popup.visible = false;
 			myMainState.popup.visible = true; // Workaround for PopupPanel appearing behind other UI for some reason
 			myMainState.popup.visible = false;
 			CleanupMenu();
@@ -410,17 +419,40 @@ namespace MacGruber
 				UIBlendToState();
 			}
 
-			List<string> states = new List<string>();
+			List<string> layers = new List<string>();
 			if(myCurrentAnimation != null)
 			{
-				foreach (var state in myCurrentAnimation.myStates)
+				foreach (var layer in myCurrentAnimation.myLayers)
+					layers.Add(layer.Key);
+			}
+
+			layers.Sort();
+			myMainLayer.choices = layers;
+			myMainLayer.displayChoices = layers;
+			if (layers.Count == 0)
+			{
+				myMainLayer.valNoCallback = "";
+			}
+			else if (!layers.Contains(myMainLayer.val))
+			{
+				myMainLayer.valNoCallback = layers[0];
+				Layer layer;
+				myCurrentAnimation.myLayers.TryGetValue(myMainLayer.val, out layer);
+				SetLayer(layer);
+				UIBlendToState();
+			}
+
+			List<string> states = new List<string>();
+			if(myCurrentLayer != null)
+			{
+				foreach (var state in myCurrentLayer.myStates)
 					states.Add(state.Key);
 			}
 			states.Sort();
 			List<string> stateDisplays = new List<string>(states.Count);
 			for (int i=0; i<states.Count; ++i)
 			{
-				State state = myCurrentAnimation.myStates[states[i]];
+				State state = myCurrentLayer.myStates[states[i]];
 				if (state.IsIntermediate)
 					stateDisplays.Add(COLORTAG_INTERMEDIATE+state.myName+"</color>");
 				else if (state.IsControlPoint)
@@ -462,8 +494,8 @@ namespace MacGruber
 		private void UIBlendToState()
 		{
 			State state;
-			if (myStateAutoTransition.val && myCurrentAnimation.myStates.TryGetValue(myMainState.val, out state))
-				SetBlendTransition(state, true);
+			if (myStateAutoTransition.val && myCurrentLayer.myStates.TryGetValue(myMainState.val, out state))
+				myCurrentLayer.SetBlendTransition(state, true);
 		}
 
 		private void UISelectAnimationAndRefresh(string name)
@@ -471,13 +503,38 @@ namespace MacGruber
 			Animation animation;
 			myAnimations.TryGetValue(myMainAnimation.val, out animation);
 			SetAnimation(animation);
-			List<string> states = myCurrentAnimation.myStates.Keys.ToList();
+
+			List<string> layers = myCurrentAnimation.myLayers.Keys.ToList();
+			layers.Sort();
+			if(layers.Count > 0) {
+				Layer layer;
+				myCurrentAnimation.myLayers.TryGetValue(layers[0], out layer);
+				SetLayer(layer);
+
+				List<string> states = layer.myStates.Keys.ToList();
+				states.Sort();
+				if(states.Count > 0) {
+					State state;
+					layer.myStates.TryGetValue(states[0], out state);
+					layer.SetBlendTransition(state);
+				}
+			}
+			UIRefreshMenu();
+		}
+		private void UISelectLayerAndRefresh(string name)
+		{
+			Layer layer;
+			myCurrentAnimation.myLayers.TryGetValue(myMainLayer.val, out layer);
+			SetLayer(layer);
+
+			List<string> states = layer.myStates.Keys.ToList();
 			states.Sort();
 			if(states.Count > 0) {
 				State state;
-				myCurrentAnimation.myStates.TryGetValue(states[0], out state);
-				SetBlendTransition(state);
+				layer.myStates.TryGetValue(states[0], out state);
+				layer.SetBlendTransition(state);
 			}
+
 			UIRefreshMenu();
 		}
 
@@ -494,19 +551,33 @@ namespace MacGruber
 
 			{
 				UIDynamicButton button = CreateButton("Load", false);
-				myDataFile.setCallbackFunction -= UILoadJSON;
+				myDataFile.setCallbackFunction -= UILoadAnimationsJSON;
 				myDataFile.allowFullComputerBrowse = false;
 				myDataFile.allowBrowseAboveSuggestedPath = true;
 				myDataFile.SetFilePath(BASE_DIRECTORY+"/");
 				myDataFile.RegisterFileBrowseButton(button.button);
-				myDataFile.setCallbackFunction += UILoadJSON;
+				myDataFile.setCallbackFunction += UILoadAnimationsJSON;
 
-				CreateMenuButton("Save As", UISaveJSONDialog, false);
+				CreateMenuButton("Save As", UISaveAnimationsJSONDialog, false);
+			}
+
+			{
+				UIDynamicButton button = CreateButton("Load Layer", false);
+				myLayerFile.setCallbackFunction -= UILoadJSON;
+				myLayerFile.allowFullComputerBrowse = false;
+				myLayerFile.allowBrowseAboveSuggestedPath = true;
+				myLayerFile.SetFilePath(BASE_DIRECTORY+"/");
+				myLayerFile.RegisterFileBrowseButton(button.button);
+				myLayerFile.setCallbackFunction += UILoadJSON;
+
+				CreateMenuButton("Save Layer As", UISaveJSONDialog, false);
 			}
 
 			CreateMenuPopup(myMainAnimation, false);
+			CreateMenuPopup(myMainLayer, false);
 			CreateMenuPopup(myMainState, false);
 			CreateAnimationsMenu();
+			CreateLayersMenu();
 
 			{
 				GameObject tabbarPrefab = new GameObject("TabBar");
@@ -565,7 +636,7 @@ namespace MacGruber
 				Destroy(tabbarPrefab);
 			}
 
-			CreateMenuSpacer(91, true);
+			CreateMenuSpacer(680, true);
 
 			myMenuElements.Clear();
 		}
@@ -576,7 +647,7 @@ namespace MacGruber
 
 			if (!myDebugShowInfo.val)
 			{
-				if (myCurrentAnimation != null && myCurrentAnimation.myStates.Count > 0)
+				if (myCurrentLayer != null && myCurrentLayer.myStates.Count > 0)
 					myPlayInfo.val = "IdlePoser is playing animations.";
 				else
 					myPlayInfo.val = "You need to add some states and transitions before you can play animations.";
@@ -598,7 +669,7 @@ namespace MacGruber
 				string control = atomControls[i].name;
 				if (control.StartsWith("hair"))
 					continue;
-				if (myCurrentAnimation.myControlCaptures.FindIndex(cc => cc.myName == control) >= 0)
+				if (myCurrentLayer.myControlCaptures.FindIndex(cc => cc.myName == control) >= 0)
 					continue;
 				availableControls.Add(control);
 			}
@@ -614,7 +685,7 @@ namespace MacGruber
 				CreateMenuButton("Add Controller", UIAddControlCapture, false);
 			}
 
-			if (myCurrentAnimation.myControlCaptures.Count > 0)
+			if (myCurrentLayer.myControlCaptures.Count > 0)
 			{
 				CreateMenuTwinButton(
 					"Toggle Positions", UIToggleControlCapturePosition,
@@ -622,9 +693,9 @@ namespace MacGruber
 				CreateMenuSpacer(15, false);
 			}
 
-			for (int i=0; i<myCurrentAnimation.myControlCaptures.Count; ++i)
+			for (int i=0; i<myCurrentLayer.myControlCaptures.Count; ++i)
 			{
-				ControlCapture cc = myCurrentAnimation.myControlCaptures[i];
+				ControlCapture cc = myCurrentLayer.myControlCaptures[i];
 				CreateMenuLabel2BXButton(
 					cc.myName, "POS", "ROT", cc.myApplyPosition, cc.myApplyRotation,
 					(bool v) => { cc.myApplyPosition = v; },
@@ -670,15 +741,15 @@ namespace MacGruber
 				CreateMenuButton("Add Morph", UIAddMorphCapture, true);
 			}
 
-			if (myMorphCaptures.Count > 0)
+			if (myCurrentLayer.myMorphCaptures.Count > 0)
 			{
 				CreateMenuButton("Toggle Morphs", UIToggleMorphCapture, true);
 				CreateMenuSpacer(15, true);
 			}
 
-			for (int i=0; i<myMorphCaptures.Count; ++i)
+			for (int i=0; i<myCurrentLayer.myMorphCaptures.Count; ++i)
 			{
-				MorphCapture mc = myMorphCaptures[i];
+				MorphCapture mc = myCurrentLayer.myMorphCaptures[i];
 				DAZMorph m = mc.myMorph;
 				string gender = mc.myGender.ToString().Substring(0,1);
 				string label;
@@ -696,7 +767,7 @@ namespace MacGruber
 			CreateMenuSpacer(35, true);
 			CreateMenuButton("Add State", UIAddState, false);
 			State state;
-			if (!myCurrentAnimation.myStates.TryGetValue(myMainState.val, out state))
+			if (!myCurrentLayer.myStates.TryGetValue(myMainState.val, out state))
 				return;
 
 			CreateMenuButton("Remove State", UIRemoveState, false);
@@ -759,7 +830,7 @@ namespace MacGruber
 					if (s != null)
 					{
 						s.myWaitInfiniteDuration = v;
-						myDuration = v ? float.MaxValue : UnityEngine.Random.Range(s.myWaitDurationMin, s.myWaitDurationMax);
+						myCurrentLayer.myDuration = v ? float.MaxValue : UnityEngine.Random.Range(s.myWaitDurationMin, s.myWaitDurationMax);
 					}
 					UIRefreshMenu();
 				};
@@ -801,15 +872,15 @@ namespace MacGruber
 			CreateMenuInfoOneLine("<size=30><b>Anchors</b></size>", false);
 
 			State state;
-			if (!myCurrentAnimation.myStates.TryGetValue(myMainState.val, out state))
+			if (!myCurrentLayer.myStates.TryGetValue(myMainState.val, out state))
 			{
 				CreateMenuInfo("You need to add a state before you can configure anchors.", 100, false);
 				return;
 			}
 
-			List<string> captures = new List<string>(myCurrentAnimation.myControlCaptures.Count);
-			for (int i=0; i<myCurrentAnimation.myControlCaptures.Count; ++i)
-				captures.Add(myCurrentAnimation.myControlCaptures[i].myName);
+			List<string> captures = new List<string>(myCurrentLayer.myControlCaptures.Count);
+			for (int i=0; i<myCurrentLayer.myControlCaptures.Count; ++i)
+				captures.Add(myCurrentLayer.myControlCaptures[i].myName);
 			myAnchorCaptureList.choices = captures;
 			if (captures.Count == 0)
 				myAnchorCaptureList.valNoCallback = "";
@@ -817,7 +888,7 @@ namespace MacGruber
 				myAnchorCaptureList.valNoCallback = captures[0];
 			CreateMenuPopup(myAnchorCaptureList, false);
 
-			ControlCapture controlCapture = myCurrentAnimation.myControlCaptures.Find(cc => cc.myName == myAnchorCaptureList.val);
+			ControlCapture controlCapture = myCurrentLayer.myControlCaptures.Find(cc => cc.myName == myAnchorCaptureList.val);
 			if (controlCapture == null)
 				return;
 
@@ -897,7 +968,7 @@ namespace MacGruber
 			CreateMenuInfoOneLine("<size=30><b>Transitions</b></size>", false);
 
 			State state;
-			if (!myCurrentAnimation.myStates.TryGetValue(myMainState.val, out state))
+			if (!myCurrentLayer.myStates.TryGetValue(myMainState.val, out state))
 			{
 				CreateMenuInfo("You need to add some states before you can add transitions.", 100, false);
 				return;
@@ -908,7 +979,7 @@ namespace MacGruber
 			for (int i=0; i<state.myTransitions.Count; ++i)
 				transitions.Add(new UITransition(state.myTransitions[i], false, true));
 			
-			foreach (var s in myCurrentAnimation.myStates)
+			foreach (var s in myCurrentLayer.myStates)
 			{
 				State target = s.Value;
 				if (state == target || !target.myTransitions.Contains(state))
@@ -925,7 +996,7 @@ namespace MacGruber
 			// collect available targets
 
 			List<string> availableTargets = new List<string>();
-			foreach (var t in myCurrentAnimation.myStates)
+			foreach (var t in myCurrentLayer.myStates)
 			{
 				State target = t.Value;
 				if (state == target)
@@ -940,7 +1011,7 @@ namespace MacGruber
 			List<string> availableTargetDisplays = new List<string>(availableTargets.Count);
 			for (int i=0; i<availableTargets.Count; ++i)
 			{
-				State target = myCurrentAnimation.myStates[availableTargets[i]];
+				State target = myCurrentLayer.myStates[availableTargets[i]];
 				if (target.IsIntermediate)
 					availableTargetDisplays.Add(COLORTAG_INTERMEDIATE+target.myName+"</color>");
 				else if (target.IsControlPoint)
@@ -1025,7 +1096,7 @@ namespace MacGruber
 		{
 			CreateMenuInfoOneLine("<size=30><b>Internal Triggers</b></size>", false);
 			State state;
-			if (!myCurrentAnimation.myStates.TryGetValue(myMainState.val, out state))
+			if (!myCurrentLayer.myStates.TryGetValue(myMainState.val, out state))
 			{
 				CreateMenuInfo("You need to add some states before you can add triggers.", 100, false);
 			}
@@ -1091,7 +1162,7 @@ namespace MacGruber
 
 		private void CreateAnimationsMenu()
 		{
-			CreateMenuInfoOneLine("<size=30><b>Pica</b></size>", false);
+			CreateMenuInfoOneLine("<size=30><b>Manage Animations</b></size>", false);
 			CreateMenuButton("Add Animation", UIAddAnimation, false);
 			// State state;
 			// if (!myStates.TryGetValue(myMainState.val, out state))
@@ -1192,6 +1263,13 @@ namespace MacGruber
 			// 	}
 			// }
 		}
+		private void CreateLayersMenu()
+		{
+			CreateMenuInfoOneLine("<size=30><b>Manage Layers</b></size>", false);
+			CreateMenuButton("Add Layer", UIAddLayer, false);
+			CreateMenuButton("Remove Layer", UIRemoveLayer, false);
+		}
+
 
 		// =======================================================================================
 
@@ -1205,12 +1283,12 @@ namespace MacGruber
 			sc.sortAtomUIDs = wasSorted;
 			return atomUIDs;
 		}
-
-		private void UILoadJSON(string url)
+		private void UILoadAnimationsJSON(string url)
 		{
 			JSONClass jc = LoadJSON(url).AsObject;
 			if (jc != null)
-				LoadPose(jc);
+				UIRefreshMenu();
+				LoadAnimations(jc);
 
 			if (myCurrentState != null)
 			{
@@ -1221,6 +1299,45 @@ namespace MacGruber
 			{
 				UIRefreshMenu();
 			}
+		}
+
+		private void UILoadJSON(string url)
+		{
+			JSONClass jc = LoadJSON(url).AsObject;
+			if (jc != null)
+				UIRefreshMenu();
+				LoadLayer(jc, true);
+
+			if (myCurrentState != null)
+			{
+				myMainState.valNoCallback = myCurrentState.myName;
+				myMainState.setCallbackFunction(myCurrentState.myName);
+			}
+			else
+			{
+				UIRefreshMenu();
+			}
+		}
+		private void UISaveAnimationsJSONDialog()
+		{
+			SuperController sc = SuperController.singleton;
+			sc.GetMediaPathDialog(UISaveAnimationsJSON, FILE_EXTENSION, BASE_DIRECTORY, false, true, false, null, false, null, false, false);
+			sc.mediaFileBrowserUI.SetTextEntry(true);
+			if (sc.mediaFileBrowserUI.fileEntryField != null)
+			{
+				string filename = ((int)(DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalSeconds).ToString();
+				sc.mediaFileBrowserUI.fileEntryField.text = filename + "." + FILE_EXTENSION;
+				sc.mediaFileBrowserUI.ActivateFileNameField();
+			}
+		}
+		private void UISaveAnimationsJSON(string path)
+		{
+			if (string.IsNullOrEmpty(path))
+				return;
+			path = path.Replace('\\', '/');
+			SuperController.LogMessage("IdlePoser: Saving as '"+path+"'.");
+			JSONClass jc = SaveAnimations();
+			SaveJSON(jc, path);
 		}
 
 		private void UISaveJSONDialog()
@@ -1242,23 +1359,23 @@ namespace MacGruber
 				return;
 			path = path.Replace('\\', '/');
 			SuperController.LogMessage("IdlePoser: Saving as '"+path+"'.");
-			JSONClass jc = SavePose();
+			JSONClass jc = SaveLayer(myCurrentLayer);
 			SaveJSON(jc, path);
 		}
 
 		private void UIAddControlCapture()
 		{
 			ControlCapture cc = new ControlCapture(this, myCapturesControlList.val);
-			myCurrentAnimation.myControlCaptures.Add(cc);
-			foreach (var state in myCurrentAnimation.myStates)
+			myCurrentLayer.myControlCaptures.Add(cc);
+			foreach (var state in myCurrentLayer.myStates)
 				cc.CaptureEntry(state.Value);
 			UIRefreshMenu();
 		}
 
 		private void UIRemoveControlCapture(ControlCapture cc)
 		{
-			myCurrentAnimation.myControlCaptures.Remove(cc);
-			foreach (var state in myCurrentAnimation.myStates)
+			myCurrentLayer.myControlCaptures.Remove(cc);
+			foreach (var state in myCurrentLayer.myStates)
 				state.Value.myControlEntries.Remove(cc);
 			UIRefreshMenu();
 		}
@@ -1266,20 +1383,20 @@ namespace MacGruber
 		private void UIToggleControlCapturePosition()
 		{
 			bool apply = false;
-			for (int i=0; i<myCurrentAnimation.myControlCaptures.Count; ++i)
-				apply |= !myCurrentAnimation.myControlCaptures[i].myApplyPosition;
-			for (int i=0; i<myCurrentAnimation.myControlCaptures.Count; ++i)
-				myCurrentAnimation.myControlCaptures[i].myApplyPosition = apply;
+			for (int i=0; i<myCurrentLayer.myControlCaptures.Count; ++i)
+				apply |= !myCurrentLayer.myControlCaptures[i].myApplyPosition;
+			for (int i=0; i<myCurrentLayer.myControlCaptures.Count; ++i)
+				myCurrentLayer.myControlCaptures[i].myApplyPosition = apply;
 			UIRefreshMenu();
 		}
 
 		private void UIToggleControlCaptureRotation()
 		{
 			bool apply = false;
-			for (int i=0; i<myCurrentAnimation.myControlCaptures.Count; ++i)
-				apply |= !myCurrentAnimation.myControlCaptures[i].myApplyRotation;
-			for (int i=0; i<myCurrentAnimation.myControlCaptures.Count; ++i)
-				myCurrentAnimation.myControlCaptures[i].myApplyRotation = apply;
+			for (int i=0; i<myCurrentLayer.myControlCaptures.Count; ++i)
+				apply |= !myCurrentLayer.myControlCaptures[i].myApplyRotation;
+			for (int i=0; i<myCurrentLayer.myControlCaptures.Count; ++i)
+				myCurrentLayer.myControlCaptures[i].myApplyRotation = apply;
 			UIRefreshMenu();
 		}
 
@@ -1301,12 +1418,12 @@ namespace MacGruber
 				return;
 
 			DAZCharacterSelector.Gender gender = morphIsMale ? DAZCharacterSelector.Gender.Male : DAZCharacterSelector.Gender.Female;
-			if (myMorphCaptures.FindIndex(x => x.myMorph == morph && x.myGender == gender) >= 0)
+			if (myCurrentLayer.myMorphCaptures.FindIndex(x => x.myMorph == morph && x.myGender == gender) >= 0)
 				return;
 
 			MorphCapture mc = new MorphCapture(gender, morph);
-			myMorphCaptures.Add(mc);
-			foreach (var state in myCurrentAnimation.myStates)
+			myCurrentLayer.myMorphCaptures.Add(mc);
+			foreach (var state in myCurrentLayer.myStates)
 				mc.CaptureEntry(state.Value);
 
 			UIRefreshMenu();
@@ -1408,8 +1525,8 @@ namespace MacGruber
 
 		private void UIRemoveMorphCapture(MorphCapture mc)
 		{
-			myMorphCaptures.Remove(mc);
-			foreach (var state in myCurrentAnimation.myStates)
+			myCurrentLayer.myMorphCaptures.Remove(mc);
+			foreach (var state in myCurrentLayer.myStates)
 				state.Value.myMorphEntries.Remove(mc);
 			UIRefreshMenu();
 		}
@@ -1417,10 +1534,10 @@ namespace MacGruber
 		private void UIToggleMorphCapture()
 		{
 			bool apply = false;
-			for (int i=0; i<myMorphCaptures.Count; ++i)
-				apply |= !myMorphCaptures[i].myApply;
-			for (int i=0; i<myMorphCaptures.Count; ++i)
-				myMorphCaptures[i].myApply = apply;
+			for (int i=0; i<myCurrentLayer.myMorphCaptures.Count; ++i)
+				apply |= !myCurrentLayer.myMorphCaptures[i].myApply;
+			for (int i=0; i<myCurrentLayer.myMorphCaptures.Count; ++i)
+				myCurrentLayer.myMorphCaptures[i].myApply = apply;
 			UIRefreshMenu();
 		}
 
@@ -1437,7 +1554,23 @@ namespace MacGruber
 					return;
 				}
 			}
-			SuperController.LogError("IdlePoser: Too many states!");
+			SuperController.LogError("IdlePoser: Too many animations!");
+		}
+
+		private void UIAddLayer()
+		{
+			for (int i=1; i<1000; ++i)
+			{
+				string name = "Layer#" + i;
+				if (!myCurrentAnimation.myLayers.ContainsKey(name))
+				{
+					CreateLayer(name);
+					myMainLayer.val = name;
+					UIRefreshMenu();
+					return;
+				}
+			}
+			SuperController.LogError("IdlePoser: Too many layers!");
 		}
 
 		private void UIAddState()
@@ -1445,7 +1578,7 @@ namespace MacGruber
 			for (int i=1; i<1000; ++i)
 			{
 				string name = "State#" + i;
-				if (!myCurrentAnimation.myStates.ContainsKey(name))
+				if (!myCurrentLayer.myStates.ContainsKey(name))
 				{
 					CreateState(name);
 					myMainState.val = name;
@@ -1468,7 +1601,7 @@ namespace MacGruber
 
 		private void UIApplyAnchors()
 		{
-			foreach (var s in myCurrentAnimation.myStates)
+			foreach (var s in myCurrentLayer.myStates)
 			{
 				State state = s.Value;
 				foreach (var ce in state.myControlEntries)
@@ -1478,18 +1611,34 @@ namespace MacGruber
 				}
 			}
 
-			for (int i=0; i<myCurrentAnimation.myControlCaptures.Count; ++i)
-				myCurrentAnimation.myControlCaptures[i].UpdateState(myCurrentState);
+			for (int i=0; i<myCurrentLayer.myControlCaptures.Count; ++i)
+				myCurrentLayer.myControlCaptures[i].UpdateState(myCurrentState);
 		}
 
 		private void UIRemoveAnimation()
 		{
 			Animation animation = UIGetAnimation();
-			SuperController.LogError(animation.myName);
 			if (animation == null)
 				return;
 
 			myAnimations.Remove(animation.myName);
+			// foreach (var s in myStates)
+			// 	s.Value.myTransitions.RemoveAll(x => x == state);
+
+			// state.EnterBeginTrigger.Remove();
+			// state.EnterEndTrigger.Remove();
+			// state.ExitBeginTrigger.Remove();
+			// state.ExitEndTrigger.Remove();
+
+			UIRefreshMenu();
+		}
+		private void UIRemoveLayer()
+		{
+			Layer layer = UIGetLayer();
+			if (layer == null)
+				return;
+
+			myCurrentAnimation.myLayers.Remove(layer.myName);
 			// foreach (var s in myStates)
 			// 	s.Value.myTransitions.RemoveAll(x => x == state);
 
@@ -1507,8 +1656,8 @@ namespace MacGruber
 			if (state == null)
 				return;
 
-			myCurrentAnimation.myStates.Remove(state.myName);
-			foreach (var s in myCurrentAnimation.myStates)
+			myCurrentLayer.myStates.Remove(state.myName);
+			foreach (var s in myCurrentLayer.myStates)
 				s.Value.myTransitions.RemoveAll(x => x == state);
 
 			state.EnterBeginTrigger.Remove();
@@ -1527,17 +1676,17 @@ namespace MacGruber
 			if (state.myName == name)
 				return;
 
-			myCurrentAnimation.myStates.Remove(state.myName);
+			myCurrentLayer.myStates.Remove(state.myName);
 
 			int altIndex = 2;
 			string baseName = name;
-			while (myCurrentAnimation.myStates.ContainsKey(name))
+			while (myCurrentLayer.myStates.ContainsKey(name))
 			{
 				name = baseName + "#" + altIndex;
 				++altIndex;
 			}
 
-			myCurrentAnimation.myStates.Add(name, state);
+			myCurrentLayer.myStates.Add(name, state);
 			state.myName = name;
 			state.EnterBeginTrigger.SecondaryName = name;
 			state.EnterEndTrigger.SecondaryName = name;
@@ -1553,7 +1702,7 @@ namespace MacGruber
 			if (state == null)
 				return;
 
-			ControlCapture controlCapture = myCurrentAnimation.myControlCaptures.Find(cc => cc.myName == myAnchorCaptureList.val);
+			ControlCapture controlCapture = myCurrentLayer.myControlCaptures.Find(cc => cc.myName == myAnchorCaptureList.val);
 			if (controlCapture == null)
 				return;
 
@@ -1591,7 +1740,7 @@ namespace MacGruber
 			if (state == null)
 				return;
 
-			ControlCapture controlCapture = myCurrentAnimation.myControlCaptures.Find(cc => cc.myName == myAnchorCaptureList.val);
+			ControlCapture controlCapture = myCurrentLayer.myControlCaptures.Find(cc => cc.myName == myAnchorCaptureList.val);
 			if (controlCapture == null)
 				return;
 
@@ -1610,7 +1759,7 @@ namespace MacGruber
 			if (source == null)
 				return;
 			State target;
-			if (!myCurrentAnimation.myStates.TryGetValue(myTransitionList.val, out target))
+			if (!myCurrentLayer.myStates.TryGetValue(myTransitionList.val, out target))
 				return;
 
 			if (!source.myTransitions.Contains(target))
@@ -1641,7 +1790,7 @@ namespace MacGruber
 			Animation animation;
 			if (!myAnimations.TryGetValue(myMainAnimation.val, out animation))
 			{
-				SuperController.LogError("IdlePoser: Invalid macro state selected!");
+				SuperController.LogError("IdlePoser: Invalid animation selected!");
 				return null;
 			}
 			else
@@ -1650,10 +1799,24 @@ namespace MacGruber
 			}
 		}
 
+		private Layer UIGetLayer()
+		{
+			Layer layer;
+			if (!myCurrentAnimation.myLayers.TryGetValue(myMainLayer.val, out layer))
+			{
+				SuperController.LogError("IdlePoser: Invalid layer selected!");
+				return null;
+			}
+			else
+			{
+				return layer;
+			}
+		}
+
 		private State UIGetState()
 		{
 			State state;
-			if (!myCurrentAnimation.myStates.TryGetValue(myMainState.val, out state))
+			if (!myCurrentLayer.myStates.TryGetValue(myMainState.val, out state))
 			{
 				SuperController.LogError("IdlePoser: Invalid state selected!");
 				return null;

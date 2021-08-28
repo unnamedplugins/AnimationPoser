@@ -77,6 +77,7 @@ using UnityEngine.Events;
 using System;
 using System.Collections.Generic;
 using SimpleJSON;
+using System.ComponentModel;
 
 namespace MacGruber
 {
@@ -105,30 +106,23 @@ namespace MacGruber
 		private List<MorphCapture> myMorphCaptures = new List<MorphCapture>();
 		private List<State> myTransition = new List<State>(8);
 		private List<State> myCurrentTransition = new List<State>(MAX_STATES);
-		private List<TriggerActionDiscrete> myTriggerActionsNeedingUpdate = new List<TriggerActionDiscrete>();
-		private State myCurrentState;
-		private Animation myCurrentAnimation;
+		private static Animation myCurrentAnimation;
+		private static Layer myCurrentLayer;
+		private static State myCurrentState;
 		private State myNextState;
-		private State myBlendState = State.CreateBlendState();
 
-		private float myDuration = 1.0f;
-		private float myClock = 0.0f;
-		private uint myStateMask = 0;
-		private bool myStateMaskChanged = false;
-		private bool myPlayMode = false;
-		private bool myPaused = false;
+		private static bool myPlayMode = false;
+		private static bool myPaused = false;
 		private bool myNeedRefresh = false;
 		private bool myWasLoading = true;
 
 		private JSONStorableString mySwitchAnimation;
+		private JSONStorableString mySwitchLayer;
 		private JSONStorableString mySwitchState;
-		private JSONStorableString mySetStateMask;
-		private JSONStorableString myPartialStateMask;
 
 		public override void Init()
 		{
 			myWasLoading = true;
-			myClock = 0.0f;
 
 			InitUI();
 
@@ -136,17 +130,13 @@ namespace MacGruber
 			mySwitchAnimation.isStorable = mySwitchAnimation.isRestorable = false;
 			RegisterString(mySwitchAnimation);
 
+			mySwitchLayer = new JSONStorableString("SwitchLayer", "", SwitchLayerAction);
+			mySwitchLayer.isStorable = mySwitchLayer.isRestorable = false;
+			RegisterString(mySwitchLayer);
+
 			mySwitchState = new JSONStorableString("SwitchState", "", SwitchStateAction);
 			mySwitchState.isStorable = mySwitchState.isRestorable = false;
 			RegisterString(mySwitchState);
-
-			mySetStateMask = new JSONStorableString("SetStateMask", "", SetStateMaskAction);
-			mySetStateMask.isStorable = mySetStateMask.isRestorable = false;
-			RegisterString(mySetStateMask);
-			
-			myPartialStateMask = new JSONStorableString("PartialStateMask", "", PartialStateMaskAction);
-			myPartialStateMask.isStorable = myPartialStateMask.isRestorable = false;
-			RegisterString(myPartialStateMask);
 
 			Utils.SetupAction(this, "TriggerSync", TriggerSyncAction);
 
@@ -165,9 +155,15 @@ namespace MacGruber
 			}
 		}
 
+		private void TriggerSyncAction()
+		{
+			foreach (var layer in myCurrentAnimation.myLayers)
+				layer.Value.TriggerSyncAction();
+		}
+
 		private Animation CreateAnimation(string name)
 		{
-			Animation ms = new Animation(name) {
+			Animation a = new Animation(name) {
 				// myWaitDurationMin = 0.0f,
 				// myWaitDurationMax = 0.0f,
 				// myTransitionDuration = 0.1f,
@@ -177,8 +173,24 @@ namespace MacGruber
 			// if(myCurrentState != null) {
 			// 	setCaptureDefaults(s, myCurrentState);
 			// }
-			myAnimations[name] = ms;
-			return ms;
+			myAnimations[name] = a;
+			return a;
+		}
+
+		private Layer CreateLayer(string name)
+		{
+			Layer l = new Layer(name) {
+				// myWaitDurationMin = 0.0f,
+				// myWaitDurationMax = 0.0f,
+				// myTransitionDuration = 0.1f,
+				// myStateType = STATETYPE_REGULARSTATE
+			};
+			// CaptureState(s);
+			// if(myCurrentState != null) {
+			// 	setCaptureDefaults(s, myCurrentState);
+			// }
+			myCurrentAnimation.myLayers[name] = l;
+			return l;
 		}
 
 		private State CreateState(string name)
@@ -190,10 +202,10 @@ namespace MacGruber
 				myStateType = STATETYPE_REGULARSTATE
 			};
 			CaptureState(s);
-			if(myCurrentState != null) {
-				setCaptureDefaults(s, myCurrentState);
+			if(myCurrentLayer.myCurrentState != null) {
+				setCaptureDefaults(s, myCurrentLayer.myCurrentState);
 			}
-			myCurrentAnimation.myStates[name] = s;
+			myCurrentLayer.myStates[name] = s;
 			return s;
 		}
 
@@ -202,282 +214,23 @@ namespace MacGruber
 			myCurrentAnimation = animation;
 		}
 
-		private void SetState(State state)
+		private void SetLayer(Layer layer)
 		{
-			myCurrentState = state;
-			myNextState = null;
-
-			myClock = 0.0f;
-			if (state.myWaitInfiniteDuration)
-				myDuration = float.MaxValue;
-			else
-				myDuration = UnityEngine.Random.Range(state.myWaitDurationMin, state.myWaitDurationMax);
-			myCurrentTransition.Clear();
-		}
-
-		private void SetTransition(float duration = -1.0f)
-		{
-			float d = 0.0f;
-			int entryCount = Mathf.Min(myTransition.Count, MAX_STATES);
-			for (int i=0; i<entryCount; ++i)
-			{
-				d += myTransition[i].myTransitionDuration;
-				if (i > 0 && !myTransition[i].IsControlPoint)
-				{
-					entryCount = i+1;
-					break;
-				}
-			}
-
-			myCurrentTransition.Clear();
-			for (int i=0; i<entryCount; ++i)
-				myCurrentTransition.Add(myTransition[i]);
-
-			myClock = 0.0f;
-			myDuration = (duration < 0) ? d : duration;
-			myDuration = Mathf.Max(myDuration, 0.000f);
-			myNextState = myTransition[entryCount-1];
-			for (int i=0; i<myCurrentAnimation.myControlCaptures.Count; ++i)
-				myCurrentAnimation.myControlCaptures[i].SetTransition(myTransition, entryCount);
-			for (int i=0; i<myMorphCaptures.Count; ++i)
-				myMorphCaptures[i].SetTransition(myTransition, entryCount);
-
-			if (myTransition.Count == entryCount)
-				myTransition.Clear();
-			else
-				myTransition.RemoveRange(0, entryCount-1);
-
-			if (myCurrentState.ExitBeginTrigger != null)
-				myCurrentState.ExitBeginTrigger.Trigger(myTriggerActionsNeedingUpdate);
-			if (myNextState.EnterBeginTrigger != null)
-				myNextState.EnterBeginTrigger.Trigger(myTriggerActionsNeedingUpdate);
-		}
-
-		private void SetRandomTransition()
-		{
-			List<State> states = new List<State>(16);
-			myTransition.Clear();
-			myTransition.Add(myCurrentState);
-			myNextState = null;
-			GatherStates(1, states);
-
-			int i;
-			float sum = 0.0f;
-			for (i=0; i<states.Count; ++i)
-				sum += states[i].myProbability;
-			if (sum == 0.0f)
-				return;
-
-			float threshold = UnityEngine.Random.Range(0.0f, sum);
-			sum = 0.0f;
-			for (i=0; i<states.Count-1; ++i)
-			{
-				sum += states[i].myProbability;
-				if (threshold <= sum)
-					break;
-			}
-			GatherTransition(1, i, 0);
-			SetTransition();
-		}
-
-		private void SetBlendTransition(State state, bool debug = false)
-		{
-			myTransition.Clear();
-			myTransition.Add(myCurrentState);
-			if (myCurrentState != null)
-			{
-				List<State> states = new List<State>(16);
-				myNextState = null;
-				GatherStates(1, states);
-				List<int> indices = new List<int>(4);
-				for (int i=0; i<states.Count; ++i)
-				{
-					if (states[i] == state)
-						indices.Add(i);
-				}
-				if (indices.Count == 0)
-				{
-					states.Clear();
-					myNextState = state;
-					GatherStates(1, states);
-					for (int i=0; i<states.Count; ++i)
-					{
-						if (states[i] == state)
-							indices.Add(i);
-					}
-				}
-				if (indices.Count > 0)
-				{
-					int selected = UnityEngine.Random.Range(0, indices.Count);
-					GatherTransition(1, indices[selected], 0);
-				}
-			}
-
-			if (myCurrentState == null || debug)
-			{
-				CaptureState(myBlendState);
-				myTransition[0] = myBlendState;				
-				if (myCurrentState != null && myTransition.Count > 1)
-				{
-					myBlendState.myTransitionDuration = myCurrentState.myTransitionDuration;
-					myBlendState.myEaseInDuration = myCurrentState.myEaseInDuration;
-					myBlendState.myEaseOutDuration = myCurrentState.myEaseOutDuration;	
-				}
-				else
-				{
-					myBlendState.myTransitionDuration = DEFAULT_BLEND_DURATION;
-					myBlendState.myEaseInDuration = DEFAULT_EASEIN_DURATION;
-					myBlendState.myEaseOutDuration = DEFAULT_EASEOUT_DURATION;
-				}
-				myBlendState.AssignOutTriggers(myCurrentState);
-				SetState(myBlendState);
-			}
-			
-			if (myTransition.Count == 1) // Did not find transition....fake one
-			{
-				myTransition.Add(state);
-			}
-			
-			SetTransition();
-		}
-
-		private void GatherStates(int transitionLength, List<State> states)
-		{
-			State source = myTransition[0];
-			State current = myTransition[myTransition.Count-1];
-			for (int i=0; i<current.myTransitions.Count; ++i)
-			{
-				State next = current.myTransitions[i];
-				if (myTransition.Contains(next))
-					continue;
-
-				if (next.IsRegularState || next == myNextState)
-				{
-					if (DoAcceptRegularState(source, next))
-						states.Add(next);
-				}
-				else if (next.IsControlPoint)
-				{
-					if (transitionLength >= MAX_STATES-1)
-						continue;
-					myTransition.Add(next);
-					GatherStates(transitionLength+1, states);
-					myTransition.RemoveAt(myTransition.Count-1);
-				}
-				else // next.IsIntermediate
-				{
-					myTransition.Add(next);
-					GatherStates(1, states);
-					myTransition.RemoveAt(myTransition.Count-1);
-				}
-			}
-		}
-
-		private int GatherTransition(int transitionLength, int selected, int index)
-		{
-			State source = myTransition[0];
-			State current = myTransition[myTransition.Count-1];
-			for (int i=0; i<current.myTransitions.Count; ++i)
-			{
-				State next = current.myTransitions[i];
-				if (myTransition.Contains(next))
-					continue;
-
-				if (next.IsRegularState || next == myNextState)
-				{
-					if (!DoAcceptRegularState(source, next))
-					{
-						continue;
-					}
-					else if (index == selected)
-					{
-						myTransition.Add(next);
-						return -1;
-					}
-					else
-					{
-						++index;
-					}
-				}
-				else if (next.IsControlPoint)
-				{
-					if (transitionLength >= MAX_STATES-1)
-						continue;
-					myTransition.Add(next);
-					index = GatherTransition(transitionLength+1, selected, index);
-					if (index == -1)
-						return -1;
-					myTransition.RemoveAt(myTransition.Count-1);
-				}
-				else // next.IsIntermediate
-				{
-					myTransition.Add(next);
-					index = GatherTransition(1, selected, index);
-					if (index == -1)
-						return -1;
-					myTransition.RemoveAt(myTransition.Count-1);
-				}
-			}
-			return index;
-		}
-		
-		private bool DoAcceptRegularState(State source, State next, bool debugMode = false)
-		{
-			if (next == myNextState && !debugMode)
-				return true;
-			if (next.myProbability < 0.01f)
-				return false;
-			if (myStateMask != 0 && (myStateMask & next.StateMask) == 0 && !debugMode)
-				return false;										
-			if (source.myStateGroup == 0 || source.myStateGroup != next.myStateGroup)
-				return true;
-			
-			// in-group transition: source.myStateGroup == next.myStateGroup
-			if (!source.myAllowInGroupTransition || !next.myAllowInGroupTransition)
-				return false;	
-
-			List<State> transition = debugMode ? myDebugTransition : myTransition;
-			for (int t=1; t<transition.Count; ++t)
-			{
-				if (!transition[t].myAllowInGroupTransition)
-					return false;
-			}
-			
-			return true;
-		}
-
-		private void BlendToRandomState(float duration)
-		{
-			List<State> possible = new List<State>(myCurrentAnimation.myStates.Count);
-			foreach (var state in myCurrentAnimation.myStates)
-			{
-				if (state.Value.IsRegularState)
-					possible.Add(state.Value);
-			}
-			int idx = UnityEngine.Random.Range(0, possible.Count);
-
-			CaptureState(myBlendState);
-			myTransition.Clear();
-			myTransition.Add(myBlendState);
-			myTransition.Add(possible[idx]);
-
-			myBlendState.AssignOutTriggers(myCurrentState);
-			SetState(myBlendState);
-			SetTransition(duration);
+			myCurrentLayer = layer;
 		}
 
 		private void CaptureState(State state)
 		{
-			for (int i=0; i<myCurrentAnimation.myControlCaptures.Count; ++i)
-				myCurrentAnimation.myControlCaptures[i].CaptureEntry(state);
-			for (int i=0; i<myMorphCaptures.Count; ++i)
-				myMorphCaptures[i].CaptureEntry(state);
+			for (int i=0; i<myCurrentLayer.myControlCaptures.Count; ++i)
+				myCurrentLayer.myControlCaptures[i].CaptureEntry(state);
+			for (int i=0; i<myCurrentLayer.myMorphCaptures.Count; ++i)
+				myCurrentLayer.myMorphCaptures[i].CaptureEntry(state);
 		}
 
 		private void setCaptureDefaults(State state, State oldState)
 		{
-			for (int i=0; i<myCurrentAnimation.myControlCaptures.Count; ++i)
-				myCurrentAnimation.myControlCaptures[i].setDefaults(state, oldState);
+			for (int i=0; i<myCurrentLayer.myControlCaptures.Count; ++i)
+				myCurrentLayer.myControlCaptures[i].setDefaults(state, oldState);
 			// for (int i=0; i<myMorphCaptures.Count; ++i)
 			// 	myMorphCaptures[i].setDefaults(state, oldState);
 		}
@@ -489,12 +242,39 @@ namespace MacGruber
 			Animation animation;
 			myAnimations.TryGetValue(v, out animation);
 			SetAnimation(animation);
-			List<string> states = animation.myStates.Keys.ToList();
+
+			List<string> layers = animation.myLayers.Keys.ToList();
+			layers.Sort();
+			if(layers.Count > 0) {
+				Layer layer;
+				animation.myLayers.TryGetValue(layers[0], out layer);
+				SetLayer(layer);
+
+				List<string> states = layer.myStates.Keys.ToList();
+				states.Sort();
+				if(states.Count > 0) {
+					State state;
+					layer.myStates.TryGetValue(states[0], out state);
+					layer.SetBlendTransition(state);
+				}
+			}
+		}
+
+		private void SwitchLayerAction(string v)
+		{
+			mySwitchLayer.valNoCallback = string.Empty;
+
+			Layer layer;
+
+			myCurrentAnimation.myLayers.TryGetValue(v, out layer);
+			SetLayer(layer);
+
+			List<string> states = layer.myStates.Keys.ToList();
 			states.Sort();
 			if(states.Count > 0) {
 				State state;
-				animation.myStates.TryGetValue(states[0], out state);
-				SetBlendTransition(state);
+				layer.myStates.TryGetValue(states[0], out state);
+				layer.SetBlendTransition(state);
 			}
 		}
 
@@ -503,118 +283,10 @@ namespace MacGruber
 			mySwitchState.valNoCallback = string.Empty;
 
 			State state;
-			if (myCurrentAnimation.myStates.TryGetValue(v, out state))
-				SetBlendTransition(state);
+			if (myCurrentLayer.myStates.TryGetValue(v, out state))
+				myCurrentLayer.SetBlendTransition(state);
 			else
 				SuperController.LogError("IdlePoser: Can't switch to unknown state '"+v+"'!");
-		}
-
-		private void SetStateMaskAction(string v)
-		{
-			mySetStateMask.valNoCallback = string.Empty;
-
-			myStateMask = 0;
-			bool invert = false;
-			bool error = false;
-			if (v.ToLower() != "clear")
-			{
-				for (int i=0; i<v.Length; ++i)
-				{
-					char c = v[i];
-					if (i == 0 && c == '!')
-						invert = true;
-					else if (c >= 'A' && c <= 'L')
-						myStateMask |= 1u << (c - 'A' + 1);
-					else if (c >= 'a' && c <= 'l')
-						myStateMask |= 1u << (c - 'a' + 1);
-					else if (c == 'N' || c == 'n')
-						myStateMask |= 1u << 0;
-					else
-						error = true;
-				}
-			}
-
-			if (error)
-			{
-				SuperController.LogError("IdlePoser: SetStateMask set to invalid data: '"+v+"'");
-				return;
-			}
-
-			if (myStateMask == 0)
-				return;
-			if (invert)
-				myStateMask = ~myStateMask;
-
-			myStateMaskChanged = true;
-			TryApplyStateMaskChange();
-		}
-		
-		private void PartialStateMaskAction(string v)
-		{
-			myPartialStateMask.valNoCallback = string.Empty;
-
-			uint stateMask = 0;
-			bool invert = false;
-			bool error = false;
-			string[] masks = v.Split(new char[]{' ',';','|'}, 32, StringSplitOptions.RemoveEmptyEntries);
-			for (int m=0; m<masks.Length; ++m)
-			{
-				stateMask = 0;
-				invert = false;
-				for (int i=0; i<masks[m].Length; ++i)
-				{
-					char c = masks[m][i];
-					if (i == 0 && c == '!')
-						invert = true;
-					else if (c >= 'A' && c <= 'L')
-						stateMask |= 1u << (c - 'A' + 1);
-					else if (c >= 'a' && c <= 'l')
-						stateMask |= 1u << (c - 'a' + 1);
-					else if (c == 'N' || c == 'n')
-						stateMask |= 1u << 0;
-					else
-						error = true;
-				}
-
-				if (error)
-				{
-					SuperController.LogError("IdlePoser: PartialStateMask set to invalid data: '"+v+"'");
-					return;
-				}
-
-				if (stateMask == 0)
-					continue;
-					
-				if (invert)
-					myStateMask = myStateMask & ~stateMask;
-				else
-					myStateMask = myStateMask | stateMask;
-			}
-
-			myStateMaskChanged = true;
-			TryApplyStateMaskChange();
-		}
-		
-		private void TryApplyStateMaskChange()
-		{
-			if (myCurrentState != null && myNextState == null && myCurrentState.IsRegularState && (myCurrentState.StateMask & myStateMask) == 0)
-			{
-				myStateMaskChanged = false;
-				SetRandomTransition();
-			}	
-		}
-
-		private void TriggerSyncAction()
-		{
-			if (myCurrentState != null && myNextState == null
-			 && myClock >= myDuration && !myCurrentState.myWaitInfiniteDuration
-			 && myCurrentState.myWaitForSync && !myPaused)
-			{
-				if (myTransition.Count == 0)
-					SetRandomTransition();
-				else
-					SetTransition();
-			}
 		}
 
 		private void Update()
@@ -632,111 +304,13 @@ namespace MacGruber
 			}
 			DebugUpdateUI();
 
-			for (int i=0; i<myTriggerActionsNeedingUpdate.Count; ++i)
-				myTriggerActionsNeedingUpdate[i].Update();
-			myTriggerActionsNeedingUpdate.RemoveAll(a => !a.timerActive);
-
-			if (myCurrentState == null)
-				return;
-
-			bool paused = myPaused && myNextState == null && myTransition.Count == 0;
-			if (!paused)
-				myClock = Mathf.Min(myClock + Time.deltaTime, 100000.0f);
-
-			if (myNextState != null)
-			{
-				float t = Smooth(myCurrentState.myEaseOutDuration, myNextState.myEaseInDuration, myDuration, myClock);
-				for (int i=0; i<myCurrentAnimation.myControlCaptures.Count; ++i)
-					myCurrentAnimation.myControlCaptures[i].UpdateTransition(t);
-				for (int i=0; i<myMorphCaptures.Count; ++i)
-					myMorphCaptures[i].UpdateTransition(t);
-			}
-			else if (!paused || myPlayMode)
-			{
-				for (int i=0; i<myCurrentAnimation.myControlCaptures.Count; ++i)
-					myCurrentAnimation.myControlCaptures[i].UpdateState(myCurrentState);
-			}
-
-			if (myClock >= myDuration)
-			{
-				if (myNextState != null)
-				{
-					State previousState = myCurrentState;	
-					SetState(myNextState);
-					if (myTransition.Count == 0)
-						myMainState.valNoCallback = myCurrentState.myName;
-					
-					if (previousState.ExitEndTrigger != null)
-						previousState.ExitEndTrigger.Trigger(myTriggerActionsNeedingUpdate);
-					if (myCurrentState.EnterEndTrigger != null)
-						myCurrentState.EnterEndTrigger.Trigger(myTriggerActionsNeedingUpdate);
-				}
-				else if (!paused && !myCurrentState.myWaitForSync)
-				{
-					if (myTransition.Count == 0)
-						SetRandomTransition();
-					else
-						SetTransition();
-				}
-			}
-			else if (myStateMaskChanged && myNextState == null)
-			{
-				TryApplyStateMaskChange();
-			}
-		}
-
-		private float Smooth(float a, float b, float d, float t)
-		{
-			d = Mathf.Max(d, 0.01f);
-			t = Mathf.Clamp(t, 0.0f, d);			
-			if (a+b>d)
-			{
-				float scale = d/(a+b);
-				a *= scale;
-				b *= scale;
-			}			
-			float n = d - 0.5f*(a+b);	
-			float s = d - t;			
-
-			// This is based on using the SmoothStep function (3x^2 - 2x^3) for velocity: https://en.wikipedia.org/wiki/Smoothstep
-			// The result is a 3-piece curve consiting of a linear part in the middle and the integral of SmoothStep at both
-			// ends. Additionally there is some scaling to connect the parts properly.
-			// The resulting combined curve has smooth velocity and continuous acceleration/deceleration.
-			float ta = t / a;
-			float sb = s / b;
-			if (t < a)
-				return (a - 0.5f*t) * (ta*ta*ta/n);
-			else if (s >= b)
-				return (t - 0.5f*a) / n;
-			else		
-				return (0.5f*s - b) * (sb*sb*sb/n) + 1.0f;
-			
-			/*
-			// Alternative using SmootherStep (6x^5 - 15x^4 + 10x^3) as a basis instead of SmoothStep
-			
-			if (t < a)
-			{
-				float t2 = t*t;
-				float a2 = a*a;
-				return ( t2/a2 - 3.0f*t/a + 2.5f ) * (t2*t2) / (n*a2*a);
-			}
-			else if (s >= b)
-			{
-				return (t - 0.5f*a) / n;
-			}
-			else
-			{					
-				float s2 = s*s;
-				float b2 = b*b;
-				return ( -s2/b2 + 3.0f*s/b - 2.5f ) * (s2*s2) / (n*b2*b) + 1.0f;
-			}
-			
-			*/
+			foreach (var layer in myCurrentAnimation.myLayers)
+				layer.Value.UpdateLayer();
 		}
 
 		private void OnAtomRename(string oldid, string newid)
 		{
-			foreach (var s in myCurrentAnimation.myStates)
+			foreach (var s in myCurrentLayer.myStates)
 			{
 				State state = s.Value;
 				state.EnterBeginTrigger.SyncAtomNames();
@@ -762,7 +336,7 @@ namespace MacGruber
 			JSONClass jc = base.GetJSON(includePhysical, includeAppearance, forceStore);
 			if ((includePhysical && includeAppearance) || forceStore) // StoreType.Full
 			{
-				jc["idlepose"] = SavePose();
+				jc["idlepose"] = SaveAnimations();
 				needsStore = true;
 			}
 			return jc;
@@ -774,12 +348,448 @@ namespace MacGruber
 			if (restorePhysical && restoreAppearance) // StoreType.Full
 			{
 				if (jc.HasKey("idlepose"))
-					LoadPose(jc["idlepose"].AsObject);
+					LoadAnimations(jc["idlepose"].AsObject);
 				myNeedRefresh = true;
 			}
 		}
 
-		private JSONClass SavePose()
+		// private JSONClass SaveAnimation()
+		// {
+		// 	JSONClass jc = new JSONClass();
+
+		// 	// save info
+		// 	JSONClass info = new JSONClass();
+		// 	info["Format"] = "MacGruber.Life.IdlePoser";
+		// 	info["Version"].AsInt = 7;
+		// 	string creatorName = UserPreferences.singleton.creatorName;
+		// 	if (string.IsNullOrEmpty(creatorName))
+		// 		creatorName = "Unknown";
+		// 	info["Author"] = creatorName;
+		// 	jc["Info"] = info;
+
+		// 	// save settings
+		// 	if (myCurrentState != null)
+		// 		jc["InitialState"] = myCurrentState.myName;
+		// 	jc["Paused"].AsBool = myPlayPaused.val;
+		// 	jc["DefaultToWorldAnchor"].AsBool = myOptionsDefaultToWorldAnchor.val;
+
+		// 	JSONArray anims = new JSONArray();
+
+		// 	foreach(var an in myAnimations)
+		// 	{
+		// 		Animation animation = an.Value;
+		// 		JSONClass anim = new JSONClass();
+		// 		anim["Name"] = animation.myName;
+		// 		// save captures
+		// 		if (animation.myControlCaptures.Count > 0)
+		// 		{
+		// 			JSONArray cclist = new JSONArray();
+		// 			for (int i=0; i<animation.myControlCaptures.Count; ++i)
+		// 			{
+		// 				ControlCapture cc = animation.myControlCaptures[i];
+		// 				JSONClass ccclass = new JSONClass();
+		// 				ccclass["Name"] = cc.myName;
+		// 				ccclass["ApplyPos"].AsBool = cc.myApplyPosition;
+		// 				ccclass["ApplyRot"].AsBool = cc.myApplyRotation;
+		// 				cclist.Add("", ccclass);
+		// 			}
+		// 			anim["ControlCaptures"] = cclist;
+		// 		}
+		// 		if (myCurrentAnimation.myMorphCaptures.Count > 0)
+		// 		{
+		// 			JSONArray mclist = new JSONArray();
+		// 			for (int i=0; i<myCurrentAnimation.myMorphCaptures.Count; ++i)
+		// 			{
+		// 				MorphCapture mc = myCurrentAnimation.myMorphCaptures[i];
+		// 				JSONClass mcclass = new JSONClass();
+		// 				mcclass["Name"] = mc.myName;
+		// 				mcclass["Apply"].AsBool = mc.myApply;
+		// 				mclist.Add("", mcclass);
+		// 			}
+		// 			anim["MorphCaptures"] = mclist;
+		// 		}
+
+		// 		// save states
+		// 		JSONArray slist = new JSONArray();
+		// 		foreach (var s in animation.myStates)
+		// 		{
+		// 			State state = s.Value;
+		// 			JSONClass st = new JSONClass();
+		// 			st["Name"] = state.myName;
+		// 			st["WaitInfiniteDuration"].AsBool = state.myWaitInfiniteDuration;
+		// 			st["WaitForSync"].AsBool = state.myWaitForSync;
+		// 			st["AllowInGroupT"].AsBool = state.myAllowInGroupTransition;
+		// 			st["WaitDurationMin"].AsFloat = state.myWaitDurationMin;
+		// 			st["WaitDurationMax"].AsFloat = state.myWaitDurationMax;
+		// 			st["TransitionDuration"].AsFloat = state.myTransitionDuration;
+		// 			st["EaseInDuration"].AsFloat = state.myEaseInDuration;
+		// 			st["EaseOutDuration"].AsFloat = state.myEaseOutDuration;
+		// 			st["Probability"].AsFloat = state.myProbability;
+		// 			st["StateType"].AsInt = state.myStateType;
+		// 			st["StateGroup"].AsInt = state.myStateGroup;
+
+		// 			JSONArray tlist = new JSONArray();
+		// 			for (int i=0; i<state.myTransitions.Count; ++i)
+		// 				tlist.Add("", state.myTransitions[i].myName);
+		// 			st["Transitions"] = tlist;
+
+		// 			if (state.myControlEntries.Count > 0)
+		// 			{
+		// 				JSONClass celist = new JSONClass();
+		// 				foreach (var e in state.myControlEntries)
+		// 				{
+		// 					ControlEntryAnchored ce = e.Value;
+		// 					JSONClass ceclass = new JSONClass();
+		// 					ceclass["PX"].AsFloat = ce.myAnchorOffset.myPosition.x;
+		// 					ceclass["PY"].AsFloat = ce.myAnchorOffset.myPosition.y;
+		// 					ceclass["PZ"].AsFloat = ce.myAnchorOffset.myPosition.z;
+		// 					Vector3 rotation = ce.myAnchorOffset.myRotation.eulerAngles;
+		// 					ceclass["RX"].AsFloat = rotation.x;
+		// 					ceclass["RY"].AsFloat = rotation.y;
+		// 					ceclass["RZ"].AsFloat = rotation.z;
+		// 					ceclass["AnchorMode"].AsInt = ce.myAnchorMode;
+		// 					if (ce.myAnchorMode >= ControlEntryAnchored.ANCHORMODE_SINGLE)
+		// 					{
+		// 						ceclass["DampingTime"].AsFloat = ce.myDampingTime;
+		// 						ceclass["AnchorAAtom"] = ce.myAnchorAAtom;
+		// 						if (containingAtom.uid.Equals(ce.myAnchorAAtom))
+		// 						{
+		// 							ceclass["AnchorAAtom"] = "[Self]";
+		// 						}
+		// 						ceclass["AnchorAControl"] = ce.myAnchorAControl;
+		// 					}
+		// 					if (ce.myAnchorMode == ControlEntryAnchored.ANCHORMODE_BLEND)
+		// 					{
+		// 						ceclass["AnchorBAtom"] = ce.myAnchorBAtom;
+		// 						ceclass["AnchorBControl"] = ce.myAnchorBControl;
+		// 						ceclass["BlendRatio"].AsFloat = ce.myBlendRatio;
+		// 					}
+		// 					celist[e.Key.myName] = ceclass;
+		// 				}
+		// 				st["ControlEntries"] = celist;
+		// 			}
+
+		// 			if (state.myMorphEntries.Count > 0)
+		// 			{
+		// 				JSONClass melist = new JSONClass();
+		// 				foreach (var e in state.myMorphEntries)
+		// 				{
+		// 					melist[e.Key.myName].AsFloat = e.Value;
+		// 				}
+		// 				st["MorphEntries"] = melist;
+		// 			}
+
+		// 			st[state.EnterBeginTrigger.Name] = state.EnterBeginTrigger.GetJSON(base.subScenePrefix);
+		// 			st[state.EnterEndTrigger.Name] = state.EnterEndTrigger.GetJSON(base.subScenePrefix);
+		// 			st[state.ExitBeginTrigger.Name] = state.ExitBeginTrigger.GetJSON(base.subScenePrefix);
+		// 			st[state.ExitEndTrigger.Name] = state.ExitEndTrigger.GetJSON(base.subScenePrefix);
+
+		// 			for(int k = 0; k < st[state.EnterBeginTrigger.Name]["startActions"].Count; k++)
+		// 			{
+		// 				SimpleJSON.JSONNode action = st[state.EnterBeginTrigger.Name]["startActions"][k];
+		// 				if (action["receiverAtom"].Value == containingAtom.uid)
+		// 				{
+		// 					action["receiverAtom"] = "[Self]";
+		// 				}
+		// 			}
+		// 			for(int k = 0; k < st[state.EnterEndTrigger.Name]["startActions"].Count; k++)
+		// 			{
+		// 				SimpleJSON.JSONNode action = st[state.EnterEndTrigger.Name]["startActions"][k];
+		// 				if (action["receiverAtom"].Value == containingAtom.uid)
+		// 				{
+		// 					action["receiverAtom"] = "[Self]";
+		// 				}
+		// 			}
+		// 			for(int k = 0; k < st[state.ExitBeginTrigger.Name]["startActions"].Count; k++)
+		// 			{
+		// 				SimpleJSON.JSONNode action = st[state.ExitBeginTrigger.Name]["startActions"][k];
+		// 				if (action["receiverAtom"].Value == containingAtom.uid)
+		// 				{
+		// 					action["receiverAtom"] = "[Self]";
+		// 				}
+		// 			}
+		// 			for(int k = 0; k < st[state.ExitEndTrigger.Name]["startActions"].Count; k++)
+		// 			{
+		// 				SimpleJSON.JSONNode action = st[state.ExitEndTrigger.Name]["startActions"][k];
+		// 				if (action["receiverAtom"].Value == containingAtom.uid)
+		// 				{
+		// 					action["receiverAtom"] = "[Self]";
+		// 				}
+		// 			}
+
+		// 			slist.Add("", st);
+		// 		}
+		// 		anim["States"] = slist;
+		// 		anims.Add("", anim);
+		// 	}
+
+		// 	jc["Animations"] = anims;
+
+		// 	return jc;
+		// }
+
+		// private void LoadAnimation(JSONClass jc)
+		// {
+		// 	// reset
+		// 	// foreach (var s in myCurrentAnimation.myStates)
+		// 	// {
+		// 	// 	State state = s.Value;
+		// 	// 	state.EnterBeginTrigger.Remove();
+		// 	// 	state.EnterEndTrigger.Remove();
+		// 	// 	state.ExitBeginTrigger.Remove();
+		// 	// 	state.ExitEndTrigger.Remove();
+		// 	// }
+
+		// 	// myCurrentAnimation.myControlCaptures.Clear();
+		// 	// myMorphCaptures.Clear();
+		// 	// myCurrentAnimation.myStates.Clear();
+		// 	// myCurrentState = null;
+		// 	// myNextState = null;
+		// 	// myBlendState.myControlEntries.Clear();
+		// 	// myBlendState.myMorphEntries.Clear();
+		// 	// myClock = 0.0f;
+
+		// 	// load info
+		// 	int version = jc["Info"].AsObject["Version"].AsInt;
+
+		// 	// load captures
+		// 	JSONArray anims = jc["Animations"].AsArray;
+		// 	for (int l=0; l<anims.Count; ++l)
+		// 	{
+		// 		JSONClass anim = anims[l].AsObject;
+		// 		Animation myCurrentAnimation = CreateAnimation(anim["Name"]);
+		// 		if (anim.HasKey("ControlCaptures"))
+		// 		{
+		// 			JSONArray cclist = anim["ControlCaptures"].AsArray;
+		// 			for (int i=0; i<cclist.Count; ++i)
+		// 			{
+		// 				ControlCapture cc;
+		// 				if (version <= 2)
+		// 				{
+		// 					// handling legacy
+		// 					cc = new ControlCapture(this, cclist[i].Value);
+		// 				}
+		// 				else
+		// 				{
+		// 					JSONClass ccclass = cclist[i].AsObject;
+		// 					cc = new ControlCapture(this, ccclass["Name"]);
+		// 					cc.myApplyPosition = ccclass["ApplyPos"].AsBool;
+		// 					cc.myApplyRotation = ccclass["ApplyRot"].AsBool;
+		// 				}
+
+		// 				if (cc.IsValid())
+		// 					myCurrentAnimation.myControlCaptures.Add(cc);
+		// 			}
+		// 		}
+		// 		if (anim.HasKey("MorphCaptures"))
+		// 		{
+		// 			JSONArray mclist = anim["MorphCaptures"].AsArray;
+		// 			DAZCharacterSelector geometry = containingAtom.GetStorableByID("geometry") as DAZCharacterSelector;
+		// 			for (int i=0; i<mclist.Count; ++i)
+		// 			{
+		// 				MorphCapture mc;
+		// 				if (version <= 2)
+		// 				{
+		// 					// handling legacy
+		// 					mc = new MorphCapture(geometry, mclist[i].Value);
+		// 				}
+		// 				else
+		// 				{
+		// 					JSONClass mcclass = mclist[i].AsObject;
+		// 					mc = new MorphCapture(geometry, mcclass["Name"]);
+		// 					mc.myApply = mcclass["Apply"].AsBool;
+		// 				}
+
+		// 				if (mc.IsValid())
+		// 					myCurrentAnimation.myMorphCaptures.Add(mc);
+		// 			}
+		// 		}
+
+		// 		// load states
+		// 		JSONArray slist = anim["States"].AsArray;
+		// 		for (int i=0; i<slist.Count; ++i)
+		// 		{
+		// 			// load state
+		// 			JSONClass st = slist[i].AsObject;
+		// 			State state;
+		// 			if (version == 1)
+		// 			{
+		// 				// handling legacy
+		// 				state = new State(this, st["Name"]) {
+		// 					myWaitDurationMin = st["WaitDurationMin"].AsFloat,
+		// 					myWaitDurationMax = st["WaitDurationMax"].AsFloat,
+		// 					myTransitionDuration = st["TransitionDuration"].AsFloat,
+		// 					myProbability = DEFAULT_PROBABILITY,
+		// 					myStateType = st["IsTransition"].AsBool ? STATETYPE_CONTROLPOINT : STATETYPE_REGULARSTATE,
+		// 					myStateGroup = 0
+		// 				};
+		// 			}
+		// 			else
+		// 			{
+		// 				state = new State(this, st["Name"]) {
+		// 					myWaitInfiniteDuration = st["WaitInfiniteDuration"].AsBool,
+		// 					myWaitForSync = st["WaitForSync"].AsBool,
+		// 					myAllowInGroupTransition = st["AllowInGroupT"].AsBool,
+		// 					myWaitDurationMin = st["WaitDurationMin"].AsFloat,
+		// 					myWaitDurationMax = st["WaitDurationMax"].AsFloat,
+		// 					myTransitionDuration = st["TransitionDuration"].AsFloat,
+		// 					myEaseInDuration = st.HasKey("EaseInDuration") ? st["EaseInDuration"].AsFloat : DEFAULT_EASEIN_DURATION,
+		// 					myEaseOutDuration = st.HasKey("EaseOutDuration") ? st["EaseOutDuration"].AsFloat : DEFAULT_EASEOUT_DURATION,
+		// 					myProbability = st["Probability"].AsFloat,
+		// 					myStateType = st["StateType"].AsInt,
+		// 					myStateGroup = st["StateGroup"].AsInt
+		// 				};
+		// 			}
+
+		// 			for(int k = 0; k < st[state.EnterBeginTrigger.Name]["startActions"].Count; k++)
+		// 			{
+		// 				SimpleJSON.JSONNode action = st[state.EnterBeginTrigger.Name]["startActions"][k];
+		// 				if (action["receiverAtom"].Value == "[Self]")
+		// 				{
+		// 					action["receiverAtom"] = containingAtom.uid;
+		// 				}
+		// 			}
+		// 			for(int k = 0; k < st[state.EnterEndTrigger.Name]["startActions"].Count; k++)
+		// 			{
+		// 				SimpleJSON.JSONNode action = st[state.EnterEndTrigger.Name]["startActions"][k];
+		// 				if (action["receiverAtom"].Value == "[Self]")
+		// 				{
+		// 					action["receiverAtom"] = containingAtom.uid;
+		// 				}
+		// 			}
+		// 			for(int k = 0; k < st[state.ExitBeginTrigger.Name]["startActions"].Count; k++)
+		// 			{
+		// 				SimpleJSON.JSONNode action = st[state.ExitBeginTrigger.Name]["startActions"][k];
+		// 				if (action["receiverAtom"].Value == "[Self]")
+		// 				{
+		// 					action["receiverAtom"] = containingAtom.uid;
+		// 				}
+		// 			}
+		// 			for(int k = 0; k < st[state.ExitEndTrigger.Name]["startActions"].Count; k++)
+		// 			{
+		// 				SimpleJSON.JSONNode action = st[state.ExitEndTrigger.Name]["startActions"][k];
+		// 				if (action["receiverAtom"].Value == "[Self]")
+		// 				{
+		// 					action["receiverAtom"] = containingAtom.uid;
+		// 				}
+		// 			}
+
+		// 			state.EnterBeginTrigger.RestoreFromJSON(st, base.subScenePrefix, base.mergeRestore, true);
+		// 			state.EnterEndTrigger.RestoreFromJSON(st, base.subScenePrefix, base.mergeRestore, true);
+		// 			state.ExitBeginTrigger.RestoreFromJSON(st, base.subScenePrefix, base.mergeRestore, true);
+		// 			state.ExitEndTrigger.RestoreFromJSON(st, base.subScenePrefix, base.mergeRestore, true);
+
+		// 			if (myCurrentAnimation.myStates.ContainsKey(state.myName))
+		// 				continue;
+		// 			myCurrentAnimation.myStates[state.myName] = state;
+
+		// 			// load control captures
+		// 			if (myCurrentAnimation.myControlCaptures.Count > 0)
+		// 			{
+		// 				JSONClass celist = st["ControlEntries"].AsObject;
+		// 				foreach (string ccname in celist.Keys)
+		// 				{
+		// 					ControlCapture cc = myCurrentAnimation.myControlCaptures.Find(x => x.myName == ccname);
+		// 					if (cc == null)
+		// 						continue;
+
+		// 					JSONClass ceclass = celist[ccname].AsObject;
+		// 					ControlEntryAnchored ce = new ControlEntryAnchored(this, ccname);
+		// 					ce.myAnchorOffset.myPosition.x = ceclass["PX"].AsFloat;
+		// 					ce.myAnchorOffset.myPosition.y = ceclass["PY"].AsFloat;
+		// 					ce.myAnchorOffset.myPosition.z = ceclass["PZ"].AsFloat;
+		// 					Vector3 rotation;
+		// 					rotation.x = ceclass["RX"].AsFloat;
+		// 					rotation.y = ceclass["RY"].AsFloat;
+		// 					rotation.z = ceclass["RZ"].AsFloat;
+		// 					ce.myAnchorOffset.myRotation.eulerAngles = rotation;
+		// 					ce.myAnchorMode = ceclass["AnchorMode"].AsInt;
+		// 					if (ce.myAnchorMode >= ControlEntryAnchored.ANCHORMODE_SINGLE)
+		// 					{
+		// 						ce.myDampingTime = ceclass["DampingTime"].AsFloat;
+		// 						ce.myAnchorAAtom = ceclass["AnchorAAtom"].Value;
+		// 						ce.myAnchorAControl = ceclass["AnchorAControl"].Value;
+								
+		// 						if (ce.myAnchorAAtom == "[Self]") // legacy
+		// 							ce.myAnchorAAtom = containingAtom.uid;
+		// 					}
+		// 					if (ce.myAnchorMode == ControlEntryAnchored.ANCHORMODE_BLEND)
+		// 					{
+		// 						ce.myAnchorBAtom = ceclass["AnchorBAtom"].Value;
+		// 						ce.myAnchorBControl = ceclass["AnchorBControl"].Value;
+		// 						ce.myBlendRatio = ceclass["BlendRatio"].AsFloat;
+								
+		// 						if (ce.myAnchorBAtom == "[Self]") // legacy
+		// 							ce.myAnchorBAtom = containingAtom.uid;
+		// 					}
+		// 					ce.Initialize();
+
+		// 					state.myControlEntries.Add(cc, ce);
+		// 				}
+		// 				for (int j=0; j<myCurrentAnimation.myControlCaptures.Count; ++j)
+		// 				{
+		// 					if (!state.myControlEntries.ContainsKey(myCurrentAnimation.myControlCaptures[j]))
+		// 						myCurrentAnimation.myControlCaptures[j].CaptureEntry(state);
+		// 				}
+		// 			}
+
+		// 			// load morph captures
+		// 			if (myCurrentAnimation.myMorphCaptures.Count > 0)
+		// 			{
+		// 				JSONClass melist = st["MorphEntries"].AsObject;
+		// 				foreach (string mcname in melist.Keys)
+		// 				{
+		// 					MorphCapture mc = myCurrentAnimation.myMorphCaptures.Find(x => x.myName == mcname);
+		// 					if (mc == null)
+		// 						continue;
+		// 					float me = melist[mcname].AsFloat;
+		// 					state.myMorphEntries.Add(mc, me);
+		// 				}
+		// 				for (int j=0; j<myCurrentAnimation.myMorphCaptures.Count; ++j)
+		// 				{
+		// 					if (!state.myMorphEntries.ContainsKey(myCurrentAnimation.myMorphCaptures[j]))
+		// 						myCurrentAnimation.myMorphCaptures[j].CaptureEntry(state);
+		// 				}
+		// 			}
+		// 		}
+
+		// 		// load transitions
+		// 		for (int i=0; i<slist.Count; ++i)
+		// 		{
+		// 			JSONClass st = slist[i].AsObject;
+		// 			State source;
+		// 			if (!myCurrentAnimation.myStates.TryGetValue(st["Name"], out source))
+		// 				continue;
+
+		// 			JSONArray tlist = st["Transitions"].AsArray;
+		// 			for (int j=0; j<tlist.Count; ++j)
+		// 			{
+		// 				State target;
+		// 				if (myCurrentAnimation.myStates.TryGetValue(tlist[j].Value, out target))
+		// 					source.myTransitions.Add(target);
+		// 			}
+		// 		}
+		// 	}
+
+		// 	// load settings
+		// 	myPlayPaused.valNoCallback = jc.HasKey("Paused") && jc["Paused"].AsBool;
+		// 	myPlayPaused.setCallbackFunction(myPlayPaused.val);
+
+		// 	myOptionsDefaultToWorldAnchor.val = jc.HasKey("DefaultToWorldAnchor") && jc["DefaultToWorldAnchor"].AsBool;
+
+		// 	// blend to initial state
+		// 	// if (jc.HasKey("InitialState"))
+		// 	// {
+		// 	// 	State initial;
+		// 	// 	if (myCurrentAnimation.myStates.TryGetValue(jc["InitialState"].Value, out initial))
+		// 	// 	{
+		// 	// 		SetState(initial);
+		// 	// 		myMainState.valNoCallback = initial.myName;
+		// 	// 	}
+		// 	// }
+		// }
+
+		private JSONClass SaveAnimations()
 		{
 			JSONClass jc = new JSONClass();
 
@@ -797,41 +807,119 @@ namespace MacGruber
 			if (myCurrentState != null)
 				jc["InitialState"] = myCurrentState.myName;
 			jc["Paused"].AsBool = myPlayPaused.val;
-			jc["StateMask"].AsInt = (int)myStateMask;
 			jc["DefaultToWorldAnchor"].AsBool = myOptionsDefaultToWorldAnchor.val;
 
+			JSONArray anims = new JSONArray();
+
+			foreach(var an in myAnimations)
+			{
+				Animation animation = an.Value;
+				JSONClass anim = new JSONClass();
+				anim["Name"] = animation.myName;
+				JSONArray llist = new JSONArray();
+				foreach(var l in animation.myLayers){
+					llist.Add("", SaveLayer(l.Value));
+				}
+				anim["Layers"] = llist;
+				anims.Add("", anim);
+			}
+
+			jc["Animations"] = anims;
+
+			return jc;
+		}
+
+		private void LoadAnimations(JSONClass jc)
+		{
+			// load info
+			int version = jc["Info"].AsObject["Version"].AsInt;
+
+			// load captures
+			JSONArray anims = jc["Animations"].AsArray;
+			for (int l=0; l<anims.Count; ++l)
+			{
+				JSONClass anim = anims[l].AsObject;
+				myCurrentAnimation = CreateAnimation(anim["Name"]);
+				JSONArray layers = anim["Layers"].AsArray;
+				for(int m=0; m<layers.Count; m++)
+				{
+					JSONClass layer = layers[m].AsObject;
+					LoadLayer(layer, false);
+				}
+			}
+
+			// load settings
+			myPlayPaused.valNoCallback = jc.HasKey("Paused") && jc["Paused"].AsBool;
+			myPlayPaused.setCallbackFunction(myPlayPaused.val);
+
+			myOptionsDefaultToWorldAnchor.val = jc.HasKey("DefaultToWorldAnchor") && jc["DefaultToWorldAnchor"].AsBool;
+
+			// blend to initial state
+			// if (jc.HasKey("InitialState"))
+			// {
+			// 	State initial;
+			// 	if (myCurrentAnimation.myStates.TryGetValue(jc["InitialState"].Value, out initial))
+			// 	{
+			// 		SetState(initial);
+			// 		myMainState.valNoCallback = initial.myName;
+			// 	}
+			// }
+		}
+
+		private JSONClass SaveLayer(Layer layerToSave)
+		{
+			JSONClass jc = new JSONClass();
+
+			// save info
+			JSONClass info = new JSONClass();
+			info["Format"] = "MacGruber.Life.IdlePoser";
+			info["Version"].AsInt = 7;
+			string creatorName = UserPreferences.singleton.creatorName;
+			if (string.IsNullOrEmpty(creatorName))
+				creatorName = "Unknown";
+			info["Author"] = creatorName;
+			jc["Info"] = info;
+
+			// save settings
+			if (myCurrentState != null)
+				jc["InitialState"] = myCurrentState.myName;
+			jc["Paused"].AsBool = myPlayPaused.val;
+			jc["DefaultToWorldAnchor"].AsBool = myOptionsDefaultToWorldAnchor.val;
+
+			JSONClass layer = new JSONClass();
+			layer["Name"] = layerToSave.myName;
 			// save captures
-			if (myCurrentAnimation.myControlCaptures.Count > 0)
+			if (layerToSave.myControlCaptures.Count > 0)
 			{
 				JSONArray cclist = new JSONArray();
-				for (int i=0; i<myCurrentAnimation.myControlCaptures.Count; ++i)
+				for (int i=0; i<layerToSave.myControlCaptures.Count; ++i)
 				{
-					ControlCapture cc = myCurrentAnimation.myControlCaptures[i];
+					ControlCapture cc = layerToSave.myControlCaptures[i];
 					JSONClass ccclass = new JSONClass();
 					ccclass["Name"] = cc.myName;
 					ccclass["ApplyPos"].AsBool = cc.myApplyPosition;
 					ccclass["ApplyRot"].AsBool = cc.myApplyRotation;
 					cclist.Add("", ccclass);
 				}
-				jc["ControlCaptures"] = cclist;
+				layer["ControlCaptures"] = cclist;
 			}
-			if (myMorphCaptures.Count > 0)
+			if (layerToSave.myMorphCaptures.Count > 0)
 			{
 				JSONArray mclist = new JSONArray();
-				for (int i=0; i<myMorphCaptures.Count; ++i)
+				for (int i=0; i<layerToSave.myMorphCaptures.Count; ++i)
 				{
-					MorphCapture mc = myMorphCaptures[i];
+					MorphCapture mc = layerToSave.myMorphCaptures[i];
 					JSONClass mcclass = new JSONClass();
 					mcclass["Name"] = mc.myName;
 					mcclass["Apply"].AsBool = mc.myApply;
 					mclist.Add("", mcclass);
 				}
-				jc["MorphCaptures"] = mclist;
+				layer["MorphCaptures"] = mclist;
 			}
 
 			// save states
 			JSONArray slist = new JSONArray();
-			foreach (var s in myCurrentAnimation.myStates)
+			foreach (var s in layerToSave.myStates)
 			{
 				State state = s.Value;
 				JSONClass st = new JSONClass();
@@ -872,6 +960,10 @@ namespace MacGruber
 						{
 							ceclass["DampingTime"].AsFloat = ce.myDampingTime;
 							ceclass["AnchorAAtom"] = ce.myAnchorAAtom;
+							if (containingAtom.uid.Equals(ce.myAnchorAAtom))
+							{
+								ceclass["AnchorAAtom"] = "[Self]";
+							}
 							ceclass["AnchorAControl"] = ce.myAnchorAControl;
 						}
 						if (ce.myAnchorMode == ControlEntryAnchored.ANCHORMODE_BLEND)
@@ -900,41 +992,83 @@ namespace MacGruber
 				st[state.ExitBeginTrigger.Name] = state.ExitBeginTrigger.GetJSON(base.subScenePrefix);
 				st[state.ExitEndTrigger.Name] = state.ExitEndTrigger.GetJSON(base.subScenePrefix);
 
+				for(int k = 0; k < st[state.EnterBeginTrigger.Name]["startActions"].Count; k++)
+				{
+					SimpleJSON.JSONNode action = st[state.EnterBeginTrigger.Name]["startActions"][k];
+					if (action["receiverAtom"].Value == containingAtom.uid)
+					{
+						action["receiverAtom"] = "[Self]";
+					}
+				}
+				for(int k = 0; k < st[state.EnterEndTrigger.Name]["startActions"].Count; k++)
+				{
+					SimpleJSON.JSONNode action = st[state.EnterEndTrigger.Name]["startActions"][k];
+					if (action["receiverAtom"].Value == containingAtom.uid)
+					{
+						action["receiverAtom"] = "[Self]";
+					}
+				}
+				for(int k = 0; k < st[state.ExitBeginTrigger.Name]["startActions"].Count; k++)
+				{
+					SimpleJSON.JSONNode action = st[state.ExitBeginTrigger.Name]["startActions"][k];
+					if (action["receiverAtom"].Value == containingAtom.uid)
+					{
+						action["receiverAtom"] = "[Self]";
+					}
+				}
+				for(int k = 0; k < st[state.ExitEndTrigger.Name]["startActions"].Count; k++)
+				{
+					SimpleJSON.JSONNode action = st[state.ExitEndTrigger.Name]["startActions"][k];
+					if (action["receiverAtom"].Value == containingAtom.uid)
+					{
+						action["receiverAtom"] = "[Self]";
+					}
+				}
+
 				slist.Add("", st);
 			}
-			jc["States"] = slist;
+			layer["States"] = slist;
+
+			jc["Layer"] = layer;
 
 			return jc;
 		}
 
-		private void LoadPose(JSONClass jc)
+		private Layer LoadLayer(JSONClass jc, bool keepName)
 		{
 			// reset
-			foreach (var s in myCurrentAnimation.myStates)
-			{
-				State state = s.Value;
-				state.EnterBeginTrigger.Remove();
-				state.EnterEndTrigger.Remove();
-				state.ExitBeginTrigger.Remove();
-				state.ExitEndTrigger.Remove();
-			}
+			// foreach (var s in myCurrentAnimation.myStates)
+			// {
+			// 	State state = s.Value;
+			// 	state.EnterBeginTrigger.Remove();
+			// 	state.EnterEndTrigger.Remove();
+			// 	state.ExitBeginTrigger.Remove();
+			// 	state.ExitEndTrigger.Remove();
+			// }
 
-			myCurrentAnimation.myControlCaptures.Clear();
-			myMorphCaptures.Clear();
-			myCurrentAnimation.myStates.Clear();
-			myCurrentState = null;
-			myNextState = null;
-			myBlendState.myControlEntries.Clear();
-			myBlendState.myMorphEntries.Clear();
-			myClock = 0.0f;
+			// myCurrentAnimation.myControlCaptures.Clear();
+			// myMorphCaptures.Clear();
+			// myCurrentAnimation.myStates.Clear();
+			// myCurrentState = null;
+			// myNextState = null;
+			// myBlendState.myControlEntries.Clear();
+			// myBlendState.myMorphEntries.Clear();
+			// myClock = 0.0f;
 
 			// load info
 			int version = jc["Info"].AsObject["Version"].AsInt;
 
 			// load captures
-			if (jc.HasKey("ControlCaptures"))
+			JSONClass layer = jc["Layer"].AsObject;
+
+			if(keepName)
+				myCurrentLayer = CreateLayer(myCurrentLayer.myName);
+			else
+				myCurrentLayer = CreateLayer(layer["Name"]);
+
+			if (layer.HasKey("ControlCaptures"))
 			{
-				JSONArray cclist = jc["ControlCaptures"].AsArray;
+				JSONArray cclist = layer["ControlCaptures"].AsArray;
 				for (int i=0; i<cclist.Count; ++i)
 				{
 					ControlCapture cc;
@@ -952,12 +1086,12 @@ namespace MacGruber
 					}
 
 					if (cc.IsValid())
-						myCurrentAnimation.myControlCaptures.Add(cc);
+						myCurrentLayer.myControlCaptures.Add(cc);
 				}
 			}
-			if (jc.HasKey("MorphCaptures"))
+			if (layer.HasKey("MorphCaptures"))
 			{
-				JSONArray mclist = jc["MorphCaptures"].AsArray;
+				JSONArray mclist = layer["MorphCaptures"].AsArray;
 				DAZCharacterSelector geometry = containingAtom.GetStorableByID("geometry") as DAZCharacterSelector;
 				for (int i=0; i<mclist.Count; ++i)
 				{
@@ -975,12 +1109,12 @@ namespace MacGruber
 					}
 
 					if (mc.IsValid())
-						myMorphCaptures.Add(mc);
+						myCurrentLayer.myMorphCaptures.Add(mc);
 				}
 			}
 
 			// load states
-			JSONArray slist = jc["States"].AsArray;
+			JSONArray slist = layer["States"].AsArray;
 			for (int i=0; i<slist.Count; ++i)
 			{
 				// load state
@@ -1015,23 +1149,55 @@ namespace MacGruber
 					};
 				}
 
+				for(int k = 0; k < st[state.EnterBeginTrigger.Name]["startActions"].Count; k++)
+				{
+					SimpleJSON.JSONNode action = st[state.EnterBeginTrigger.Name]["startActions"][k];
+					if (action["receiverAtom"].Value == "[Self]")
+					{
+						action["receiverAtom"] = containingAtom.uid;
+					}
+				}
+				for(int k = 0; k < st[state.EnterEndTrigger.Name]["startActions"].Count; k++)
+				{
+					SimpleJSON.JSONNode action = st[state.EnterEndTrigger.Name]["startActions"][k];
+					if (action["receiverAtom"].Value == "[Self]")
+					{
+						action["receiverAtom"] = containingAtom.uid;
+					}
+				}
+				for(int k = 0; k < st[state.ExitBeginTrigger.Name]["startActions"].Count; k++)
+				{
+					SimpleJSON.JSONNode action = st[state.ExitBeginTrigger.Name]["startActions"][k];
+					if (action["receiverAtom"].Value == "[Self]")
+					{
+						action["receiverAtom"] = containingAtom.uid;
+					}
+				}
+				for(int k = 0; k < st[state.ExitEndTrigger.Name]["startActions"].Count; k++)
+				{
+					SimpleJSON.JSONNode action = st[state.ExitEndTrigger.Name]["startActions"][k];
+					if (action["receiverAtom"].Value == "[Self]")
+					{
+						action["receiverAtom"] = containingAtom.uid;
+					}
+				}
+
 				state.EnterBeginTrigger.RestoreFromJSON(st, base.subScenePrefix, base.mergeRestore, true);
 				state.EnterEndTrigger.RestoreFromJSON(st, base.subScenePrefix, base.mergeRestore, true);
 				state.ExitBeginTrigger.RestoreFromJSON(st, base.subScenePrefix, base.mergeRestore, true);
 				state.ExitEndTrigger.RestoreFromJSON(st, base.subScenePrefix, base.mergeRestore, true);
 
-
-				if (myCurrentAnimation.myStates.ContainsKey(state.myName))
+				if (myCurrentLayer.myStates.ContainsKey(state.myName))
 					continue;
-				myCurrentAnimation.myStates[state.myName] = state;
+				myCurrentLayer.myStates[state.myName] = state;
 
 				// load control captures
-				if (myCurrentAnimation.myControlCaptures.Count > 0)
+				if (myCurrentLayer.myControlCaptures.Count > 0)
 				{
 					JSONClass celist = st["ControlEntries"].AsObject;
 					foreach (string ccname in celist.Keys)
 					{
-						ControlCapture cc = myCurrentAnimation.myControlCaptures.Find(x => x.myName == ccname);
+						ControlCapture cc = myCurrentLayer.myControlCaptures.Find(x => x.myName == ccname);
 						if (cc == null)
 							continue;
 
@@ -1068,29 +1234,29 @@ namespace MacGruber
 
 						state.myControlEntries.Add(cc, ce);
 					}
-					for (int j=0; j<myCurrentAnimation.myControlCaptures.Count; ++j)
+					for (int j=0; j<myCurrentLayer.myControlCaptures.Count; ++j)
 					{
-						if (!state.myControlEntries.ContainsKey(myCurrentAnimation.myControlCaptures[j]))
-							myCurrentAnimation.myControlCaptures[j].CaptureEntry(state);
+						if (!state.myControlEntries.ContainsKey(myCurrentLayer.myControlCaptures[j]))
+							myCurrentLayer.myControlCaptures[j].CaptureEntry(state);
 					}
 				}
 
 				// load morph captures
-				if (myMorphCaptures.Count > 0)
+				if (myCurrentLayer.myMorphCaptures.Count > 0)
 				{
 					JSONClass melist = st["MorphEntries"].AsObject;
 					foreach (string mcname in melist.Keys)
 					{
-						MorphCapture mc = myMorphCaptures.Find(x => x.myName == mcname);
+						MorphCapture mc = myCurrentLayer.myMorphCaptures.Find(x => x.myName == mcname);
 						if (mc == null)
 							continue;
 						float me = melist[mcname].AsFloat;
 						state.myMorphEntries.Add(mc, me);
 					}
-					for (int j=0; j<myMorphCaptures.Count; ++j)
+					for (int j=0; j<myCurrentLayer.myMorphCaptures.Count; ++j)
 					{
-						if (!state.myMorphEntries.ContainsKey(myMorphCaptures[j]))
-							myMorphCaptures[j].CaptureEntry(state);
+						if (!state.myMorphEntries.ContainsKey(myCurrentLayer.myMorphCaptures[j]))
+							myCurrentLayer.myMorphCaptures[j].CaptureEntry(state);
 					}
 				}
 			}
@@ -1100,14 +1266,14 @@ namespace MacGruber
 			{
 				JSONClass st = slist[i].AsObject;
 				State source;
-				if (!myCurrentAnimation.myStates.TryGetValue(st["Name"], out source))
+				if (!myCurrentLayer.myStates.TryGetValue(st["Name"], out source))
 					continue;
 
 				JSONArray tlist = st["Transitions"].AsArray;
 				for (int j=0; j<tlist.Count; ++j)
 				{
 					State target;
-					if (myCurrentAnimation.myStates.TryGetValue(tlist[j].Value, out target))
+					if (myCurrentLayer.myStates.TryGetValue(tlist[j].Value, out target))
 						source.myTransitions.Add(target);
 				}
 			}
@@ -1116,35 +1282,83 @@ namespace MacGruber
 			myPlayPaused.valNoCallback = jc.HasKey("Paused") && jc["Paused"].AsBool;
 			myPlayPaused.setCallbackFunction(myPlayPaused.val);
 
-			int stateMask = jc["StateMask"].AsInt;
-			myStateMask = (uint)stateMask;
-			
 			myOptionsDefaultToWorldAnchor.val = jc.HasKey("DefaultToWorldAnchor") && jc["DefaultToWorldAnchor"].AsBool;
 
 			// blend to initial state
-			if (jc.HasKey("InitialState"))
-			{
-				State initial;
-				if (myCurrentAnimation.myStates.TryGetValue(jc["InitialState"].Value, out initial))
-				{
-					SetState(initial);
-					myMainState.valNoCallback = initial.myName;
-				}
-			}
+			// if (jc.HasKey("InitialState"))
+			// {
+			// 	State initial;
+			// 	if (myCurrentAnimation.myStates.TryGetValue(jc["InitialState"].Value, out initial))
+			// 	{
+			// 		SetState(initial);
+			// 		myMainState.valNoCallback = initial.myName;
+			// 	}
+			// }
+			SwitchLayerAction(myCurrentLayer.myName);
+			return myCurrentLayer;
 		}
-
 
 		// =======================================================================================
 
 		private class Animation 
 		{
 			public string myName;
-			public Dictionary<string, State> myStates = new Dictionary<string, State>();
-			public List<ControlCapture> myControlCaptures = new List<ControlCapture>();
+			public Dictionary<string, Layer> myLayers = new Dictionary<string, Layer>();
 
 			public Animation(string name)
 			{
 				myName = name;
+			}
+
+			public void Clear()
+			{
+				foreach (var l in myLayers)
+				{
+					Layer layer = l.Value;
+					layer.Clear();
+				}
+			}
+
+		}
+
+		private class Layer
+		{
+			public string myName;
+			public Dictionary<string, State> myStates = new Dictionary<string, State>();
+			public State myCurrentState;
+			public State myNextState;
+			public List<ControlCapture> myControlCaptures = new List<ControlCapture>();
+			public List<MorphCapture> myMorphCaptures = new List<MorphCapture>();
+			private List<State> myTransition = new List<State>(8);
+			private List<State> myCurrentTransition = new List<State>(MAX_STATES);
+			public float myClock = 0.0f;
+			public float myDuration = 1.0f;
+			private List<TriggerActionDiscrete> myTriggerActionsNeedingUpdate = new List<TriggerActionDiscrete>();
+			private State myBlendState = State.CreateBlendState();
+
+			public Layer(string name)
+			{
+				myName = name;
+			}
+			private void CaptureState(State state)
+			{
+				for (int i=0; i<myControlCaptures.Count; ++i)
+					myControlCaptures[i].CaptureEntry(state);
+				for (int i=0; i<myMorphCaptures.Count; ++i)
+					myMorphCaptures[i].CaptureEntry(state);
+			}
+
+			private void SetState(State state)
+			{
+				myCurrentState = state;
+				myNextState = null;
+
+				myClock = 0.0f;
+				if (state.myWaitInfiniteDuration)
+					myDuration = float.MaxValue;
+				else
+					myDuration = UnityEngine.Random.Range(state.myWaitDurationMin, state.myWaitDurationMax);
+				myCurrentTransition.Clear();
 			}
 
 			public void Clear()
@@ -1159,6 +1373,363 @@ namespace MacGruber
 				}
 			}
 
+			private float Smooth(float a, float b, float d, float t)
+			{
+				d = Mathf.Max(d, 0.01f);
+				t = Mathf.Clamp(t, 0.0f, d);			
+				if (a+b>d)
+				{
+					float scale = d/(a+b);
+					a *= scale;
+					b *= scale;
+				}			
+				float n = d - 0.5f*(a+b);	
+				float s = d - t;			
+
+				// This is based on using the SmoothStep function (3x^2 - 2x^3) for velocity: https://en.wikipedia.org/wiki/Smoothstep
+				// The result is a 3-piece curve consiting of a linear part in the middle and the integral of SmoothStep at both
+				// ends. Additionally there is some scaling to connect the parts properly.
+				// The resulting combined curve has smooth velocity and continuous acceleration/deceleration.
+				float ta = t / a;
+				float sb = s / b;
+				if (t < a)
+					return (a - 0.5f*t) * (ta*ta*ta/n);
+				else if (s >= b)
+					return (t - 0.5f*a) / n;
+				else		
+					return (0.5f*s - b) * (sb*sb*sb/n) + 1.0f;
+				
+				/*
+				// Alternative using SmootherStep (6x^5 - 15x^4 + 10x^3) as a basis instead of SmoothStep
+				
+				if (t < a)
+				{
+					float t2 = t*t;
+					float a2 = a*a;
+					return ( t2/a2 - 3.0f*t/a + 2.5f ) * (t2*t2) / (n*a2*a);
+				}
+				else if (s >= b)
+				{
+					return (t - 0.5f*a) / n;
+				}
+				else
+				{					
+					float s2 = s*s;
+					float b2 = b*b;
+					return ( -s2/b2 + 3.0f*s/b - 2.5f ) * (s2*s2) / (n*b2*b) + 1.0f;
+				}
+				
+				*/
+			}
+
+			public void UpdateLayer(){
+				for (int i=0; i<myTriggerActionsNeedingUpdate.Count; ++i)
+					myTriggerActionsNeedingUpdate[i].Update();
+				myTriggerActionsNeedingUpdate.RemoveAll(a => !a.timerActive);
+
+				if (myCurrentState == null)
+					return;
+
+				bool paused = myPaused && myNextState == null && myTransition.Count == 0;
+				if (!paused)
+					myClock = Mathf.Min(myClock + Time.deltaTime, 100000.0f);
+
+				if (myNextState != null)
+				{
+					float t = Smooth(myCurrentState.myEaseOutDuration, myNextState.myEaseInDuration, myDuration, myClock);
+					for (int i=0; i<myControlCaptures.Count; ++i)
+						myControlCaptures[i].UpdateTransition(t);
+					for (int i=0; i<myMorphCaptures.Count; ++i)
+						myMorphCaptures[i].UpdateTransition(t);
+				}
+				else if (!paused || myPlayMode)
+				{
+					for (int i=0; i<myControlCaptures.Count; ++i)
+						myControlCaptures[i].UpdateState(myCurrentState);
+				}
+
+				if (myClock >= myDuration)
+				{
+					if (myNextState != null)
+					{
+						State previousState = myCurrentState;	
+						SetState(myNextState);
+						if (myTransition.Count == 0)
+							if(myName == myCurrentLayer.myName)
+								myMainState.valNoCallback = myCurrentState.myName;
+						
+						if (previousState.ExitEndTrigger != null)
+							previousState.ExitEndTrigger.Trigger(myTriggerActionsNeedingUpdate);
+						if (myCurrentState.EnterEndTrigger != null)
+							myCurrentState.EnterEndTrigger.Trigger(myTriggerActionsNeedingUpdate);
+					}
+					else if (!paused && !myCurrentState.myWaitForSync)
+					{
+						if (myTransition.Count == 0)
+							SetRandomTransition();
+						else
+							SetTransition();
+					}
+				}
+			}
+
+			private void SetTransition(float duration = -1.0f)
+			{
+				float d = 0.0f;
+				int entryCount = Mathf.Min(myTransition.Count, MAX_STATES);
+				for (int i=0; i<entryCount; ++i)
+				{
+					d += myTransition[i].myTransitionDuration;
+					if (i > 0 && !myTransition[i].IsControlPoint)
+					{
+						entryCount = i+1;
+						break;
+					}
+				}
+
+				myCurrentTransition.Clear();
+				for (int i=0; i<entryCount; ++i)
+					myCurrentTransition.Add(myTransition[i]);
+
+				myClock = 0.0f;
+				myDuration = (duration < 0) ? d : duration;
+				myDuration = Mathf.Max(myDuration, 0.000f);
+				myNextState = myTransition[entryCount-1];
+				for (int i=0; i<myControlCaptures.Count; ++i)
+					myControlCaptures[i].SetTransition(myTransition, entryCount);
+				for (int i=0; i<myMorphCaptures.Count; ++i)
+					myMorphCaptures[i].SetTransition(myTransition, entryCount);
+
+				if (myTransition.Count == entryCount)
+					myTransition.Clear();
+				else
+					myTransition.RemoveRange(0, entryCount-1);
+
+				if (myCurrentState.ExitBeginTrigger != null)
+					myCurrentState.ExitBeginTrigger.Trigger(myTriggerActionsNeedingUpdate);
+				if (myNextState.EnterBeginTrigger != null)
+					myNextState.EnterBeginTrigger.Trigger(myTriggerActionsNeedingUpdate);
+			}
+
+			public void SetRandomTransition()
+			{
+				List<State> states = new List<State>(16);
+				myTransition.Clear();
+				myTransition.Add(myCurrentState);
+				myNextState = null;
+				GatherStates(1, states);
+
+				int i;
+				float sum = 0.0f;
+				for (i=0; i<states.Count; ++i)
+					sum += states[i].myProbability;
+				if (sum == 0.0f)
+					return;
+
+				float threshold = UnityEngine.Random.Range(0.0f, sum);
+				sum = 0.0f;
+				for (i=0; i<states.Count-1; ++i)
+				{
+					sum += states[i].myProbability;
+					if (threshold <= sum)
+						break;
+				}
+				GatherTransition(1, i, 0);
+				SetTransition();
+			}
+			public void SetBlendTransition(State state, bool debug = false)
+			{
+				myTransition.Clear();
+				myTransition.Add(myCurrentState);
+				if (myCurrentState != null)
+				{
+					List<State> states = new List<State>(16);
+					myNextState = null;
+					GatherStates(1, states);
+					List<int> indices = new List<int>(4);
+					for (int i=0; i<states.Count; ++i)
+					{
+						if (states[i] == state)
+							indices.Add(i);
+					}
+					if (indices.Count == 0)
+					{
+						states.Clear();
+						myNextState = state;
+						GatherStates(1, states);
+						for (int i=0; i<states.Count; ++i)
+						{
+							if (states[i] == state)
+								indices.Add(i);
+						}
+					}
+					if (indices.Count > 0)
+					{
+						int selected = UnityEngine.Random.Range(0, indices.Count);
+						GatherTransition(1, indices[selected], 0);
+					}
+				}
+
+				if (myCurrentState == null || debug)
+				{
+					CaptureState(myBlendState);
+					myTransition[0] = myBlendState;				
+					if (myCurrentState != null && myTransition.Count > 1)
+					{
+						myBlendState.myTransitionDuration = myCurrentState.myTransitionDuration;
+						myBlendState.myEaseInDuration = myCurrentState.myEaseInDuration;
+						myBlendState.myEaseOutDuration = myCurrentState.myEaseOutDuration;	
+					}
+					else
+					{
+						myBlendState.myTransitionDuration = DEFAULT_BLEND_DURATION;
+						myBlendState.myEaseInDuration = DEFAULT_EASEIN_DURATION;
+						myBlendState.myEaseOutDuration = DEFAULT_EASEOUT_DURATION;
+					}
+					myBlendState.AssignOutTriggers(myCurrentState);
+					SetState(myBlendState);
+				}
+				
+				if (myTransition.Count == 1) // Did not find transition....fake one
+				{
+					myTransition.Add(state);
+				}
+				
+				SetTransition();
+			}
+			private void GatherStates(int transitionLength, List<State> states)
+			{
+				State source = myTransition[0];
+				State current = myTransition[myTransition.Count-1];
+				for (int i=0; i<current.myTransitions.Count; ++i)
+				{
+					State next = current.myTransitions[i];
+					if (myTransition.Contains(next))
+						continue;
+
+					if (next.IsRegularState || next == myNextState)
+					{
+						if (DoAcceptRegularState(source, next))
+							states.Add(next);
+					}
+					else if (next.IsControlPoint)
+					{
+						if (transitionLength >= MAX_STATES-1)
+							continue;
+						myTransition.Add(next);
+						GatherStates(transitionLength+1, states);
+						myTransition.RemoveAt(myTransition.Count-1);
+					}
+					else // next.IsIntermediate
+					{
+						myTransition.Add(next);
+						GatherStates(1, states);
+						myTransition.RemoveAt(myTransition.Count-1);
+					}
+				}
+			}
+
+			private int GatherTransition(int transitionLength, int selected, int index)
+			{
+				State source = myTransition[0];
+				State current = myTransition[myTransition.Count-1];
+				for (int i=0; i<current.myTransitions.Count; ++i)
+				{
+					State next = current.myTransitions[i];
+					if (myTransition.Contains(next))
+						continue;
+
+					if (next.IsRegularState || next == myNextState)
+					{
+						if (!DoAcceptRegularState(source, next))
+						{
+							continue;
+						}
+						else if (index == selected)
+						{
+							myTransition.Add(next);
+							return -1;
+						}
+						else
+						{
+							++index;
+						}
+					}
+					else if (next.IsControlPoint)
+					{
+						if (transitionLength >= MAX_STATES-1)
+							continue;
+						myTransition.Add(next);
+						index = GatherTransition(transitionLength+1, selected, index);
+						if (index == -1)
+							return -1;
+						myTransition.RemoveAt(myTransition.Count-1);
+					}
+					else // next.IsIntermediate
+					{
+						myTransition.Add(next);
+						index = GatherTransition(1, selected, index);
+						if (index == -1)
+							return -1;
+						myTransition.RemoveAt(myTransition.Count-1);
+					}
+				}
+				return index;
+			}
+			private bool DoAcceptRegularState(State source, State next, bool debugMode = false)
+			{
+				if (next == myNextState && !debugMode)
+					return true;
+				if (next.myProbability < 0.01f)
+					return false;
+				if (source.myStateGroup == 0 || source.myStateGroup != next.myStateGroup)
+					return true;
+				
+				// in-group transition: source.myStateGroup == next.myStateGroup
+				if (!source.myAllowInGroupTransition || !next.myAllowInGroupTransition)
+					return false;	
+
+				List<State> transition = debugMode ? myDebugTransition : myTransition;
+				for (int t=1; t<transition.Count; ++t)
+				{
+					if (!transition[t].myAllowInGroupTransition)
+						return false;
+				}
+				
+				return true;
+			}
+
+			private void BlendToRandomState(float duration)
+			{
+				List<State> possible = new List<State>(myStates.Count);
+				foreach (var state in myStates)
+				{
+					if (state.Value.IsRegularState)
+						possible.Add(state.Value);
+				}
+				int idx = UnityEngine.Random.Range(0, possible.Count);
+
+				CaptureState(myBlendState);
+				myTransition.Clear();
+				myTransition.Add(myBlendState);
+				myTransition.Add(possible[idx]);
+
+				myBlendState.AssignOutTriggers(myCurrentState);
+				SetState(myBlendState);
+				SetTransition(duration);
+			}
+			public void TriggerSyncAction()
+			{
+				if (myCurrentState != null && myNextState == null
+				&& myClock >= myDuration && !myCurrentState.myWaitInfiniteDuration
+				&& myCurrentState.myWaitForSync && !myPaused)
+				{
+					if (myTransition.Count == 0)
+						SetRandomTransition();
+					else
+						SetTransition();
+				}
+			}
 		}
 
 		private class State
@@ -1187,7 +1758,6 @@ namespace MacGruber
 			public bool IsRegularState { get { return myStateType == STATETYPE_REGULARSTATE; } }
 			public bool IsControlPoint { get { return myStateType == STATETYPE_CONTROLPOINT; } }
 			public bool IsIntermediate { get { return myStateType == STATETYPE_INTERMEDIATE; } }
-			public uint StateMask { get { return 1u << myStateGroup; } }
 
 			private State(string name)
 			{

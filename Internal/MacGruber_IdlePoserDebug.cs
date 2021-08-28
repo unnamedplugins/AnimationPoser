@@ -21,7 +21,7 @@ namespace MacGruber
 		private Color32[] myDebugLineColorsBuffer;
 		private List<int> myDebugLineIndices;
 		private int[] myDebugLineIndicesBuffer;
-		private List<State> myDebugTransition;
+		private static List<State> myDebugTransition;
 		private HashSet<ulong> myDebugPathHashes;
 		private HashSet<uint> myDebugTransitionHashes;
 		private Vector3[] myDebugLinePositions;
@@ -116,7 +116,7 @@ namespace MacGruber
 			{
 				if (!myPaused || myNextState != null || myTransition.Count > 0 || myPlayMode)
 				{
-					foreach (var s in myCurrentAnimation.myStates)
+					foreach (var s in myCurrentLayer.myStates)
 					{
 						State state = s.Value;
 						if (state == myCurrentState || myCurrentTransition.Contains(state))
@@ -140,7 +140,7 @@ namespace MacGruber
 				if (myNextState != null)
 				{
 					myPlayInfoBuilder.Append("Current Transition:\n  ");
-					myPlayInfoBuilder.AppendFormat("{0:N2}", myClock).Append(" / ").AppendFormat("{0:N2}", myDuration);
+					myPlayInfoBuilder.AppendFormat("{0:N2}", myCurrentLayer.myClock).Append(" / ").AppendFormat("{0:N2}", myCurrentLayer.myDuration);
 					myPlayInfoBuilder.Append("\n  ").Append(myCurrentTransition[0].myName);
 					for (int i=1; i<myCurrentTransition.Count; ++i)
 						myPlayInfoBuilder.Append("\n  => ").Append(myCurrentTransition[i].myName);
@@ -152,10 +152,10 @@ namespace MacGruber
 					{
 						if (myCurrentState.myWaitInfiniteDuration)
 							myPlayInfoBuilder.AppendFormat("Infinite");
-						else if (myClock >= myDuration && myCurrentState.myWaitForSync)
+						else if (myCurrentLayer.myClock >= myCurrentLayer.myDuration && myCurrentState.myWaitForSync)
 							myPlayInfoBuilder.AppendFormat("Waiting for TriggerSync");
 						else
-							myPlayInfoBuilder.AppendFormat("{0:N2}", myClock).Append(" / ").AppendFormat("{0:N2}", myDuration);
+							myPlayInfoBuilder.AppendFormat("{0:N2}", myCurrentLayer.myClock).Append(" / ").AppendFormat("{0:N2}", myCurrentLayer.myDuration);
 						myPlayInfoBuilder.Append("\n  ");
 						myPlayInfoBuilder.Append(myCurrentState.myName);
 					}
@@ -167,20 +167,6 @@ namespace MacGruber
 				
 				myPlayInfoBuilder.Append("\n\n");
 				
-				if (myStateMask == 0)
-				{
-					myPlayInfoBuilder.Append("StateMask:\n  Clear");
-				}
-				else
-				{
-					myPlayInfoBuilder.Append("StateMask:\n  ");
-					for (int i=0; i<8; ++i)
-					{
-						if ((myStateMask & (1u << (i+1))) != 0)
-							myPlayInfoBuilder.Append((char)('A' + i));
-					}
-				}
-
 				myPlayInfo.val = myPlayInfoBuilder.ToString();
 			}
 		}
@@ -190,7 +176,7 @@ namespace MacGruber
 			// update sphere positions
 			int sphereIndex = 0;
 			Matrix4x4 matrix = Matrix4x4.identity;
-			foreach (var s in myCurrentAnimation.myStates)
+			foreach (var s in myCurrentLayer.myStates)
 			{
 				State state = s.Value;
 				int stateType = state.myStateType;
@@ -233,7 +219,7 @@ namespace MacGruber
 			myDebugTransitionHashes.Clear();
 						
 			uint index = 0;
-			foreach (var s in myCurrentAnimation.myStates)
+			foreach (var s in myCurrentLayer.myStates)
 				s.Value.myDebugIndex = index++;
 				
 			if (myDebugShowTransitions.val)
@@ -241,12 +227,12 @@ namespace MacGruber
 				if (myDebugShowSelectedOnly.val)
 				{
 					State source;
-					if (myCurrentAnimation.myStates.TryGetValue(myMainState.val, out source) && source != null)
+					if (myCurrentLayer.myStates.TryGetValue(myMainState.val, out source) && source != null)
 						DebugGatherTransitionsForState(source);
 				}
 				else
 				{
-					foreach (var s in myCurrentAnimation.myStates)
+					foreach (var s in myCurrentLayer.myStates)
 					{
 						State state = s.Value;
 						DebugGatherTransitionsForState(state);
@@ -254,7 +240,7 @@ namespace MacGruber
 				}
 			}
 			
-			foreach (var s in myCurrentAnimation.myStates)
+			foreach (var s in myCurrentLayer.myStates)
 			{
 				State state = s.Value;
 				if (state.IsControlPoint)
@@ -311,8 +297,8 @@ namespace MacGruber
 				}
 				else
 				{
-					if (next.IsRegularState && !DoAcceptRegularState(source, next, true))
-						continue;
+					// if (next.IsRegularState && !DoAcceptRegularState(source, next, true))
+					// 	continue;
 						
 					if (myDebugShowSelectedOnly.val && next != selectedState)
 					{
