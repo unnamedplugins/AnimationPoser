@@ -60,7 +60,8 @@ namespace MacGruber
 		private readonly List<string> myAnchorModes = new List<string>() {
 			"World",
 			"Single Anchor",
-			"Blend Anchor"
+			"Blend Anchor",
+			"Relative"
 		};
 
 		private const string FILE_EXTENSION = "idlepose";

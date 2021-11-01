@@ -1202,7 +1202,7 @@ namespace MacGruber
 							continue;
 
 						JSONClass ceclass = celist[ccname].AsObject;
-						ControlEntryAnchored ce = new ControlEntryAnchored(this, ccname);
+						ControlEntryAnchored ce = new ControlEntryAnchored(this, ccname, cc);
 						ce.myAnchorOffset.myPosition.x = ceclass["PX"].AsFloat;
 						ce.myAnchorOffset.myPosition.y = ceclass["PY"].AsFloat;
 						ce.myAnchorOffset.myPosition.z = ceclass["PZ"].AsFloat;
@@ -1795,7 +1795,7 @@ namespace MacGruber
 		{
 			public string myName;
 			private IdlePoser myPlugin;
-			private Transform myTransform;
+			public Transform myTransform;
 			private ControlEntryAnchored[] myTransition = new ControlEntryAnchored[MAX_STATES];
 			private int myEntryCount = 0;
 			public bool myApplyPosition = true;
@@ -1818,7 +1818,7 @@ namespace MacGruber
 				ControlEntryAnchored entry;
 				if (!state.myControlEntries.TryGetValue(this, out entry))
 				{
-					entry = new ControlEntryAnchored(myPlugin, myName);
+					entry = new ControlEntryAnchored(myPlugin, myName, this);
 					entry.Initialize();
 					state.myControlEntries[this] = entry;
 				}
@@ -2013,6 +2013,7 @@ namespace MacGruber
 			public const int ANCHORMODE_WORLD = 0;
 			public const int ANCHORMODE_SINGLE = 1;
 			public const int ANCHORMODE_BLEND = 2;
+			public const int ANCHORMODE_RELATIVE = 3;
 
 			public ControlEntry myEntry;
 			public ControlEntry myAnchorOffset;
@@ -2026,8 +2027,9 @@ namespace MacGruber
 			public string myAnchorBAtom;
 			public string myAnchorAControl = "control";
 			public string myAnchorBControl = "control";
+			public ControlCapture myControlCapture;
 			
-			public ControlEntryAnchored(IdlePoser plugin, string control)
+			public ControlEntryAnchored(IdlePoser plugin, string control, ControlCapture controlCapture)
 			{
 				Atom containingAtom = plugin.GetContainingAtom();
 				if (plugin.myOptionsDefaultToWorldAnchor.val || containingAtom.type != "Person")
@@ -2036,6 +2038,7 @@ namespace MacGruber
 					myAnchorAAtom = myAnchorBAtom = containingAtom.parentAtom.uid;
 				else
 					myAnchorAAtom = myAnchorBAtom = containingAtom.uid;
+				myControlCapture = controlCapture;
 			}
 
 			public void Initialize()
@@ -2096,6 +2099,15 @@ namespace MacGruber
 							return;
 						anchor.myPosition = myAnchorATransform.position;
 						anchor.myRotation = myAnchorATransform.rotation;
+					} else if (myAnchorMode == ANCHORMODE_RELATIVE) {
+						List<string> states = myCurrentLayer.myStates.Keys.ToList();
+						states.Sort();
+						State state;
+						myCurrentLayer.myStates.TryGetValue(states[0], out state);
+						ControlCapture cc = state.myControlEntries.Keys.ToList().Find(ccx => ccx.myName == myControlCapture.myName);
+						ControlEntry ce = state.myControlEntries[cc].myEntry;
+						anchor.myPosition = ce.myPosition;
+						anchor.myRotation = ce.myRotation;
 					}
 					else
 					{
@@ -2139,6 +2151,15 @@ namespace MacGruber
 							return;
 						root.myPosition = myAnchorATransform.position;
 						root.myRotation = myAnchorATransform.rotation;
+					} else if (myAnchorMode == ANCHORMODE_RELATIVE) {
+						List<string> states = myCurrentLayer.myStates.Keys.ToList();
+						states.Sort();
+						State state;
+						myCurrentLayer.myStates.TryGetValue(states[0], out state);
+						ControlCapture cc = state.myControlEntries.Keys.ToList().Find(ccx => ccx.myName == myControlCapture.myName);
+						ControlEntry ce = state.myControlEntries[cc].myEntry;
+						root.myPosition = ce.myPosition;
+						root.myRotation = ce.myRotation;
 					}
 					else
 					{
