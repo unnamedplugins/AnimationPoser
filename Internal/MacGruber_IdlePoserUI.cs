@@ -150,7 +150,6 @@ namespace MacGruber
 			myDebugShowTransitions.setCallbackFunction += DebugSwitchShowCurves;
 			myDebugShowSelectedOnly = new JSONStorableBool("Draw Selected Only", false);
 
-			CreateMainUI();
 			UIRefreshMenu();
 		}
 
@@ -379,6 +378,8 @@ namespace MacGruber
 
 		private void UIRefreshMenu()
 		{
+			CleanupMenu();
+			CreateMainUI();
 			myIsFullRefresh = false;
 			UISelectMenu(myMenuItem);
 			myIsFullRefresh = true;
@@ -399,7 +400,7 @@ namespace MacGruber
 			myMainLayer.popup.visible = false;
 			myMainState.popup.visible = true; // Workaround for PopupPanel appearing behind other UI for some reason
 			myMainState.popup.visible = false;
-			CleanupMenu();
+			// CleanupMenu();
 
 			List<string> animations = new List<string>();
 			foreach (var animation in myAnimations)
@@ -558,6 +559,7 @@ namespace MacGruber
 				myDataFile.SetFilePath(BASE_DIRECTORY+"/");
 				myDataFile.RegisterFileBrowseButton(button.button);
 				myDataFile.setCallbackFunction += UILoadAnimationsJSON;
+				myMenuElements.Add(button);
 
 				CreateMenuButton("Save As", UISaveAnimationsJSONDialog, false);
 			}
@@ -570,6 +572,7 @@ namespace MacGruber
 				myLayerFile.SetFilePath(BASE_DIRECTORY+"/");
 				myLayerFile.RegisterFileBrowseButton(button.button);
 				myLayerFile.setCallbackFunction += UILoadJSON;
+				myMenuElements.Add(button);
 
 				CreateMenuButton("Save Layer As", UISaveJSONDialog, false);
 			}
@@ -628,18 +631,21 @@ namespace MacGruber
 
 				Transform t = CreateUIElement(tabbarPrefab.transform, false);
 				myMenuTabBar = t.gameObject.GetComponent<UIDynamicTabBar>();
+				myMenuElements.Add(myMenuTabBar);
 				for (int i=0; i<myMenuTabBar.buttons.Count; ++i)
 				{
 					int menuItem = i;
-					myMenuTabBar.buttons[i].onClick.AddListener(() => UISelectMenu(menuItem));
+					myMenuTabBar.buttons[i].onClick.AddListener(
+						() => {myMenuItem = menuItem; UIRefreshMenu();} //UISelectMenu(menuItem)
+					);
 				}
 
 				Destroy(tabbarPrefab);
 			}
 
-			CreateMenuSpacer(680, true);
+			CreateMenuSpacer(780, true);
 
-			myMenuElements.Clear();
+			// myMenuElements.Clear();
 		}
 
 		private void CreatePlayMenu()
@@ -1164,6 +1170,15 @@ namespace MacGruber
 		private void CreateAnimationsMenu()
 		{
 			CreateMenuInfoOneLine("<size=30><b>Manage Animations</b></size>", false);
+
+			CreateMenuSpacer(132, true);
+			String animationName = "";
+			if(myCurrentAnimation != null)
+				animationName = myCurrentAnimation.myName;
+			JSONStorableString name = new JSONStorableString("Animation Name",
+				animationName, UIRenameAnimation);
+			CreateMenuTextInput("Animation Name", name, false);
+
 			CreateMenuButton("Add Animation", UIAddAnimation, false);
 			// State state;
 			// if (!myStates.TryGetValue(myMainState.val, out state))
@@ -1267,6 +1282,16 @@ namespace MacGruber
 		private void CreateLayersMenu()
 		{
 			CreateMenuInfoOneLine("<size=30><b>Manage Layers</b></size>", false);
+
+			String layerName = "";
+			if(myCurrentLayer != null)
+				layerName = myCurrentLayer.myName;
+			JSONStorableString name = new JSONStorableString("Layer Name",
+				layerName, UIRenameLayer);
+
+			CreateMenuTextInput("Layer Name", name, false);
+
+
 			CreateMenuButton("Add Layer", UIAddLayer, false);
 			CreateMenuButton("Remove Layer", UIRemoveLayer, false);
 		}
@@ -1666,6 +1691,42 @@ namespace MacGruber
 			state.ExitBeginTrigger.Remove();
 			state.ExitEndTrigger.Remove();
 
+			UIRefreshMenu();
+		}
+
+		private void UIRenameAnimation(string name)
+		{
+			if (myCurrentAnimation == null)
+				return;
+			if (myCurrentAnimation.myName == name)
+				return;
+
+			myAnimations.Remove(myCurrentAnimation.myName);
+
+			// int altIndex = 2;
+			// string baseName = name;
+			// while (myCurrentLayer.myStates.ContainsKey(name))
+			// {
+			// 	name = baseName + "#" + altIndex;
+			// 	++altIndex;
+			// }
+
+			myAnimations.Add(name, myCurrentAnimation);
+			myCurrentAnimation.myName = name;
+			UIRefreshMenu();
+		}
+
+		private void UIRenameLayer(string name)
+		{
+			if (myCurrentLayer == null)
+				return;
+			if (myCurrentLayer.myName == name)
+				return;
+
+			myCurrentAnimation.myLayers.Remove(myCurrentLayer.myName);
+
+			myCurrentAnimation.myLayers.Add(name, myCurrentLayer);
+			myCurrentLayer.myName = name;
 			UIRefreshMenu();
 		}
 
