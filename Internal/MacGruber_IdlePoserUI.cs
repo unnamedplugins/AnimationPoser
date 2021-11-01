@@ -380,7 +380,7 @@ namespace MacGruber
 		{
 			CleanupMenu();
 			CreateMainUI();
-			myIsFullRefresh = false;
+			// myIsFullRefresh = false;
 			UISelectMenu(myMenuItem);
 			myIsFullRefresh = true;
 		}
