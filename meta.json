@@ -1,0 +1,16 @@
+{ 
+   "licenseType" : "CC BY-SA", 
+   "creatorName" : "AcidBubbles", 
+   "packageName" : "ColliderEditor", 
+   "includeVersionsInReferences" : "true", 
+   "description" : "v2.2.4 Configures and customizes collisions (rigidbodies and colliders)", 
+   "credits" : "ProjectCanyon who rewrote the whole thing in a much better way", 
+   "instructions" : "", 
+   "promotionalLink" : "https://github.com/haremlife/AnimationPoser", 
+   "programVersion" : "1.1.1.0", 
+   "contentList" : [ 
+      "Custom\\Scripts\\HaremLife\\AnimationPoser\\AnimationPoser.cs"
+   ], 
+   "dependencies" : { 
+   }
+}
