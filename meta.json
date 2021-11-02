@@ -1,16 +1,23 @@
 { 
-   "licenseType" : "CC BY-SA", 
-   "creatorName" : "AcidBubbles", 
-   "packageName" : "ColliderEditor", 
-   "includeVersionsInReferences" : "true", 
-   "description" : "v2.2.4 Configures and customizes collisions (rigidbodies and colliders)", 
-   "credits" : "ProjectCanyon who rewrote the whole thing in a much better way", 
+   "licenseType" : "CC BY", 
+   "creatorName" : "HaremLife", 
+   "packageName" : "AnimationPoser", 
+   "standardReferenceVersionOption" : "Latest", 
+   "scriptReferenceVersionOption" : "Exact", 
+   "description" : "The most powerful animation plugin with random capabilities to date!", 
+   "credits" : "MacGruber did 95% of the work, since this is a simple fork of the IdlePoser plugin!", 
    "instructions" : "", 
    "promotionalLink" : "https://github.com/haremlife/AnimationPoser", 
-   "programVersion" : "1.1.1.0", 
+   "programVersion" : "1.20.77.3", 
    "contentList" : [ 
-      "Custom\\Scripts\\HaremLife\\AnimationPoser\\AnimationPoser.cs"
+      "Custom/Scripts/HaremLife/AnimationPoser"
    ], 
    "dependencies" : { 
-   }
+   }, 
+   "customOptions" : { 
+      "preloadMorphs" : "false"
+   }, 
+   "hadReferenceIssues" : "false", 
+   "referenceIssues" : [ 
+   ]
 }
