@@ -5,9 +5,9 @@ using System;
 using System.Text;
 using System.Collections.Generic;
 
-namespace MacGruber
+namespace HaremLife
 {
-	public partial class IdlePoser : MVRScript
+	public partial class AnimationPoser : MVRScript
 	{
 		private StringBuilder myPlayInfoBuilder;
 
@@ -23,7 +23,7 @@ namespace MacGruber
 		private int[] myDebugLineIndicesBuffer;
 		private static List<State> myDebugTransition;
 		private HashSet<ulong> myDebugPathHashes;
-		private HashSet<uint> myDebugTransitionHashes;
+		private static HashSet<uint> myDebugTransitionHashes;
 		private Vector3[] myDebugLinePositions;
 		private Vector3[] myDebugLineTempA;
 		private Vector3[] myDebugLineTempB;
@@ -46,6 +46,8 @@ namespace MacGruber
 				InitDebugCurves();
 			else if (!enabled && myDebugCurvesActive)
 				DestroyDebugCurves();
+
+			UIRefreshMenu();
 		}
 
 		private void InitDebugCurves()
@@ -76,13 +78,13 @@ namespace MacGruber
 			myDebugStateSphereMaterialPrefab = new Material(sphereShader);
 			myDebugStateSphereMaterialPrefab.color = Color.white;
 			myDebugStateSphereMaterialPrefab.renderQueue = 3006;
-			
+
 			myDebugStateSphereMaterials = new List<Material>();
 			myDebugCurvesActive = true;
-		}		
+		}
 
 		private void DestroyDebugCurves()
-		{		
+		{
 			if (!myDebugCurvesActive)
 				return;
 			myDebugCurvesActive = false;
@@ -125,13 +127,13 @@ namespace MacGruber
 							myControlCaptures[i].UpdateState(state);
 					}
 				}
-				
+
 				DebugUpdateLines();
 				DebugUpdateSpheres();
 			}
 
 			if (myDebugShowInfo.val)
-			{				
+			{
 				if (myPlayInfoBuilder == null)
 					myPlayInfoBuilder = new StringBuilder();
 				else
@@ -140,7 +142,7 @@ namespace MacGruber
 				if (myNextState != null)
 				{
 					myPlayInfoBuilder.Append("Current Transition:\n  ");
-					myPlayInfoBuilder.AppendFormat("{0:N2}", myCurrentLayer.myClock).Append(" / ").AppendFormat("{0:N2}", myCurrentLayer.myDuration);
+					myPlayInfoBuilder.AppendFormat("{0:N2}", myClock).Append(" / ").AppendFormat("{0:N2}", myDuration);
 					myPlayInfoBuilder.Append("\n  ").Append(myCurrentTransition[0].myName);
 					for (int i=1; i<myCurrentTransition.Count; ++i)
 						myPlayInfoBuilder.Append("\n  => ").Append(myCurrentTransition[i].myName);
@@ -150,12 +152,14 @@ namespace MacGruber
 					myPlayInfoBuilder.Append("Current State:\n  ");
 					if (myCurrentState != null)
 					{
-						if (myCurrentState.myWaitInfiniteDuration)
+						if (myNoValidTransition)
+							myPlayInfoBuilder.AppendFormat("No valid transition");
+						else if (myCurrentState.myWaitInfiniteDuration)
 							myPlayInfoBuilder.AppendFormat("Infinite");
-						else if (myCurrentLayer.myClock >= myCurrentLayer.myDuration && myCurrentState.myWaitForSync)
+						else if (myClock >= myDuration && myCurrentState.myWaitForSync)
 							myPlayInfoBuilder.AppendFormat("Waiting for TriggerSync");
 						else
-							myPlayInfoBuilder.AppendFormat("{0:N2}", myCurrentLayer.myClock).Append(" / ").AppendFormat("{0:N2}", myCurrentLayer.myDuration);
+							myPlayInfoBuilder.AppendFormat("{0:N2}", myClock).Append(" / ").AppendFormat("{0:N2}", myDuration);
 						myPlayInfoBuilder.Append("\n  ");
 						myPlayInfoBuilder.Append(myCurrentState.myName);
 					}
@@ -164,9 +168,23 @@ namespace MacGruber
 						myPlayInfoBuilder.Append("NULL");
 					}
 				}
-				
+
 				myPlayInfoBuilder.Append("\n\n");
-				
+
+				if (myStateMask == 0)
+				{
+					myPlayInfoBuilder.Append("StateMask:\n  Clear");
+				}
+				else
+				{
+					myPlayInfoBuilder.Append("StateMask:\n  ");
+					for (int i=0; i<8; ++i)
+					{
+						if ((myStateMask & (1u << (i+1))) != 0)
+							myPlayInfoBuilder.Append((char)('A' + i));
+					}
+				}
+
 				myPlayInfo.val = myPlayInfoBuilder.ToString();
 			}
 		}
@@ -196,7 +214,7 @@ namespace MacGruber
 					material.color = DebugGetStateColor(state);
 					Vector3 position = ce.myEntry.myPosition;
 					Vector3 localScale = state.IsControlPoint ? DEBUG_CUBE_CONTROL_VECTOR : DEBUG_CUBE_REGULAR_VECTOR;
-					matrix.SetTRS(position, Quaternion.identity, localScale);					
+					matrix.SetTRS(position, Quaternion.identity, localScale);
 					Graphics.DrawMesh(myDebugSphereMesh, matrix, material, gameObject.layer, null, 0, null, castShadows: false, receiveShadows: false);
 				}
 			}
@@ -217,11 +235,11 @@ namespace MacGruber
 			myDebugLineIndices.Clear();
 			myDebugPathHashes.Clear();
 			myDebugTransitionHashes.Clear();
-						
+
 			uint index = 0;
 			foreach (var s in myCurrentLayer.myStates)
 				s.Value.myDebugIndex = index++;
-				
+
 			if (myDebugShowTransitions.val)
 			{
 				if (myDebugShowSelectedOnly.val)
@@ -233,13 +251,10 @@ namespace MacGruber
 				else
 				{
 					foreach (var s in myCurrentLayer.myStates)
-					{
-						State state = s.Value;
-						DebugGatherTransitionsForState(state);
-					}
+						DebugGatherTransitionsForState(s.Value);
 				}
 			}
-			
+
 			foreach (var s in myCurrentLayer.myStates)
 			{
 				State state = s.Value;
@@ -297,9 +312,9 @@ namespace MacGruber
 				}
 				else
 				{
-					// if (next.IsRegularState && !DoAcceptRegularState(source, next, true))
-					// 	continue;
-						
+					if (next.IsRegularState && !myCurrentLayer.DoAcceptRegularState(source, next, true))
+						continue;
+
 					if (myDebugShowSelectedOnly.val && next != selectedState)
 					{
 						bool foundSelected = false;
@@ -321,7 +336,7 @@ namespace MacGruber
 		{
 			if (!myDebugShowPaths.val)
 				return;
-			
+
 			ulong hash = 0;
 			int entryCount = myDebugTransition.Count;
 			if (myDebugTransition[0].myDebugIndex < myDebugTransition[entryCount-1].myDebugIndex)
@@ -334,10 +349,10 @@ namespace MacGruber
 				for (int i=entryCount-1; i>=0; --i)
 					hash = (hash << 10) | (myDebugTransition[i].myDebugIndex & 0x3FF);
 			}
-			
+
 			if (!myDebugPathHashes.Add(hash))
 				return;
-				
+
 
 			int numSamples = DISTANCE_SAMPLES[entryCount];
 			int numLines = numSamples + 1;
@@ -416,27 +431,27 @@ namespace MacGruber
 		{
 			if (!myDebugShowTransitions.val || !myDebugShowSelectedOnly.val)
 				return;
-			
+
 			for (int t=0; t<myDebugTransition.Count-1; ++t)
-			{		
+			{
 				State source = myDebugTransition[t];
 				State target = myDebugTransition[t+1];
 				DebugGatherTransition(source, target);
 			}
 		}
-		
+
 		private void DebugGatherTransitionsForState(State source)
 		{
 			if (source == null)
 				return;
-				
+
 			for (int i=0; i<source.myTransitions.Count; ++i)
 			{
 				State target = source.myTransitions[i];
 				DebugGatherTransition(source, target);
 			}
 		}
-		
+
 		private void DebugGatherTransition(State source, State target)
 		{
 			uint hash = source.myDebugIndex & 0x3FF;
@@ -445,11 +460,11 @@ namespace MacGruber
 				hash = (hash << 10) | hash2;
 			else
 				hash = (hash2 << 10) | hash;
-				
+
 			if (!myDebugTransitionHashes.Add(hash))
 				return;
-				
-			bool oneWay = !target.myTransitions.Contains(source);				
+
+			bool oneWay = !target.myTransitions.Contains(source);
 			Color32 color = oneWay ? DEBUG_TRANSITION_ONEWAY_COLOR : DEBUG_TRANSITION_COLOR;
 
 			for (int j=0; j<myControlCaptures.Count; ++j)
@@ -470,6 +485,40 @@ namespace MacGruber
 				myDebugLineIndices.Add(vertex);
 				myDebugLineIndices.Add(vertex+1);
 			}
+		}
+
+		private void DebugLogStats()
+		{
+			int regularStates = 0;
+			int controlPoints = 0;
+			int intermediatePoints = 0;
+			int transitions = 0;
+
+			foreach (var s in myCurrentLayer.myStates)
+			{
+				State state = s.Value;
+				if (state.IsRegularState)
+					++regularStates;
+				else if (state.IsControlPoint)
+					++controlPoints;
+				else if (state.IsIntermediate)
+					++intermediatePoints;
+
+				transitions += state.myTransitions.Count;
+			}
+
+			StringBuilder builder = new StringBuilder();
+			builder.Append("AnimationPoser: ").Append(containingAtom.name);
+			if (!string.IsNullOrEmpty(pluginLabelJSON.val))
+				builder.Append(" / ").Append(pluginLabelJSON.val);
+			builder.Append("\n");
+			builder.Append("    ").Append(myDebugPathHashes.Count).Append(" Paths\n");
+			builder.Append("    ").Append(transitions).Append(" Transitions\n");
+			builder.Append("    ").Append(regularStates).Append(" RegularStates\n");
+			builder.Append("    ").Append(controlPoints).Append(" ControlPoints\n");
+			builder.Append("    ").Append(intermediatePoints).Append(" IntermediatePoints");
+
+			SuperController.LogMessage(builder.ToString());
 		}
 
 		private static Color32 DebugGetStateColor(State state)
