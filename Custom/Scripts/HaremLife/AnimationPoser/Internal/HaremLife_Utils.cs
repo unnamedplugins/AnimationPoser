@@ -21,7 +21,7 @@ using Request = MeshVR.AssetLoader.AssetBundleFromFileRequest;
 using AssetBundles;
 using SimpleJSON;
 
-namespace cdgczta8
+namespace HaremLife
 {
     public static class Utils
     {
