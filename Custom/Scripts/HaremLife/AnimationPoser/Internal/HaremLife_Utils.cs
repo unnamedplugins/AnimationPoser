@@ -1,7 +1,9 @@
 ﻿/* /////////////////////////////////////////////////////////////////////////////////////////////////
-Utils 2021-01-16 by MacGruber
+Utils 2021-03-13 by MacGruber
+Updated by HaremLife, cdgczta8
 Collection of various utility functions.
 https://www.patreon.com/MacGruber_Laboratory
+https://github.com/haremlife/AnimationPoser
 
 Licensed under CC BY-SA after EarlyAccess ended. (see https://creativecommons.org/licenses/by-sa/4.0/)
 
@@ -19,7 +21,7 @@ using Request = MeshVR.AssetLoader.AssetBundleFromFileRequest;
 using AssetBundles;
 using SimpleJSON;
 
-namespace MacGruber
+namespace cdgczta8
 {
     public static class Utils
     {
@@ -440,7 +442,7 @@ namespace MacGruber
 		public static UIDynamicTextInfo SetupInfoTextNoScroll(MVRScript script, JSONStorableString storable, float height, bool rightSide)
 		{
 			UIDynamicTextInfo uid = SetupInfoTextNoScroll(script, storable.val, height, rightSide);
-			storable.setCallbackFunction = (string text) => { 
+			storable.setCallbackFunction = (string text) => {
 				if (uid != null && uid.text != null)
 					uid.text.text = text;
 			};
@@ -453,7 +455,7 @@ namespace MacGruber
 			uid.background.offsetMin = new Vector2(0, 0);
 			return uid;
 		}
-		
+
 		public static UIDynamicTextInfo SetupInfoOneLine(MVRScript script, JSONStorableString storable, bool rightSide)
 		{
 			UIDynamicTextInfo uid = SetupInfoTextNoScroll(script, storable, 35, rightSide);
@@ -485,7 +487,7 @@ namespace MacGruber
 				buttonTransform.anchorMax = new Vector2(0.5f, 1.0f);
 				buttonTransform.anchorMin = new Vector2(0.0f, 0.0f);
 				buttonTransform.offsetMax = new Vector2(-3, 0);
-				buttonTransform.offsetMin = new Vector2(0, -10);
+				buttonTransform.offsetMin = new Vector2(0, 0);
 				Button buttonLeft = buttonTransform.GetComponent<Button>();
 				Text labelLeft = buttonTransform.Find("Text").GetComponent<Text>();
 
@@ -494,7 +496,7 @@ namespace MacGruber
 				buttonTransform.anchorMax = new Vector2(1.0f, 1.0f);
 				buttonTransform.anchorMin = new Vector2(0.5f, 0.0f);
 				buttonTransform.offsetMax = new Vector2(0, 0);
-				buttonTransform.offsetMin = new Vector2(3, -10);
+				buttonTransform.offsetMin = new Vector2(3, 0);
 				Button buttonRight = buttonTransform.GetComponent<Button>();
 				Text labelRight = buttonTransform.Find("Text").GetComponent<Text>();
 
@@ -520,8 +522,10 @@ namespace MacGruber
 		// Call to remove a list of UI elements before rebuilding your UI.
 		public static void RemoveUIElements(MVRScript script, List<object> menuElements)
 		{
+      // SuperController.LogMessage("Cleaning up " + menuElements.Count + " menu elements.");
 			for (int i=0; i<menuElements.Count; ++i)
 			{
+  			// SuperController.LogMessage("Cleaning up menu element " + menuElements[i]);
 				if (menuElements[i] is JSONStorableParam)
 				{
 					JSONStorableParam jsp = menuElements[i] as JSONStorableParam;
@@ -904,6 +908,17 @@ namespace MacGruber
 			handler = SimpleTriggerHandler.Instance;
 		}
 
+		public CustomTrigger(CustomTrigger other)
+		{
+			Name = other.Name;
+			SecondaryName = other.SecondaryName;
+			Owner = other.Owner;
+			handler = SimpleTriggerHandler.Instance;
+
+			JSONClass jc = other.GetJSON(Owner.subScenePrefix);
+			base.RestoreFromJSON(jc, Owner.subScenePrefix, false);
+		}
+
 		public void OpenPanel()
 		{
 			if (!SimpleTriggerHandler.Loaded)
@@ -953,6 +968,11 @@ namespace MacGruber
 		{
 		}
 
+		public EventTrigger(EventTrigger other)
+			: base(other)
+		{
+		}
+
 		protected override void InitPanel()
 		{
 			Transform content = triggerActionsPanel.Find("Content");
@@ -983,6 +1003,11 @@ namespace MacGruber
 	{
 		public FloatTrigger(MVRScript owner, string name, string secondary = null)
 			: base(owner, name, secondary)
+		{
+		}
+
+		public FloatTrigger(FloatTrigger other)
+			: base(other)
 		{
 		}
 
