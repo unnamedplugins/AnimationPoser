@@ -219,7 +219,7 @@ namespace HaremLife
 			SetAnimation(animation);
 
 			List<string> layers = myCurrentAnimation.myLayers.Keys.ToList();
-			// myPlayPaused.val = true;
+			myPlayPaused.val = true;
 			layers.Sort();
 			if(layers.Count > 0) {
 				Layer layer;
@@ -237,7 +237,7 @@ namespace HaremLife
 					}
 				}
 			}
-			// myPlayPaused.val = false;
+			myPlayPaused.val = false;
 			// SuperController.LogMessage("****** Base.SwitchAnimationAction End ******");
 		}
 
