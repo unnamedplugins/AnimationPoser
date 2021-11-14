@@ -211,6 +211,8 @@ namespace HaremLife
 		private void SwitchAnimationAction(string v)
 		{
 			// SuperController.LogMessage("****** Base.SwitchAnimationAction ******");
+			bool initPlayPaused = myPlayPaused.val;
+			myPlayPaused.val = true;
 			mySwitchAnimation.valNoCallback = string.Empty;
 
 			Animation animation;
@@ -219,7 +221,6 @@ namespace HaremLife
 			SetAnimation(animation);
 
 			List<string> layers = myCurrentAnimation.myLayers.Keys.ToList();
-			myPlayPaused.val = true;
 			layers.Sort();
 			if(layers.Count > 0) {
 				Layer layer;
@@ -233,11 +234,12 @@ namespace HaremLife
 						State state;
 						layer.myStates.TryGetValue(states[0], out state);
 						// SuperController.LogMessage("Base.SwitchAnimationAction: setting state " + state.myName);
-						layer.SetBlendTransition(state);
+						// layer.SetBlendTransition(state);
+						layer.SetState(state);
 					}
 				}
 			}
-			myPlayPaused.val = false;
+			myPlayPaused.val = initPlayPaused;
 			// SuperController.LogMessage("****** Base.SwitchAnimationAction End ******");
 		}
 
