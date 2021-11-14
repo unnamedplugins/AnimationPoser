@@ -472,7 +472,7 @@ namespace HaremLife
 			// save info
 			JSONClass info = new JSONClass();
 			info["Format"] = "MacGruber.Life.IdlePoser";
-			info["Version"].AsInt = 7;
+			info["Version"].AsInt = 9;
 			string creatorName = UserPreferences.singleton.creatorName;
 			if (string.IsNullOrEmpty(creatorName))
 				creatorName = "Unknown";
@@ -536,13 +536,12 @@ namespace HaremLife
 
 		private JSONClass SaveLayer(Layer layerToSave)
 		{
-			// SuperController.LogMessage("****** Base.SaveLayer ******");
 			JSONClass jc = new JSONClass();
 
 			// save info
 			JSONClass info = new JSONClass();
-			info["Format"] = "MacGruber.Life.IdlePoser";
-			info["Version"].AsInt = 7;
+			info["Format"] = "MacGruber.IdlePoser";
+			info["Version"].AsInt = 9;
 			string creatorName = UserPreferences.singleton.creatorName;
 			if (string.IsNullOrEmpty(creatorName))
 				creatorName = "Unknown";
@@ -553,10 +552,12 @@ namespace HaremLife
 			if (myCurrentState != null)
 				jc["InitialState"] = myCurrentState.myName;
 			jc["Paused"].AsBool = myPlayPaused.val;
+			jc["StateMask"].AsInt = (int)myStateMask;
 			jc["DefaultToWorldAnchor"].AsBool = myOptionsDefaultToWorldAnchor.val;
 
 			JSONClass layer = new JSONClass();
 			layer["Name"] = layerToSave.myName;
+
 			// save captures
 			if (layerToSave.myControlCaptures.Count > 0)
 			{
@@ -579,6 +580,7 @@ namespace HaremLife
 				{
 					MorphCapture mc = layerToSave.myMorphCaptures[i];
 					JSONClass mcclass = new JSONClass();
+					mcclass["UID"] = mc.myMorph.uid;
 					mcclass["SID"] = mc.mySID;
 					mcclass["Apply"].AsBool = mc.myApply;
 					mclist.Add("", mcclass);
@@ -629,10 +631,6 @@ namespace HaremLife
 						{
 							ceclass["DampingTime"].AsFloat = ce.myDampingTime;
 							ceclass["AnchorAAtom"] = ce.myAnchorAAtom;
-							if (containingAtom.uid.Equals(ce.myAnchorAAtom))
-							{
-								ceclass["AnchorAAtom"] = "[Self]";
-							}
 							ceclass["AnchorAControl"] = ce.myAnchorAControl;
 						}
 						if (ce.myAnchorMode == ControlEntryAnchored.ANCHORMODE_BLEND)
@@ -661,54 +659,37 @@ namespace HaremLife
 				st[state.ExitBeginTrigger.Name] = state.ExitBeginTrigger.GetJSON(base.subScenePrefix);
 				st[state.ExitEndTrigger.Name] = state.ExitEndTrigger.GetJSON(base.subScenePrefix);
 
-				for(int k = 0; k < st[state.EnterBeginTrigger.Name]["startActions"].Count; k++)
-				{
-					SimpleJSON.JSONNode action = st[state.EnterBeginTrigger.Name]["startActions"][k];
-					if (action["receiverAtom"].Value == containingAtom.uid)
-					{
-						action["receiverAtom"] = "[Self]";
-					}
-				}
-				for(int k = 0; k < st[state.EnterEndTrigger.Name]["startActions"].Count; k++)
-				{
-					SimpleJSON.JSONNode action = st[state.EnterEndTrigger.Name]["startActions"][k];
-					if (action["receiverAtom"].Value == containingAtom.uid)
-					{
-						action["receiverAtom"] = "[Self]";
-					}
-				}
-				for(int k = 0; k < st[state.ExitBeginTrigger.Name]["startActions"].Count; k++)
-				{
-					SimpleJSON.JSONNode action = st[state.ExitBeginTrigger.Name]["startActions"][k];
-					if (action["receiverAtom"].Value == containingAtom.uid)
-					{
-						action["receiverAtom"] = "[Self]";
-					}
-				}
-				for(int k = 0; k < st[state.ExitEndTrigger.Name]["startActions"].Count; k++)
-				{
-					SimpleJSON.JSONNode action = st[state.ExitEndTrigger.Name]["startActions"][k];
-					if (action["receiverAtom"].Value == containingAtom.uid)
-					{
-						action["receiverAtom"] = "[Self]";
-					}
-				}
-
 				slist.Add("", st);
 			}
 			layer["States"] = slist;
 
 			jc["Layer"] = layer;
 
-			// SuperController.LogMessage("****** Base.SaveLayer End ******");
 			return jc;
 		}
 
 		private Layer LoadLayer(JSONClass jc, bool keepName)
 		{
+			// reset
+			foreach (var s in myCurrentLayer.myStates)
+			{
+				State state = s.Value;
+				state.EnterBeginTrigger.Remove();
+				state.EnterEndTrigger.Remove();
+				state.ExitBeginTrigger.Remove();
+				state.ExitEndTrigger.Remove();
+			}
+
+			myCurrentLayer.myControlCaptures.Clear();
+			myCurrentLayer.myMorphCaptures.Clear();
+			myCurrentLayer.myStates.Clear();
+			myCurrentState = null;
+			myNextState = null;
+			myBlendState.myControlEntries.Clear();
+			myBlendState.myMorphEntries.Clear();
+			myClock = 0.0f;
 
 			// load info
-			// SuperController.LogMessage("****** Base.LoadLayer ******");
 			int version = jc["Info"].AsObject["Version"].AsInt;
 
 			// load captures
@@ -719,6 +700,7 @@ namespace HaremLife
 			else
 				myCurrentLayer = CreateLayer(layer["Name"]);
 
+			// load captures
 			if (layer.HasKey("ControlCaptures"))
 			{
 				JSONArray cclist = layer["ControlCaptures"].AsArray;
@@ -749,16 +731,34 @@ namespace HaremLife
 				for (int i=0; i<mclist.Count; ++i)
 				{
 					MorphCapture mc;
-					if (version <= 2)
+					if (version >= 9)
+					{
+						JSONClass mcclass = mclist[i].AsObject;
+						string uid = mcclass["UID"];
+						if (uid.EndsWith(".vmi")) // handle custom morphs, resolve VAR packages
+							uid = SuperController.singleton.NormalizeLoadPath(uid);
+						string sid = mcclass["SID"];
+						mc = new MorphCapture(geometry, uid, sid);
+						mc.myApply = mcclass["Apply"].AsBool;
+					}
+					else if (version == 8)
 					{
 						// handling legacy
-						mc = new MorphCapture(this, geometry, mclist[i].Value);
+						JSONClass mcclass = mclist[i].AsObject;
+						mc = new MorphCapture(this, geometry, mcclass["UID"], mcclass["IsFemale"].AsBool);
+						mc.myApply = mcclass["Apply"].AsBool;
 					}
-					else
+					else if (version >= 3 && version <= 7)
 					{
+						// handling legacy
 						JSONClass mcclass = mclist[i].AsObject;
 						mc = new MorphCapture(this, geometry, mcclass["Name"]);
 						mc.myApply = mcclass["Apply"].AsBool;
+					}
+					else // (version <= 2)
+					{
+						// handling legacy
+						mc = new MorphCapture(this, geometry, mclist[i].Value);
 					}
 
 					if (mc.IsValid())
@@ -802,43 +802,11 @@ namespace HaremLife
 					};
 				}
 
-				for(int k = 0; k < st[state.EnterBeginTrigger.Name]["startActions"].Count; k++)
-				{
-					SimpleJSON.JSONNode action = st[state.EnterBeginTrigger.Name]["startActions"][k];
-					if (action["receiverAtom"].Value == "[Self]")
-					{
-						action["receiverAtom"] = containingAtom.uid;
-					}
-				}
-				for(int k = 0; k < st[state.EnterEndTrigger.Name]["startActions"].Count; k++)
-				{
-					SimpleJSON.JSONNode action = st[state.EnterEndTrigger.Name]["startActions"][k];
-					if (action["receiverAtom"].Value == "[Self]")
-					{
-						action["receiverAtom"] = containingAtom.uid;
-					}
-				}
-				for(int k = 0; k < st[state.ExitBeginTrigger.Name]["startActions"].Count; k++)
-				{
-					SimpleJSON.JSONNode action = st[state.ExitBeginTrigger.Name]["startActions"][k];
-					if (action["receiverAtom"].Value == "[Self]")
-					{
-						action["receiverAtom"] = containingAtom.uid;
-					}
-				}
-				for(int k = 0; k < st[state.ExitEndTrigger.Name]["startActions"].Count; k++)
-				{
-					SimpleJSON.JSONNode action = st[state.ExitEndTrigger.Name]["startActions"][k];
-					if (action["receiverAtom"].Value == "[Self]")
-					{
-						action["receiverAtom"] = containingAtom.uid;
-					}
-				}
-
 				state.EnterBeginTrigger.RestoreFromJSON(st, base.subScenePrefix, base.mergeRestore, true);
 				state.EnterEndTrigger.RestoreFromJSON(st, base.subScenePrefix, base.mergeRestore, true);
 				state.ExitBeginTrigger.RestoreFromJSON(st, base.subScenePrefix, base.mergeRestore, true);
 				state.ExitEndTrigger.RestoreFromJSON(st, base.subScenePrefix, base.mergeRestore, true);
+
 
 				if (myCurrentLayer.myStates.ContainsKey(state.myName))
 					continue;
@@ -855,8 +823,7 @@ namespace HaremLife
 							continue;
 
 						JSONClass ceclass = celist[ccname].AsObject;
-						// dude
-						ControlEntryAnchored ce = new ControlEntryAnchored(this, ccname); //, cc
+						ControlEntryAnchored ce = new ControlEntryAnchored(this, ccname);
 						ce.myAnchorOffset.myPosition.x = ceclass["PX"].AsFloat;
 						ce.myAnchorOffset.myPosition.y = ceclass["PY"].AsFloat;
 						ce.myAnchorOffset.myPosition.z = ceclass["PZ"].AsFloat;
@@ -899,12 +866,63 @@ namespace HaremLife
 				if (myCurrentLayer.myMorphCaptures.Count > 0)
 				{
 					JSONClass melist = st["MorphEntries"].AsObject;
-					foreach (string mcname in melist.Keys)
+					foreach (string key in melist.Keys)
 					{
-						MorphCapture mc = myCurrentLayer.myMorphCaptures.Find(x => x.mySID == mcname);
+						MorphCapture mc = null;
+						if (version >= 9)
+						{
+							mc = myCurrentLayer.myMorphCaptures.Find(x => x.mySID == key);
+						}
+						else if (version == 8)
+						{
+							// legacy handling of old qualifiedName
+							string uid;
+							DAZCharacterSelector.Gender gender;
+							if (key.EndsWith("#Female"))
+							{
+								uid = key.Substring(0, key.Length-7);
+								gender = DAZCharacterSelector.Gender.Female;
+							}
+							else if (key.EndsWith("#Male"))
+							{
+								uid = key.Substring(0, key.Length-5);
+								gender = DAZCharacterSelector.Gender.Male;
+							}
+							else
+							{
+								continue;
+							}
+
+							mc = myCurrentLayer.myMorphCaptures.Find(x => x.myGender == gender && x.myMorph.uid == uid);
+						}
+						else // version <= 7
+						{
+							// legacy handling of old qualifiedName where the order was reversed
+							string uid;
+							DAZCharacterSelector.Gender gender;
+							if (key.StartsWith("Female#"))
+							{
+								uid = key.Substring(7);
+								gender = DAZCharacterSelector.Gender.Female;
+							}
+							else if (key.StartsWith("Male#"))
+							{
+								uid = key.Substring(5);
+								gender = DAZCharacterSelector.Gender.Male;
+							}
+							else
+							{
+								continue;
+							}
+
+							mc = myCurrentLayer.myMorphCaptures.Find(x => x.myGender == gender && x.myMorph.uid == uid);
+						}
+
 						if (mc == null)
+						{
 							continue;
-						float me = melist[mcname].AsFloat;
+						}
+						float me = melist[key].AsFloat;
 						state.myMorphEntries.Add(mc, me);
 					}
 					for (int j=0; j<myCurrentLayer.myMorphCaptures.Count; ++j)
@@ -936,10 +954,23 @@ namespace HaremLife
 			myPlayPaused.valNoCallback = jc.HasKey("Paused") && jc["Paused"].AsBool;
 			myPlayPaused.setCallbackFunction(myPlayPaused.val);
 
+			int stateMask = jc["StateMask"].AsInt;
+			myStateMask = (uint)stateMask;
+
 			myOptionsDefaultToWorldAnchor.val = jc.HasKey("DefaultToWorldAnchor") && jc["DefaultToWorldAnchor"].AsBool;
 
 			SwitchLayerAction(myCurrentLayer.myName);
-			// SuperController.LogMessage("****** Base.LoadLayer End ******");
+
+			// blend to initial state
+			if (jc.HasKey("InitialState"))
+			{
+				State initial;
+				if (myCurrentLayer.myStates.TryGetValue(jc["InitialState"].Value, out initial))
+				{
+					myCurrentLayer.SetState(initial);
+					myMainState.valNoCallback = initial.myName;
+				}
+			}
 			return myCurrentLayer;
 		}
 
