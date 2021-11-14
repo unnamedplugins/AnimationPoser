@@ -66,6 +66,7 @@ namespace HaremLife
 		private JSONStorableString mySwitchAnimation;
 		private JSONStorableString mySwitchLayer;
 		private JSONStorableString mySwitchState;
+		private JSONStorableBool myPlayPaused;
 		private static JSONStorableString mySetStateMask;
 		private static JSONStorableString myPartialStateMask;
 
@@ -108,6 +109,10 @@ namespace HaremLife
 			myPartialStateMask = new JSONStorableString("PartialStateMask", "", PartialStateMaskAction);
 			myPartialStateMask.isStorable = myPartialStateMask.isRestorable = false;
 			RegisterString(myPartialStateMask);
+
+			myPlayPaused = new JSONStorableBool("PlayPause", false, PlayPauseAction);
+			myPlayPaused.isStorable = myPlayPaused.isRestorable = false;
+			RegisterBool(myPlayPaused);
 
 			Utils.SetupAction(this, "TriggerSync", TriggerSyncAction);
 
@@ -274,6 +279,13 @@ namespace HaremLife
 			else
 				SuperController.LogError("AnimationPoser: Can't switch to unknown state '"+v+"'!");
 			// SuperController.LogMessage("****** Base.SwitchStateAction End ******");
+		}
+
+		private void PlayPauseAction(bool b)
+		{
+			// SuperController.LogMessage("Playpauseaction " + b);
+			myPlayPaused.val = b;
+			myPaused = (myMenuItem != MENU_PLAY || myPlayPaused.val);
 		}
 
 		private void SetStateMaskAction(string v)
