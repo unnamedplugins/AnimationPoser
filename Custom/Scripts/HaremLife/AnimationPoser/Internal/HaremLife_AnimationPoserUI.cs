@@ -23,7 +23,6 @@ namespace HaremLife
 		private static JSONStorableStringChooser myMainLayer;
 		private JSONStorableString myGeneralInfo;
 		private JSONStorableString myPlayInfo;
-		private JSONStorableBool myPlayPaused;
 		private JSONStorableStringChooser myCapturesControlList;
 		private JSONStorableStringChooser myCapturesMorphList;
 		private UIDynamicPopup myCapturesMorphPopup;
@@ -587,12 +586,13 @@ namespace HaremLife
 		private void UISelectAnimationAndRefresh(string name)
 		{
 			Animation animation;
+			bool initPlayPaused = myPlayPaused.val;
+			myPlayPaused.val = true;
 			myAnimations.TryGetValue(myMainAnimation.val, out animation);
 			SetAnimation(animation);
 
 			List<string> layers = myCurrentAnimation.myLayers.Keys.ToList();
 			layers.Sort();
-			myPlayPaused.val = false;
 			if(layers.Count > 0) {
 				Layer layer;
 				foreach (var layerKey in layers) {
@@ -609,8 +609,8 @@ namespace HaremLife
 					}
 				}
 			}
-			myPlayPaused.val = true;
 			UIRefreshMenu();
+			myPlayPaused.val = initPlayPaused;
 		}
 		private void UISelectLayerAndRefresh(string name)
 		{
