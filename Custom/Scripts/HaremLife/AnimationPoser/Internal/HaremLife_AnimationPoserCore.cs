@@ -63,16 +63,16 @@ namespace HaremLife
 		private bool myNeedRefresh = false;
 		private bool myWasLoading = true;
 
-		private JSONStorableString mySwitchAnimation;
-		private JSONStorableString mySwitchLayer;
-		private JSONStorableString mySwitchState;
-		private JSONStorableBool myPlayPaused;
+		private static JSONStorableString mySwitchAnimation;
+		private static JSONStorableString mySwitchLayer;
+		private static JSONStorableString mySwitchState;
+		private static JSONStorableString myLoadAnimation;
+		private static JSONStorableBool myPlayPaused;
 		private static JSONStorableString mySetStateMask;
 		private static JSONStorableString myPartialStateMask;
 
 		public override void Init()
 		{
-			// SuperController.LogMessage("****** Base.Init ******");
 			myWasLoading = true;
 			myClock = 0.0f;
 
@@ -114,16 +114,18 @@ namespace HaremLife
 			myPlayPaused.isStorable = myPlayPaused.isRestorable = false;
 			RegisterBool(myPlayPaused);
 
+			myLoadAnimation = new JSONStorableString("LoadAnimation", "", LoadAnimationsAction);
+			myLoadAnimation.isStorable = myLoadAnimation.isRestorable = false;
+			RegisterString(myLoadAnimation);
+
 			Utils.SetupAction(this, "TriggerSync", TriggerSyncAction);
 
 			SuperController.singleton.onAtomUIDRenameHandlers += OnAtomRename;
 			SimpleTriggerHandler.LoadAssets();
-			// SuperController.LogMessage("****** Base.Init End ******");
 		}
 
 		private void OnDestroy()
 		{
-			// SuperController.LogMessage("****** Base.OnDestroy ******");
 			SuperController.singleton.onAtomUIDRenameHandlers -= OnAtomRename;
 			OnDestroyUI();
 
@@ -131,98 +133,81 @@ namespace HaremLife
 			{
 				ms.Value.Clear();
 			}
-			// SuperController.LogMessage("****** Base.OnDestroy End ******");
 		}
 
 		private Animation CreateAnimation(string name)
 		{
-			// SuperController.LogMessage("****** Base.CreateAnimation ******");
-			Animation a = new Animation(name) {
-			};
+			Animation a = new Animation(name);
 			myAnimations[name] = a;
-			// SuperController.LogMessage("****** Base.CreateAnimation End ******");
 			return a;
 		}
 
 		private Layer CreateLayer(string name)
 		{
-			// SuperController.LogMessage("****** Base.CreateLayer ******");
-			Layer l = new Layer(name) {
-			};
+			Layer l = new Layer(name);
 			myCurrentAnimation.myLayers[name] = l;
-			// SuperController.LogMessage("****** Base.CreateLayer End ******");
 			return l;
 		}
 
 		private State CreateState(string name)
 		{
-			// SuperController.LogMessage("****** Base.CreateState ******");
 			State s = new State(this, name) {
 				myWaitDurationMin = DEFAULT_WAIT_DURATION_MIN,
 				myWaitDurationMax = DEFAULT_WAIT_DURATION_MAX,
 				myTransitionDuration = DEFAULT_TRANSITION_DURATION,
 				myStateType = STATETYPE_REGULARSTATE
 			};
-			// SuperController.LogMessage("In create state");
 			CaptureState(s);
-			// SuperController.LogMessage("Captured state");
 			if(myCurrentLayer.myCurrentState != null) {
 				setCaptureDefaults(s, myCurrentLayer.myCurrentState);
 			}
 			myCurrentLayer.myStates[name] = s;
-			// SuperController.LogMessage("added state to layer");
-			// SuperController.LogMessage("****** Base.CreateState End ******");
 			return s;
 		}
 
 		private void SetAnimation(Animation animation)
 		{
-			// SuperController.LogMessage("****** Base.SetAnimation ******");
 			myCurrentAnimation = animation;
-			// SuperController.LogMessage("****** Base.SetAnimation End ******");
 		}
 
 		private void SetLayer(Layer layer)
 		{
-			// SuperController.LogMessage("****** Base.SetLayer ******");
 			myCurrentLayer = layer;
-			// SuperController.LogMessage("****** Base.SetLayer End ******");
 		}
 
 		private void CaptureState(State state)
 		{
-			// SuperController.LogMessage("****** Base.CaptureState ******");
-			// SuperController.LogMessage("Base.CaptureState: Capturing " + state.myName);
 			for (int i=0; i<myCurrentLayer.myControlCaptures.Count; ++i){
-			  // SuperController.LogMessage("Base.CaptureState: Capturing " + myCurrentLayer.myControlCaptures[i].myName);
 				myCurrentLayer.myControlCaptures[i].CaptureEntry(state);
 			}
 			for (int i=0; i<myCurrentLayer.myMorphCaptures.Count; ++i) {
-			  // SuperController.LogMessage("Capturing " + myCurrentLayer.myMorphCaptures[i].mySID);
-				// SuperController.LogMessage("Base.CaptureState: Capturing " + myCurrentLayer.myMorphCaptures[i].myMorph);
 				myCurrentLayer.myMorphCaptures[i].CaptureEntry(state);
 			}
-			// SuperController.LogMessage("****** Base.CaptureState End ******");
 		}
 
 		private void setCaptureDefaults(State state, State oldState)
 		{
-			// SuperController.LogMessage("****** Base.setCaptureDefaults ******");
 			for (int i=0; i<myCurrentLayer.myControlCaptures.Count; ++i)
 				myCurrentLayer.myControlCaptures[i].setDefaults(state, oldState);
-			// SuperController.LogMessage("****** Base.setCaptureDefaults End ******");
+		}
+
+		private void LoadAnimationsAction(string v)
+		{
+			myLoadAnimation.valNoCallback = string.Empty;
+			JSONClass jc = LoadJSON(BASE_DIRECTORY+"/"+v).AsObject;
+			if (jc != null)
+				LoadAnimations(jc);
+				UIRefreshMenu();
 		}
 
 		private void SwitchAnimationAction(string v)
 		{
-			// SuperController.LogMessage("****** Base.SwitchAnimationAction ******");
 			bool initPlayPaused = myPlayPaused.val;
 			myPlayPaused.val = true;
 			mySwitchAnimation.valNoCallback = string.Empty;
 
 			Animation animation;
 			myAnimations.TryGetValue(v, out animation);
-			// SuperController.LogMessage("Base.SwitchAnimationAction: setting animation " + animation.myName);
 			SetAnimation(animation);
 
 			List<string> layers = myCurrentAnimation.myLayers.Keys.ToList();
@@ -231,26 +216,21 @@ namespace HaremLife
 				Layer layer;
 				foreach (var layerKey in layers) {
 					myCurrentAnimation.myLayers.TryGetValue(layerKey, out layer);
-					// SuperController.LogMessage("Base.SwitchAnimationAction: setting layer " + layer.myName);
 					SetLayer(layer);
 					List<string> states = layer.myStates.Keys.ToList();
 					states.Sort();
 					if(states.Count > 0) {
 						State state;
 						layer.myStates.TryGetValue(states[0], out state);
-						// SuperController.LogMessage("Base.SwitchAnimationAction: setting state " + state.myName);
-						// layer.SetBlendTransition(state);
 						layer.SetState(state);
 					}
 				}
 			}
 			myPlayPaused.val = initPlayPaused;
-			// SuperController.LogMessage("****** Base.SwitchAnimationAction End ******");
 		}
 
 		private void SwitchLayerAction(string v)
 		{
-			// SuperController.LogMessage("****** Base.SwitchLayerAction ******");
 			mySwitchLayer.valNoCallback = string.Empty;
 
 			Layer layer;
@@ -263,34 +243,29 @@ namespace HaremLife
 			if(states.Count > 0) {
 				State state;
 				layer.myStates.TryGetValue(states[0], out state);
-				layer.SetBlendTransition(state);
+				layer.SetState(state);
 			}
-			// SuperController.LogMessage("****** Base.SwitchLayerAction End ******");
 		}
 
 		private void SwitchStateAction(string v)
 		{
-			// SuperController.LogMessage("****** Base.SwitchStateAction ******");
 			mySwitchState.valNoCallback = string.Empty;
 
 			State state;
 			if (myCurrentLayer.myStates.TryGetValue(v, out state))
-				myCurrentLayer.SetBlendTransition(state);
+				myCurrentLayer.SetState(state);
 			else
 				SuperController.LogError("AnimationPoser: Can't switch to unknown state '"+v+"'!");
-			// SuperController.LogMessage("****** Base.SwitchStateAction End ******");
 		}
 
 		private void PlayPauseAction(bool b)
 		{
-			// SuperController.LogMessage("Playpauseaction " + b);
 			myPlayPaused.val = b;
 			myPaused = (myMenuItem != MENU_PLAY || myPlayPaused.val);
 		}
 
 		private void SetStateMaskAction(string v)
 		{
-			// SuperController.LogMessage("****** Base.SetStateMaskAction ******");
 			mySetStateMask.valNoCallback = string.Empty;
 
 			myStateMask = 0;
@@ -325,12 +300,10 @@ namespace HaremLife
 
 			myStateMaskChanged = true;
 			TryApplyStateMaskChange();
-			// SuperController.LogMessage("****** Base.SetStateMaskAction End ******");
 		}
 
 		private void PartialStateMaskAction(string v)
 		{
-			// SuperController.LogMessage("****** Base.PartialStateMaskAction ******");
 			myPartialStateMask.valNoCallback = string.Empty;
 
 			uint stateMask = 0;
@@ -373,14 +346,11 @@ namespace HaremLife
 
 			myStateMaskChanged = true;
 			TryApplyStateMaskChange();
-			// SuperController.LogMessage("****** Base.PartialStateMaskAction End ******");
 		}
 
 		private void TryApplyStateMaskChange()
 		{
-			// SuperController.LogMessage("****** Base.TryApplyStateMaskChange ******");
 			if (myCurrentState == null || myNextState != null || !myCurrentState.IsRegularState){
-				// SuperController.LogMessage("****** Base.TryApplyStateMaskChange End ******");
 				return;
 			}
 
@@ -394,25 +364,20 @@ namespace HaremLife
 				myStateMaskChanged = false;
 				myCurrentLayer.SetRandomTransition();
 			}
-			// SuperController.LogMessage("****** Base.TryApplyStateMaskChange End ******");
 		}
 
 		private void TriggerSyncAction()
 		{
-			// SuperController.LogMessage("****** Base.TriggerSyncAction ******");
 			foreach (var layer in myCurrentAnimation.myLayers)
 				layer.Value.TriggerSyncAction();
-			// SuperController.LogMessage("****** Base.TriggerSyncAction End ******");
 		}
 
 		private void Update()
 		{
-			// SuperController.LogMessage("****** Base.Update ******");
 			bool isLoading = SuperController.singleton.isLoading;
 			bool isOrWasLoading = isLoading || myWasLoading;
 			myWasLoading = isLoading;
 			if (isOrWasLoading){
-				// SuperController.LogMessage("****** Base.Update End 1 ******");
 				return;
 			}
 
@@ -429,7 +394,6 @@ namespace HaremLife
 
 		private void OnAtomRename(string oldid, string newid)
 		{
-			// SuperController.LogMessage("****** Base.OnAtomRename ******");
 			foreach (var s in myCurrentLayer.myStates)
 			{
 				State state = s.Value;
@@ -449,25 +413,21 @@ namespace HaremLife
 			}
 
 			myNeedRefresh = true;
-			// SuperController.LogMessage("****** Base.OnAtomRename End ******");
 		}
 
 		public override JSONClass GetJSON(bool includePhysical = true, bool includeAppearance = true, bool forceStore = false)
 		{
-			// SuperController.LogMessage("****** Base.GetJSON ******");
 			JSONClass jc = base.GetJSON(includePhysical, includeAppearance, forceStore);
 			if ((includePhysical && includeAppearance) || forceStore) // StoreType.Full
 			{
 				jc["idlepose"] = SaveAnimations();
 				needsStore = true;
 			}
-			// SuperController.LogMessage("****** Base.GetJSON End ******");
 			return jc;
 		}
 
 		public override void LateRestoreFromJSON(JSONClass jc, bool restorePhysical = true, bool restoreAppearance = true, bool setMissingToDefault = true)
 		{
-			// SuperController.LogMessage("****** Base.LateRestoreFromJSON ******");
 			base.LateRestoreFromJSON(jc, restorePhysical, restoreAppearance, setMissingToDefault);
 			if (restorePhysical && restoreAppearance) // StoreType.Full
 			{
@@ -475,17 +435,15 @@ namespace HaremLife
 					LoadAnimations(jc["idlepose"].AsObject);
 				myNeedRefresh = true;
 			}
-			// SuperController.LogMessage("****** Base.LateRestoreFromJSON End ******");
 		}
 
 		private JSONClass SaveAnimations()
 		{
-			// SuperController.LogMessage("****** Base.SaveAnimations ******");
 			JSONClass jc = new JSONClass();
 
 			// save info
 			JSONClass info = new JSONClass();
-			info["Format"] = "MacGruber.Life.IdlePoser";
+			info["Format"] = "HaremLife.AnimationPoser";
 			info["Version"].AsInt = 9;
 			string creatorName = UserPreferences.singleton.creatorName;
 			if (string.IsNullOrEmpty(creatorName))
@@ -516,14 +474,13 @@ namespace HaremLife
 
 			jc["Animations"] = anims;
 
-			// SuperController.LogMessage("****** Base.SaveAnimations End ******");
 			return jc;
 		}
 
 		private void LoadAnimations(JSONClass jc)
 		{
-			// SuperController.LogMessage("****** Base.LoadAnimations ******");
 			// load info
+			myAnimations.Clear();
 			int version = jc["Info"].AsObject["Version"].AsInt;
 
 			// load captures
@@ -536,7 +493,7 @@ namespace HaremLife
 				for(int m=0; m<layers.Count; m++)
 				{
 					JSONClass layer = layers[m].AsObject;
-					LoadLayer(layer, false);
+					LoadLayer(layer, false, false);
 				}
 			}
 
@@ -544,8 +501,23 @@ namespace HaremLife
 			myPlayPaused.valNoCallback = jc.HasKey("Paused") && jc["Paused"].AsBool;
 			myPlayPaused.setCallbackFunction(myPlayPaused.val);
 
+			if (myCurrentState != null)
+			{
+				myMainState.valNoCallback = myCurrentState.myName;
+				myMainState.setCallbackFunction(myCurrentState.myName);
+			}
+			if (myCurrentLayer != null)
+			{
+				myMainLayer.valNoCallback = myCurrentLayer.myName;
+				myMainLayer.setCallbackFunction(myCurrentLayer.myName);
+			}
+			if (myCurrentAnimation != null)
+			{
+				myMainAnimation.valNoCallback = myCurrentAnimation.myName;
+				myMainAnimation.setCallbackFunction(myCurrentAnimation.myName);
+			}
+
 			myOptionsDefaultToWorldAnchor.val = jc.HasKey("DefaultToWorldAnchor") && jc["DefaultToWorldAnchor"].AsBool;
-			// SuperController.LogMessage("****** Base.LoadAnimations End ******");
 		}
 
 		private JSONClass SaveLayer(Layer layerToSave)
@@ -682,26 +654,29 @@ namespace HaremLife
 			return jc;
 		}
 
-		private Layer LoadLayer(JSONClass jc, bool keepName)
+		private Layer LoadLayer(JSONClass jc, bool keepName, bool clearStates)
 		{
 			// reset
-			foreach (var s in myCurrentLayer.myStates)
-			{
-				State state = s.Value;
-				state.EnterBeginTrigger.Remove();
-				state.EnterEndTrigger.Remove();
-				state.ExitBeginTrigger.Remove();
-				state.ExitEndTrigger.Remove();
+			if(myCurrentLayer != null & clearStates){
+				if(myCurrentLayer.myStates.Count > 0){
+					foreach (var s in myCurrentLayer.myStates)
+					{
+						State state = s.Value;
+						state.EnterBeginTrigger.Remove();
+						state.EnterEndTrigger.Remove();
+						state.ExitBeginTrigger.Remove();
+						state.ExitEndTrigger.Remove();
+					}
+				}
+				myCurrentLayer.myControlCaptures.Clear();
+				myCurrentLayer.myMorphCaptures.Clear();
+				myCurrentLayer.myStates.Clear();
+				myCurrentState = null;
+				myNextState = null;
+				myBlendState.myControlEntries.Clear();
+				myBlendState.myMorphEntries.Clear();
+				myClock = 0.0f;
 			}
-
-			myCurrentLayer.myControlCaptures.Clear();
-			myCurrentLayer.myMorphCaptures.Clear();
-			myCurrentLayer.myStates.Clear();
-			myCurrentState = null;
-			myNextState = null;
-			myBlendState.myControlEntries.Clear();
-			myBlendState.myMorphEntries.Clear();
-			myClock = 0.0f;
 
 			// load info
 			int version = jc["Info"].AsObject["Version"].AsInt;
@@ -713,7 +688,6 @@ namespace HaremLife
 				myCurrentLayer = CreateLayer(myCurrentLayer.myName);
 			else
 				myCurrentLayer = CreateLayer(layer["Name"]);
-
 			// load captures
 			if (layer.HasKey("ControlCaptures"))
 			{
@@ -997,20 +971,16 @@ namespace HaremLife
 
 			public Animation(string name)
 			{
-				// SuperController.LogMessage("****** Animation.Animation ******");
 				myName = name;
-				// SuperController.LogMessage("****** Animation.Animation End ******");
 			}
 
 			public void Clear()
 			{
-				// SuperController.LogMessage("****** Animation.Clear ******");
 				foreach (var l in myLayers)
 				{
 					Layer layer = l.Value;
 					layer.Clear();
 				}
-				// SuperController.LogMessage("****** Animation.Clear End ******");
 			}
 
 		}
@@ -1036,49 +1006,34 @@ namespace HaremLife
 
 			public Layer(string name)
 			{
-				// SuperController.LogMessage("****** Layer.Layer ******");
-				// SuperController.LogMessage("Layer.Layer: Creating layer " + name);
 				myName = name;
-				// SuperController.LogMessage("****** Layer.Layer End ******");
 			}
 			public void CaptureState(State state)
 			{
-				// SuperController.LogMessage("****** Layer.CaptureState ******");
-				// SuperController.LogMessage("Layer.CaptureState: Capturing state " + state.myName);
-				// SuperController.LogMessage("Layer.CaptureState: N controlcaptures " + myControlCaptures.Count);
-				// SuperController.LogMessage("Layer.CaptureState: N morphcaptures " + myMorphCaptures.Count);
 				for (int i=0; i<myControlCaptures.Count; ++i)
 					myControlCaptures[i].CaptureEntry(state);
 				for (int i=0; i<myMorphCaptures.Count; ++i)
 					myMorphCaptures[i].CaptureEntry(state);
-				// SuperController.LogMessage("****** Layer.CaptureState End ******");
 			}
 
 			public void SetState(State state)
 			{
-				// SuperController.LogMessage("****** Layer.SetState ******");
 				myNoValidTransition = false;
-				// SuperController.LogMessage("Layer.SetState: setting state " + state.myName);
 				myCurrentState = state;
 				myNextState = null;
 
 				myClock = 0.0f;
 				if (state.myWaitInfiniteDuration){
-					// SuperController.LogMessage("Layer.SetState: State has infinite duration.");
 					myDuration = float.MaxValue;
 				}
 				else {
-					// SuperController.LogMessage("Layer.SetState: State does not have infinite duration.");
 					myDuration = UnityEngine.Random.Range(state.myWaitDurationMin, state.myWaitDurationMax);
 				}
-				// SuperController.LogMessage("Layer.SetState: Clearing current transition.");
 				myCurrentTransition.Clear();
-				// SuperController.LogMessage("****** Layer.SetState End ******");
 			}
 
 			public void Clear()
 			{
-				// SuperController.LogMessage("****** Layer.Clear ******");
 				foreach (var s in myStates)
 				{
 					State state = s.Value;
@@ -1087,7 +1042,6 @@ namespace HaremLife
 					state.ExitBeginTrigger.Remove();
 					state.ExitEndTrigger.Remove();
 				}
-				// SuperController.LogMessage("****** Layer.Clear End ******");
 			}
 
 			public float Smooth(float a, float b, float d, float t)
@@ -1119,13 +1073,11 @@ namespace HaremLife
 
 			public void UpdateLayer()
 			{
-				// SuperController.LogMessage("****** Layer.UpdateLayer ******");
 				for (int i=0; i<myTriggerActionsNeedingUpdate.Count; ++i)
 					myTriggerActionsNeedingUpdate[i].Update();
 				myTriggerActionsNeedingUpdate.RemoveAll(a => !a.timerActive);
 
 				if (myCurrentState == null){
-					// SuperController.LogMessage("****** Layer.UpdateLayer End 1 ******");
 					return;
 				}
 
@@ -1177,12 +1129,10 @@ namespace HaremLife
 				{
 					TryApplyStateMaskChange();
 				}
-				// SuperController.LogMessage("****** Layer.UpdateLayer End 3 ******");
 			}
 
 			public void SetTransition(float duration = -1.0f)
 			{
-				// SuperController.LogMessage("****** Layer.SetTransition ******");
 				float d = 0.0f;
 				int entryCount = Mathf.Min(myTransition.Count, MAX_STATES);
 				for (int i=0; i<entryCount; ++i)
@@ -1218,12 +1168,10 @@ namespace HaremLife
 					myCurrentState.ExitBeginTrigger.Trigger(myTriggerActionsNeedingUpdate);
 				if (myNextState.EnterBeginTrigger != null)
 					myNextState.EnterBeginTrigger.Trigger(myTriggerActionsNeedingUpdate);
-				// SuperController.LogMessage("****** Layer.SetTransition End ******");
 			}
 
 			public void SetRandomTransition()
 			{
-				// SuperController.LogMessage("****** Layer.SetRandomTransition ******");
 				List<State> states = new List<State>(16);
 				myTransition.Clear();
 				myTransition.Add(myCurrentState);
@@ -1252,25 +1200,19 @@ namespace HaremLife
 					GatherTransition(1, i, 0);
 					SetTransition();
 				}
-				// SuperController.LogMessage("****** Layer.SetRandomTransition End ******");
 			}
 
 			public void SetBlendTransition(State state, bool debug = false)
 			{
-				// SuperController.LogMessage("****** Layer.SetBlendTransition ******");
-				// SuperController.LogMessage("Layer.SetBlendTransition: Setting blend transition to "+state.myName);
 				myTransition.Clear();
 				myTransition.Add(myCurrentState);
 				for (int i=0; i<myTransition.Count; ++i) {
-					// SuperController.LogMessage("Layer.SetBlendTransition: transition " + myTransition[i].myName);
 				}
 				if (myCurrentState != null)
 				{
-					// SuperController.LogMessage("Layer.SetBlendTransition: myCurrentState not null, " + myCurrentState.myName);
 					List<State> states = new List<State>(16);
 					myNextState = null;
 					GatherStates(1, states);
-					// SuperController.LogMessage("Layer.SetBlendTransition: Gathered states");
 					List<int> indices = new List<int>(4);
 					for (int i=0; i<states.Count; ++i)
 					{
@@ -1279,7 +1221,6 @@ namespace HaremLife
 					}
 					if (indices.Count == 0)
 					{
-						// SuperController.LogMessage("Layer.SetBlendTransition: Indices empty");
 						states.Clear();
 						myNextState = state;
 						GatherStates(1, states);
@@ -1292,7 +1233,6 @@ namespace HaremLife
 					if (indices.Count > 0)
 					{
 						int selected = UnityEngine.Random.Range(0, indices.Count);
-						// SuperController.LogMessage("Layer.SetBlendTransition: indices not empty");
 						GatherTransition(1, indices[selected], 0);
 					}
 				}
@@ -1319,32 +1259,24 @@ namespace HaremLife
 
 				if (myTransition.Count == 1) // Did not find transition....fake one
 				{
-					// SuperController.LogMessage("Layer.SetBlendTransition: single transition; adding");
 					myTransition.Add(state);
 				}
 
-				// SuperController.LogMessage("Layer.SetBlendTransition: setting transition");
 				SetTransition();
-				// SuperController.LogMessage("****** Layer.SetBlendTransition End ******");
 			}
 
 			public void GatherStates(int transitionLength, List<State> states)
 			{
-				// SuperController.LogMessage("****** Layer.GatherStates ******");
 				State source = myTransition[0];
 				State current = myTransition[myTransition.Count-1];
-				// SuperController.LogMessage("Layer.GatherStates source: " + source.myName);
-				// SuperController.LogMessage("Layer.GatherStates current: " + current.myName);
 				for (int i=0; i<current.myTransitions.Count; ++i)
 				{
 					State next = current.myTransitions[i];
-					// SuperController.LogMessage("Layer.GatherStates next: " + next.myName);
 					if (myTransition.Contains(next))
 						continue;
 
 					if (next.IsRegularState || next == myNextState)
 					{
-						// SuperController.LogMessage("Layer.GatherStates next is regular state");
 						if (DoAcceptRegularState(source, next))
 							states.Add(next);
 					}
@@ -1363,29 +1295,22 @@ namespace HaremLife
 						myTransition.RemoveAt(myTransition.Count-1);
 					}
 				}
-				// SuperController.LogMessage("****** Layer.GatherStates End ******");
 			}
 
 			public int GatherTransition(int transitionLength, int selected, int index)
 			{
-				// SuperController.LogMessage("****** Layer.GatherTransition ******");
-				// SuperController.LogMessage("Layer.GatherTransition: gathering transitions");
 				State source = myTransition[0];
 				State current = myTransition[myTransition.Count-1];
-				// SuperController.LogMessage("Layer.GatherTransition: Current transition/state " + current.myName);
 				for (int i=0; i<current.myTransitions.Count; ++i)
 				{
 					State next = current.myTransitions[i];
-					// SuperController.LogMessage("Layer.GatherTransition: Next transition/state " + next.myName);
 					if (myTransition.Contains(next))
 						continue;
 
 					if (next.IsRegularState || next == myNextState)
 					{
-						// SuperController.LogMessage("Layer.GatherTransition: Next transition/state is regular or something");
 						if (!DoAcceptRegularState(source, next))
 						{
-							// SuperController.LogMessage("Layer.GatherTransition: Not accepting regular state");
 							continue;
 						}
 						else if (index == selected)
@@ -1417,33 +1342,26 @@ namespace HaremLife
 						myTransition.RemoveAt(myTransition.Count-1);
 					}
 				}
-				// SuperController.LogMessage("****** Layer.GatherTransition End ******");
 				return index;
 			}
 
 			public bool DoAcceptRegularState(State source, State next, bool debugMode = false)
 			{
-				// SuperController.LogMessage("****** Layer.DoAcceptRegularState ******");
 				if (next == myNextState && !debugMode){
-					// SuperController.LogMessage("****** Layer.DoAcceptRegularState End 1 ******");
 					return true;
 				}
 				if (next.myProbability < 0.01f){
-					// SuperController.LogMessage("****** Layer.DoAcceptRegularState End 2 ******");
 					return false;
 				}
 				if (myStateMask != 0 && (myStateMask & next.StateMask) == 0 && !debugMode){
-					// SuperController.LogMessage("****** Layer.DoAcceptRegularState End 3 ******");
 					return false;
 				}
 				if (source.myStateGroup == 0 || source.myStateGroup != next.myStateGroup){
-					// SuperController.LogMessage("****** Layer.DoAcceptRegularState End 4 ******");
 					return true;
 				}
 
 				// in-group transition: source.myStateGroup == next.myStateGroup
 				if (!source.myAllowInGroupTransition || !next.myAllowInGroupTransition) {
-					// SuperController.LogMessage("****** Layer.DoAcceptRegularState End 5 ******");
 					return false;
 				}
 
@@ -1451,18 +1369,15 @@ namespace HaremLife
 				for (int t=1; t<transition.Count; ++t)
 				{
 					if (!transition[t].myAllowInGroupTransition) {
-						// SuperController.LogMessage("****** Layer.DoAcceptRegularState End 6 ******");
 						return false;
 					}
 				}
 
-				// SuperController.LogMessage("****** Layer.DoAcceptRegularState End 7 ******");
 				return true;
 			}
 
 			public void BlendToRandomState(float duration)
 			{
-				// SuperController.LogMessage("****** Layer.BlendToRandomState ******");
 				List<State> possible = new List<State>(myCurrentLayer.myStates.Count);
 				foreach (var state in myCurrentLayer.myStates)
 				{
@@ -1479,12 +1394,10 @@ namespace HaremLife
 				myBlendState.AssignOutTriggers(myCurrentState);
 				SetState(myBlendState);
 				SetTransition(duration);
-				// SuperController.LogMessage("****** Layer.BlendToRandomState End ******");
 			}
 
 			public void TriggerSyncAction()
 			{
-				// SuperController.LogMessage("****** Layer.TriggerSyncAction ******");
 				if (myCurrentState != null && myNextState == null
 				&& myClock >= myDuration && !myCurrentState.myWaitInfiniteDuration
 				&& myCurrentState.myWaitForSync && !myPaused)
@@ -1494,12 +1407,10 @@ namespace HaremLife
 					else
 						SetTransition();
 				}
-				// SuperController.LogMessage("****** Layer.TriggerSyncAction End ******");
 			}
 
 			private void SetStateMaskAction(string v)
 			{
-				// SuperController.LogMessage("****** Layer.SetStateMaskAction ******");
 				mySetStateMask.valNoCallback = string.Empty;
 
 				myStateMask = 0;
@@ -1534,12 +1445,10 @@ namespace HaremLife
 
 				myStateMaskChanged = true;
 				TryApplyStateMaskChange();
-				// SuperController.LogMessage("****** Layer.SetStateMaskAction End ******");
 			}
 
 			private void PartialStateMaskAction(string v)
 			{
-				// SuperController.LogMessage("****** Layer.PartialStateMaskAction ******");
 				myPartialStateMask.valNoCallback = string.Empty;
 
 				uint stateMask = 0;
@@ -1582,14 +1491,11 @@ namespace HaremLife
 
 				myStateMaskChanged = true;
 				TryApplyStateMaskChange();
-				// SuperController.LogMessage("****** Layer.PartialStateMaskAction End ******");
 			}
 
 			private void TryApplyStateMaskChange()
 			{
-				// SuperController.LogMessage("****** Layer.TryApplyStateMaskChange ******");
 				if (myCurrentState == null || myNextState != null || !myCurrentState.IsRegularState){
-					// SuperController.LogMessage("****** Layer.TryApplyStateMaskChange End ******");
 					return;
 				}
 
@@ -1603,7 +1509,6 @@ namespace HaremLife
 					myStateMaskChanged = false;
 					myCurrentLayer.SetRandomTransition();
 				}
-				// SuperController.LogMessage("****** Layer.TryApplyStateMaskChange End ******");
 			}
 		}
 
@@ -1638,26 +1543,21 @@ namespace HaremLife
 
 			private State(string name)
 			{
-				// SuperController.LogMessage("****** State.State ******");
 				myName = name;
-				// SuperController.LogMessage("****** State.State End ******");
 				// do NOT init event triggers
 			}
 
 			public State(MVRScript script, string name)
 			{
-				// SuperController.LogMessage("****** State.State 2 ******");
 				myName = name;
 				EnterBeginTrigger = new EventTrigger(script, "OnEnterBegin", name);
 				EnterEndTrigger = new EventTrigger(script, "OnEnterEnd", name);
 				ExitBeginTrigger = new EventTrigger(script, "OnExitBegin", name);
 				ExitEndTrigger = new EventTrigger(script, "OnExitEnd", name);
-				// SuperController.LogMessage("****** State.State 2 End ******");
 			}
 
 			public State(string name, State source)
 			{
-				// SuperController.LogMessage("****** State.State 3 ******");
 				myName = name;
 				myWaitDurationMin = source.myWaitDurationMin;
 				myWaitDurationMax = source.myWaitDurationMax;
@@ -1674,13 +1574,10 @@ namespace HaremLife
 				EnterEndTrigger = new EventTrigger(source.EnterEndTrigger);
 				ExitBeginTrigger = new EventTrigger(source.ExitBeginTrigger);
 				ExitEndTrigger = new EventTrigger(source.ExitEndTrigger);
-				// SuperController.LogMessage("****** State.State 3 End ******");
 			}
 
 			public static State CreateBlendState()
 			{
-				// SuperController.LogMessage("****** State.CreateBlendState ******");
-				// SuperController.LogMessage("****** State.CreateBlendState End ******");
 				return new State("BlendState") {
 					myWaitDurationMin = 0.0f,
 					myWaitDurationMax = 0.0f,
@@ -1691,10 +1588,8 @@ namespace HaremLife
 
 			public void AssignOutTriggers(State other)
 			{
-				// SuperController.LogMessage("****** State.AssignOutTriggers ******");
 				ExitBeginTrigger = other?.ExitBeginTrigger;
 				ExitEndTrigger = other?.ExitEndTrigger;
-				// SuperController.LogMessage("****** State.AssignOutTriggers End ******");
 			}
 		}
 
@@ -1713,18 +1608,15 @@ namespace HaremLife
 
 			public ControlCapture(AnimationPoser plugin, string control)
 			{
-				// SuperController.LogMessage("****** ControlCapture.ControlCapture ******");
 				myPlugin = plugin;
 				myName = control;
 				FreeControllerV3 controller = plugin.containingAtom.GetStorableByID(control) as FreeControllerV3;
 				if (controller != null)
 					myTransform = controller.transform;
-				// SuperController.LogMessage("****** ControlCapture.ControlCapture End ******");
 			}
 
 			public void CaptureEntry(State state)
 			{
-				// SuperController.LogMessage("****** ControlCapture.CaptureEntry ******");
 				ControlEntryAnchored entry;
 				if (!state.myControlEntries.TryGetValue(this, out entry))
 				{
@@ -1733,12 +1625,10 @@ namespace HaremLife
 					state.myControlEntries[this] = entry;
 				}
 				entry.Capture(myTransform.position, myTransform.rotation);
-				// SuperController.LogMessage("****** ControlCapture.CaptureEntry End ******");
 			}
 
 			public void setDefaults(State state, State oldState)
 			{
-				// SuperController.LogMessage("****** ControlCapture.setDefaults ******");
 				ControlEntryAnchored entry;
 				ControlEntryAnchored oldEntry;
 				if (!state.myControlEntries.TryGetValue(this, out entry))
@@ -1748,12 +1638,10 @@ namespace HaremLife
 				entry.myAnchorAAtom = oldEntry.myAnchorAAtom;
 				entry.myAnchorAControl = oldEntry.myAnchorAControl;
 				entry.myAnchorMode = oldEntry.myAnchorMode;
-				// SuperController.LogMessage("****** ControlCapture.setDefaults End ******");
 			}
 
 			public void SetTransition(List<State> states, int entryCount)
 			{
-				// SuperController.LogMessage("****** ControlCapture.SetTransition ******");
 				myEntryCount = entryCount;
 				for (int i=0; i<myEntryCount; ++i)
 				{
@@ -1763,12 +1651,10 @@ namespace HaremLife
 						myTransition[i] = states[i].myControlEntries[this];
 					}
 				}
-				// SuperController.LogMessage("****** ControlCapture.SetTransition End ******");
 			}
 
 			public void UpdateTransition(float t)
 			{
-				// SuperController.LogMessage("****** ControlCapture.UpdateTransition ******");
 				for (int i=0; i<myEntryCount; ++i)
 					myTransition[i].Update();
 
@@ -1794,14 +1680,11 @@ namespace HaremLife
 						default: myTransform.rotation = myTransition[0].myEntry.myRotation; break;
 					}
 				}
-				// SuperController.LogMessage("****** ControlCapture.UpdateTransition End ******");
 			}
 
 			private float ArcLengthParametrization(float t)
 			{
-				// SuperController.LogMessage("****** ControlCapture.ArcLengthParametrization ******");
 				if (myEntryCount <= 2 || myEntryCount > 4){
-					// SuperController.LogMessage("****** ControlCapture.ArcLengthParametrization End 1******");
 					return t;
 				}
 
@@ -1842,36 +1725,29 @@ namespace HaremLife
 				{
 					idx = ~idx;
 					if (idx == 0){
-						// SuperController.LogMessage("****** ControlCapture.ArcLengthParametrization End 2 ******");
 						return 0.0f;
 					}
 					else if (idx >= numSamples+2){
-						// SuperController.LogMessage("****** ControlCapture.ArcLengthParametrization End 3 ******");
 						return 1.0f;
 					}
 					t = Mathf.InverseLerp(ourTempDistances[idx-1], ourTempDistances[idx], t);
-					// SuperController.LogMessage("****** ControlCapture.ArcLengthParametrization End 4 ******");
 					return Mathf.LerpUnclamped((idx-1) / numLines, idx / numLines, t);
 				}
 				else
 				{
-					// SuperController.LogMessage("****** ControlCapture.ArcLengthParametrization End 5 ******");
 					return idx / numLines;
 				}
 			}
 
 			private Vector3 EvalBezierLinearPosition(float t)
 			{
-				// SuperController.LogMessage("****** ControlCapture.EvalBezierLinearPosition End ******");
 				return Vector3.LerpUnclamped(myTransition[0].myEntry.myPosition, myTransition[1].myEntry.myPosition, t);
 			}
 
 			private Vector3 EvalBezierQuadraticPosition(float t)
 			{
 				// evaluating quadratic Bézier curve using Bernstein polynomials
-				// SuperController.LogMessage("****** ControlCapture.EvalBezierQuadraticPosition ******");
 				float s = 1.0f - t;
-				// SuperController.LogMessage("****** ControlCapture.EvalBezierQuadraticPosition End ******");
 				return      (s*s) * myTransition[0].myEntry.myPosition
 					 + (2.0f*s*t) * myTransition[1].myEntry.myPosition
 					 +      (t*t) * myTransition[2].myEntry.myPosition;
@@ -1880,11 +1756,9 @@ namespace HaremLife
 			private Vector3 EvalBezierCubicPosition(float t)
 			{
 				// evaluating cubic Bézier curve using Bernstein polynomials
-				// SuperController.LogMessage("****** ControlCapture.EvalBezierCubicPosition ******");
 				float s = 1.0f - t;
 				float t2 = t*t;
 				float s2 = s*s;
-				// SuperController.LogMessage("****** ControlCapture.EvalBezierCubicPosition End ******");
 				return      (s*s2) * myTransition[0].myEntry.myPosition
 					 + (3.0f*s2*t) * myTransition[1].myEntry.myPosition
 					 + (3.0f*s*t2) * myTransition[2].myEntry.myPosition
@@ -1893,35 +1767,29 @@ namespace HaremLife
 
 			private Quaternion EvalBezierLinearRotation(float t)
 			{
-				// SuperController.LogMessage("****** ControlCapture.EvalBezierLinearRotation End ******");
 				return Quaternion.SlerpUnclamped(myTransition[0].myEntry.myRotation, myTransition[1].myEntry.myRotation, t);
 			}
 
 			private Quaternion EvalBezierQuadraticRotation(float t)
 			{
 				// evaluating quadratic Bézier curve using de Casteljau's algorithm
-				// SuperController.LogMessage("****** ControlCapture.EvalBezierQuadraticRotation ******");
 				ourTempQuaternions[0] = Quaternion.SlerpUnclamped(myTransition[0].myEntry.myRotation, myTransition[1].myEntry.myRotation, t);
 				ourTempQuaternions[1] = Quaternion.SlerpUnclamped(myTransition[1].myEntry.myRotation, myTransition[2].myEntry.myRotation, t);
-				// SuperController.LogMessage("****** ControlCapture.EvalBezierQuadraticRotation End ******");
 				return Quaternion.SlerpUnclamped(ourTempQuaternions[0], ourTempQuaternions[1], t);
 			}
 
 			private Quaternion EvalBezierCubicRotation(float t)
 			{
 				// evaluating cubic Bézier curve using de Casteljau's algorithm
-				// SuperController.LogMessage("****** ControlCapture.EvalBezierCubicRotation ******");
 				for (int i=0; i<3; ++i)
 					ourTempQuaternions[i] = Quaternion.SlerpUnclamped(myTransition[i].myEntry.myRotation, myTransition[i+1].myEntry.myRotation, t);
 				for (int i=0; i<2; ++i)
 					ourTempQuaternions[i] = Quaternion.SlerpUnclamped(ourTempQuaternions[i], ourTempQuaternions[i+1], t);
-				// SuperController.LogMessage("****** ControlCapture.EvalBezierCubicRotation End ******");
 				return Quaternion.SlerpUnclamped(ourTempQuaternions[0], ourTempQuaternions[1], t);
 			}
 
 			public void UpdateState(State state)
 			{
-				// SuperController.LogMessage("****** ControlCapture.UpdateState ******");
 				ControlEntryAnchored entry;
 				if (state.myControlEntries.TryGetValue(this, out entry))
 				{
@@ -1931,12 +1799,10 @@ namespace HaremLife
 					if (myApplyRotation)
 						myTransform.rotation = entry.myEntry.myRotation;
 				}
-				// SuperController.LogMessage("****** ControlCapture.UpdateState End ******");
 			}
 
 			public bool IsValid()
 			{
-				// SuperController.LogMessage("****** ControlCapture.IsValid End ******");
 				return myTransform != null;
 			}
 		}
@@ -1968,12 +1834,10 @@ namespace HaremLife
 
 			public ControlEntryAnchored(AnimationPoser plugin, string control)
 			{
-				// SuperController.LogMessage("****** ControlEntryAnchored.ControlEntryAnchored ******");
 				Atom containingAtom = plugin.GetContainingAtom();
 				if (plugin.myOptionsDefaultToWorldAnchor.val || containingAtom.type != "Person" || control == "control")
 					myAnchorMode = ANCHORMODE_WORLD;
 				myAnchorAAtom = myAnchorBAtom = containingAtom.uid;
-				// SuperController.LogMessage("****** ControlEntryAnchored.ControlEntryAnchored End ******");
 			}
 
 			public ControlEntryAnchored Clone()
@@ -1983,23 +1847,18 @@ namespace HaremLife
 
 			public void Initialize()
 			{
-				// SuperController.LogMessage("****** ControlEntryAnchored.Initialize ******");
 				GetTransforms();
 				UpdateInstant();
-				// SuperController.LogMessage("****** ControlEntryAnchored.Initialize End ******");
 			}
 
 			public void AdjustAnchor()
 			{
-				// SuperController.LogMessage("****** ControlEntryAnchored.AdjustAnchor ******");
 				GetTransforms();
 				Capture(myEntry.myPosition, myEntry.myRotation);
-				// SuperController.LogMessage("****** ControlEntryAnchored.AdjustAnchor End ******");
 			}
 
 			private void GetTransforms()
 			{
-				// SuperController.LogMessage("****** ControlEntryAnchored.GetTransforms ******");
 				if (myAnchorMode == ANCHORMODE_WORLD)
 				{
 					myAnchorATransform = null;
@@ -2013,14 +1872,11 @@ namespace HaremLife
 					else
 						myAnchorBTransform = null;
 				}
-				// SuperController.LogMessage("****** ControlEntryAnchored.GetTransforms End ******");
 			}
 
 			private Transform GetTransform(string atomName, string controlName)
 			{
-				// SuperController.LogMessage("****** ControlEntryAnchored.GetTransform ******");
 				Atom atom = SuperController.singleton.GetAtomByUid(atomName);
-				// SuperController.LogMessage("****** ControlEntryAnchored.GetTransform End ******");
 				return atom?.GetStorableByID(controlName)?.transform;
 			}
 
@@ -2073,7 +1929,6 @@ namespace HaremLife
 
 			public void Capture(Vector3 position, Quaternion rotation)
 			{
-				// SuperController.LogMessage("****** ControlEntryAnchored.Capture ******");
 				myEntry.myPosition = position;
 				myEntry.myRotation = rotation;
 
@@ -2088,7 +1943,6 @@ namespace HaremLife
 					if (myAnchorMode == ANCHORMODE_SINGLE)
 					{
 						if (myAnchorATransform == null){
-							// SuperController.LogMessage("****** ControlEntryAnchored.Capture End 1 ******");
 							return;
 						}
 						root.myPosition = myAnchorATransform.position;
@@ -2097,7 +1951,6 @@ namespace HaremLife
 					else
 					{
 						if (myAnchorATransform == null || myAnchorBTransform == null){
-							// SuperController.LogMessage("****** ControlEntryAnchored.Capture End 2 ******");
 							return;
 						}
 						root.myPosition = Vector3.LerpUnclamped(myAnchorATransform.position, myAnchorBTransform.position, myBlendRatio);
@@ -2107,7 +1960,6 @@ namespace HaremLife
 					myAnchorOffset.myPosition = Quaternion.Inverse(root.myRotation) * (position - root.myPosition);
 					myAnchorOffset.myRotation = Quaternion.Inverse(root.myRotation) * rotation;
 				}
-				// SuperController.LogMessage("****** ControlEntryAnchored.Capture End 3 ******");
 			}
 		}
 
@@ -2124,20 +1976,16 @@ namespace HaremLife
 			// used when adding a capture
 			public MorphCapture(AnimationPoser plugin, DAZCharacterSelector.Gender gender, DAZMorph morph)
 			{
-				// SuperController.LogMessage("****** MorphCapture.MorphCapture ******");
 				myMorph = morph;
 				myGender = gender;
 				mySID = plugin.GenerateMorphsSID(gender == DAZCharacterSelector.Gender.Female);
-				// SuperController.LogMessage("****** MorphCapture.MorphCapture End ******");
 			}
 
 			// legacy handling of old qualifiedName where the order was reversed
 			public MorphCapture(AnimationPoser plugin, DAZCharacterSelector geometry, string oldQualifiedName)
 			{
-				// SuperController.LogMessage("****** MorphCapture.MorphCapture 2 ******");
 				bool isFemale = oldQualifiedName.StartsWith("Female#");
 				if (!isFemale && !oldQualifiedName.StartsWith("Male#")){
-					// SuperController.LogMessage("****** MorphCapture.MorphCapture 2 End 1 ******");
 					return;
 				}
 				GenerateDAZMorphsControlUI morphsControl = isFemale ? geometry.morphsControlFemaleUI : geometry.morphsControlMaleUI;
@@ -2146,43 +1994,35 @@ namespace HaremLife
 				myGender = isFemale ? DAZCharacterSelector.Gender.Female : DAZCharacterSelector.Gender.Male;
 
 				mySID = plugin.GenerateMorphsSID(isFemale);
-				// SuperController.LogMessage("****** MorphCapture.MorphCapture 2 End 2 ******");
 			}
 
 			// legacy handling before there were ShortIDs
 			public MorphCapture(AnimationPoser plugin, DAZCharacterSelector geometry, string morphUID, bool isFemale)
 			{
-				// SuperController.LogMessage("****** MorphCapture.MorphCapture 3 ******");
 				GenerateDAZMorphsControlUI morphsControl = isFemale ? geometry.morphsControlFemaleUI : geometry.morphsControlMaleUI;
 				myMorph = morphsControl.GetMorphByUid(morphUID);
 				myGender = isFemale ? DAZCharacterSelector.Gender.Female : DAZCharacterSelector.Gender.Male;
 
 				mySID = plugin.GenerateMorphsSID(isFemale);
-				// SuperController.LogMessage("****** MorphCapture.MorphCapture 3 End ******");
 			}
 
 			// used when loading from JSON
 			public MorphCapture(DAZCharacterSelector geometry, string morphUID, string morphSID)
 			{
-				// SuperController.LogMessage("****** MorphCapture.MorphCapture 4 ******");
 				bool isFemale = morphSID.Length > 0 && morphSID[0] == 'F';
 				GenerateDAZMorphsControlUI morphsControl = isFemale ? geometry.morphsControlFemaleUI : geometry.morphsControlMaleUI;
 				myMorph = morphsControl.GetMorphByUid(morphUID);
 				myGender = isFemale ? DAZCharacterSelector.Gender.Female : DAZCharacterSelector.Gender.Male;
 				mySID = morphSID;
-				// SuperController.LogMessage("****** MorphCapture.MorphCapture 4 End ******");
 			}
 
 			public void CaptureEntry(State state)
 			{
-				// SuperController.LogMessage("****** MorphCapture.CaptureEntry ******");
 				state.myMorphEntries[this] = myMorph.morphValue;
-				// SuperController.LogMessage("****** MorphCapture.CaptureEntry End ******");
 			}
 
 			public void SetTransition(List<State> states, int entryCount)
 			{
-				// SuperController.LogMessage("****** MorphCapture.SetTransition ******");
 				myEntryCount = entryCount;
 				bool identical = true;
 				float morphValue = myMorph.morphValue;
@@ -2200,14 +2040,11 @@ namespace HaremLife
 				}
 				if (identical)
 					myEntryCount = 0; // nothing to do, save some performance
-				// SuperController.LogMessage("****** MorphCapture.SetTransition End ******");
 			}
 
 			public void UpdateTransition(float t)
 			{
-				// SuperController.LogMessage("****** MorphCapture.UpdateTransition ******");
 				if (!myApply){
-					// SuperController.LogMessage("****** MorphCapture.UpdateTransition End 1 ******");
 					return;
 				}
 
@@ -2226,12 +2063,10 @@ namespace HaremLife
 						myMorph.morphValue = myTransition[0];
 						break;
 				}
-				// SuperController.LogMessage("****** MorphCapture.UpdateTransition End 2 ******");
 			}
 
 			private float EvalBezierLinear(float t)
 			{
-				// SuperController.LogMessage("****** MorphCapture.EvalBezierLinear ******");
 				return Mathf.LerpUnclamped(myTransition[0], myTransition[1], t);
 			}
 
@@ -2239,7 +2074,6 @@ namespace HaremLife
 			{
 				// evaluating using Bernstein polynomials
 				float s = 1.0f - t;
-				SuperController.LogMessage("****** MorphCapture.EvalBezierQuadratic ******");
 				return      (s*s) * myTransition[0]
 					 + (2.0f*s*t) * myTransition[1]
 					 +      (t*t) * myTransition[2];
@@ -2251,7 +2085,6 @@ namespace HaremLife
 				float s = 1.0f - t;
 				float t2 = t*t;
 				float s2 = s*s;
-				// SuperController.LogMessage("****** MorphCapture.EvalBezierCubic ******");
 				return      (s*s2) * myTransition[0]
 					 + (3.0f*s2*t) * myTransition[1]
 					 + (3.0f*s*t2) * myTransition[2]
@@ -2260,14 +2093,12 @@ namespace HaremLife
 
 			public bool IsValid()
 			{
-				// SuperController.LogMessage("****** MorphCapture.IsValid ******");
 				return myMorph != null && mySID != null;
 			}
 		}
 
 		private string GenerateMorphsSID(bool isFemale)
 		{
-			// SuperController.LogMessage("****** MorphCapture.GenerateMorphsSID ******");
 			string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 			char[] randomChars = new char[6];
 			randomChars[0] = isFemale ? 'F' : 'M';
@@ -2279,12 +2110,10 @@ namespace HaremLife
 					randomChars[i] = chars[UnityEngine.Random.Range(0, chars.Length)];
 				string sid = new string(randomChars);
 				if (myMorphCaptures.Find(x => x.mySID == sid) == null){
-					// SuperController.LogMessage("****** MorphCapture.GenerateMorphsSID End 1 ******");
 					return sid;
 				}
 			}
 
-			// SuperController.LogMessage("****** MorphCapture.GenerateMorphsSID End 2 ******");
 			return null; // you are very lucky, you should play lottery!
 		}
 	}
