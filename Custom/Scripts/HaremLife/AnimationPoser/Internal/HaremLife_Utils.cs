@@ -522,10 +522,8 @@ namespace HaremLife
 		// Call to remove a list of UI elements before rebuilding your UI.
 		public static void RemoveUIElements(MVRScript script, List<object> menuElements)
 		{
-      // SuperController.LogMessage("Cleaning up " + menuElements.Count + " menu elements.");
 			for (int i=0; i<menuElements.Count; ++i)
 			{
-  			// SuperController.LogMessage("Cleaning up menu element " + menuElements[i]);
 				if (menuElements[i] is JSONStorableParam)
 				{
 					JSONStorableParam jsp = menuElements[i] as JSONStorableParam;
