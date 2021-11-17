@@ -87,7 +87,6 @@ namespace HaremLife
 
 		private void InitUI()
 		{
-			// SuperController.LogMessage("InitUI");
 			FileManagerSecure.CreateDirectory(BASE_DIRECTORY);
 
 			myDataFile = new JSONStorableUrl("AnimPose", "", UILoadAnimationsJSON, FILE_EXTENSION, true);
@@ -151,8 +150,6 @@ namespace HaremLife
 			myDebugShowTransitions.setCallbackFunction += DebugSwitchShowCurves;
 			myDebugShowSelectedOnly = new JSONStorableBool("Draw Selected Only", false);
 
-			// SuperController.LogMessage("Creating main UI");
-			// CreateMainUI(); // do i need this?
 			UIRefreshMenu();
 
 			SuperController.singleton.BroadcastMessage("OnActionsProviderAvailable", this, SendMessageOptions.DontRequireReceiver);
@@ -459,7 +456,6 @@ namespace HaremLife
 
 		private void UISelectMenu(int menuItem)
 		{
-			// SuperController.LogMessage("In UISelectMenu for " + menuItem);
 			myMenuItem = menuItem;
 
 			for (int i=0; i<myMenuTabBar.buttons.Count; ++i)
@@ -571,13 +567,10 @@ namespace HaremLife
 			State state;
 			if (myStateAutoTransition.val && myCurrentLayer.myStates.TryGetValue(myMainState.val, out state))
 			{
-				// SuperController.LogMessage("Blending to "+state.myName);
 				if (myIsAddingNewState) {
-					// SuperController.LogMessage("Adding new state: "+state.myName);
 					myCurrentLayer.SetState(state);
 				}
 				else {
-					// SuperController.LogMessage("Blending transition to to "+state.myName);
 					myCurrentLayer.SetBlendTransition(state, true);
 				}
 			}
@@ -597,14 +590,12 @@ namespace HaremLife
 				Layer layer;
 				foreach (var layerKey in layers) {
 					myCurrentAnimation.myLayers.TryGetValue(layerKey, out layer);
-					// SuperController.LogMessage("UI.SelectAnimationAndRefresh: setting layer " + layer.myName);
 					SetLayer(layer);
 					List<string> states = layer.myStates.Keys.ToList();
 					states.Sort();
 					if(states.Count > 0) {
 						State state;
 						layer.myStates.TryGetValue(states[0], out state);
-						// SuperController.LogMessage("UI.SelectAnimationAndRefresh: setting state " + state.myName);
 						layer.SetBlendTransition(state);
 					}
 				}
@@ -631,7 +622,6 @@ namespace HaremLife
 
 		private void UISelectStateAndRefresh(string name)
 		{
-			// SuperController.LogMessage("Selecting "+name);
 			UIBlendToState();
 			UIRefreshMenu();
 		}
@@ -1325,8 +1315,17 @@ namespace HaremLife
 				myMainState.valNoCallback = myCurrentState.myName;
 				myMainState.setCallbackFunction(myCurrentState.myName);
 			}
-			else
+			if (myCurrentLayer != null)
 			{
+				myMainLayer.valNoCallback = myCurrentLayer.myName;
+				myMainLayer.setCallbackFunction(myCurrentLayer.myName);
+			}
+			if (myCurrentAnimation != null)
+			{
+				myMainAnimation.valNoCallback = myCurrentAnimation.myName;
+				myMainAnimation.setCallbackFunction(myCurrentAnimation.myName);
+			}
+			else{
 				UIRefreshMenu();
 			}
 		}
@@ -1336,7 +1335,7 @@ namespace HaremLife
 			JSONClass jc = LoadJSON(url).AsObject;
 			if (jc != null)
 				UIRefreshMenu();
-				LoadLayer(jc, true);
+				LoadLayer(jc, false, true);
 
 			if (myCurrentState != null)
 			{
@@ -1366,7 +1365,6 @@ namespace HaremLife
 			if (string.IsNullOrEmpty(path))
 				return;
 			path = path.Replace('\\', '/');
-			// SuperController.LogMessage("IdlePoser: Saving as '"+path+"'.");
 			JSONClass jc = SaveAnimations();
 			SaveJSON(jc, path);
 		}
@@ -1389,7 +1387,6 @@ namespace HaremLife
 			if (string.IsNullOrEmpty(path))
 				return;
 			path = path.Replace('\\', '/');
-			// SuperController.LogMessage("IdlePoser: Saving as '"+path+"'.");
 			JSONClass jc = SaveLayer(myCurrentLayer);
 			SaveJSON(jc, path);
 		}
@@ -1599,18 +1596,14 @@ namespace HaremLife
 		private void UIAddState()
 		{
 			string name = FindNewStateName();
-			// SuperController.LogMessage("Found state name " + name);
 			if (name == null)
 				return;
 
-			// SuperController.LogMessage("Creating state");
 			CreateState(name);
-			// SuperController.LogMessage("State created");
 			myIsAddingNewState = true;  // prevent state blend
 			myMainState.val = name;
 			myIsAddingNewState = false;
 			UIRefreshMenu();
-			// SuperController.LogMessage("Menu refreshed");
 			return;
 		}
 
@@ -1687,10 +1680,8 @@ namespace HaremLife
 			State state = UIGetState();
 			if (state == null)
 				return;
-			// SuperController.LogMessage("Capturing " + state.myName);
 
 			CaptureState(state);
-			// SuperController.LogMessage("Captured " + state.myName);
 			UIRefreshMenu();
 		}
 
@@ -2064,21 +2055,18 @@ namespace HaremLife
 		private void CreateMenuTextInput(string label, JSONStorableString storable, bool rightSide)
         {
 			UIDynamicLabelInput uid = Utils.SetupTextInput(this, label, storable, rightSide);
-			// SuperController.LogMessage("Added TextInput " + label);
 			myMenuElements.Add(uid);
         }
 
 		private void CreateMenuInfo(string text, float height, bool rightSide)
 		{
 			UIDynamicTextInfo uid = Utils.SetupInfoTextNoScroll(this, text, height, rightSide);
-			// SuperController.LogMessage("Added MenuInfo " + text);
 			myMenuElements.Add(uid);
 		}
 
 		private void CreateMenuInfo(JSONStorableString storable, float height, bool rightSide)
 		{
 			UIDynamicTextInfo uid = Utils.SetupInfoTextNoScroll(this, storable, height, rightSide);
-			// SuperController.LogMessage("Added MenuInfo " + storable.val);
 			myMenuElements.Add(uid);
 		}
 
@@ -2086,21 +2074,18 @@ namespace HaremLife
 		{
 			UIDynamicTextInfo uid = Utils.SetupInfoTextNoScroll(this, text, height, rightSide);
 			uid.background.GetComponent<Image>().color = Color.white;
-			// SuperController.LogMessage("Added MenuInfoWhiteBG " + text);
 			myMenuElements.Add(uid);
 		}
 
 		private void CreateMenuInfoScrolling(string text, float height, bool rightSide)
 		{
 			JSONStorableString storable = Utils.SetupInfoText(this, text, height, rightSide);
-			// SuperController.LogMessage("Added MenuInfoScrolling " + text);
 			myMenuElements.Add(storable);
 		}
 
 		private void CreateMenuInfoOneLine(string text, bool rightSide)
 		{
 			UIDynamicTextInfo uid = Utils.SetupInfoOneLine(this, text, rightSide);
-			// SuperController.LogMessage("Added MenuInfoOneLine " + text);
 			myMenuElements.Add(uid);
 		}
 
@@ -2108,7 +2093,6 @@ namespace HaremLife
 		{
 			UIDynamic spacer = CreateSpacer(rightSide);
 			spacer.height = height;
-			// SuperController.LogMessage("Added Spacer");
 			myMenuElements.Add(spacer);
 		}
 
@@ -2119,7 +2103,6 @@ namespace HaremLife
 			for (int i=0; i<myMenuCached.Count; ++i)
 			{
 				UIDynamic uid = myMenuCached[i];
-				// SuperController.LogMessage("Making invisible/inactive " + uid);
 				if (uid is UIDynamicPopup)
 					((UIDynamicPopup)uid).popup.visible = false;
 				uid.gameObject.SetActive(false);
