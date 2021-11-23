@@ -874,7 +874,7 @@ namespace HaremLife
 			public State myNextState;
 			public List<ControlCapture> myControlCaptures = new List<ControlCapture>();
 			public List<MorphCapture> myMorphCaptures = new List<MorphCapture>();
-			private List<State> myTransition = new List<State>(8);
+			private Transition myTransition;
 			public float myClock = 0.0f;
 			public float myDuration = 1.0f;
 			private List<TriggerActionDiscrete> myTriggerActionsNeedingUpdate = new List<TriggerActionDiscrete>();
@@ -894,6 +894,8 @@ namespace HaremLife
 
 			public void SetState(State state)
 			{
+				SuperController.LogError("Set State");
+				SuperController.LogError(state.myName);
 				myNoValidTransition = false;
 				myCurrentState = state;
 				myNextState = null;
@@ -956,7 +958,7 @@ namespace HaremLife
 					return;
 				}
 
-				bool paused = myPaused && myNextState == null && myTransition.Count == 0;
+				bool paused = myPaused && myNextState == null && myTransition == null;
 				if (!paused)
 					myClock = Mathf.Min(myClock + Time.deltaTime, 100000.0f);
 
@@ -980,7 +982,7 @@ namespace HaremLife
 					{
 						State previousState = myCurrentState;
 						SetState(myNextState);
-						if (myTransition.Count == 0)
+						if (myTransition == null)
 							myMainState.valNoCallback = myCurrentState.myName;
 
 						if (previousState.ExitEndTrigger != null)
@@ -990,7 +992,7 @@ namespace HaremLife
 					}
 					else if (!paused && !myCurrentState.myWaitForSync && !myNoValidTransition)
 					{
-						if (myTransition.Count == 0)
+						if (myTransition == null)
 							SetRandomTransition();
 						else
 							SetTransition();
@@ -1000,33 +1002,23 @@ namespace HaremLife
 
 			public void SetTransition(float duration = -1.0f)
 			{
-				float d = 0.0f;
-				int entryCount = Mathf.Min(myTransition.Count, MAX_STATES);
-				for (int i=0; i<entryCount; ++i)
-				{
-					d += myTransition[i].myTransitionDuration;
-					if (i > 0 && !myTransition[i].IsControlPoint)
-					{
-						entryCount = i+1;
-						break;
-					}
-				}
-
+				float d = myTransition.myDuration;
+				SuperController.LogError("Set transition");
+				SuperController.LogError(d.ToString());
+				SuperController.LogError(myTransition.myState1.myName);
+				SuperController.LogError(myTransition.myState2.myName);
 				myNoValidTransition = false;
 
 				myClock = 0.0f;
 				myDuration = (duration < 0) ? d : duration;
 				myDuration = Mathf.Max(myDuration, 0.001f);
-				myNextState = myTransition[entryCount-1];
+				myNextState = myTransition.myState2;
 				for (int i=0; i<myControlCaptures.Count; ++i)
-					myControlCaptures[i].SetTransition(myTransition, entryCount);
+					myControlCaptures[i].SetTransition(myTransition);
 				for (int i=0; i<myMorphCaptures.Count; ++i)
-					myMorphCaptures[i].SetTransition(myTransition, entryCount);
+					myMorphCaptures[i].SetTransition(myTransition);
 
-				if (myTransition.Count == entryCount)
-					myTransition.Clear();
-				else
-					myTransition.RemoveRange(0, entryCount-1);
+				myTransition = null;
 
 				if (myCurrentState.ExitBeginTrigger != null)
 					myCurrentState.ExitBeginTrigger.Trigger(myTriggerActionsNeedingUpdate);
@@ -1036,8 +1028,6 @@ namespace HaremLife
 
 			public void SetRandomTransition()
 			{
-				myTransition.Clear();
-				myTransition.Add(myCurrentState);
 				List<State> states = myCurrentState.myTransitions;
 
 				int i;
@@ -1046,7 +1036,7 @@ namespace HaremLife
 					sum += states[i].myProbability;
 				if (sum == 0.0f)
 				{
-					myTransition.Clear();
+					myTransition = null;
 					myNoValidTransition = true;
 				}
 				else
@@ -1059,54 +1049,57 @@ namespace HaremLife
 						if (threshold <= sum)
 							break;
 					}
-					myTransition.Add(states[i]);
+					myTransition = new Transition(myCurrentState, states[i]);
 					SetTransition();
 				}
 			}
 
 			public void SetBlendTransition(State state, bool debug = false)
 			{
-				myTransition.Clear();
-				myTransition.Add(myCurrentState);
-				if (myCurrentState != null)
-				{
-					myNextState = null;
-					List<State> states = new List<State>(16);
-					for (int i=0; i< myCurrentState.myTransitions.Count; i++) {
-						states.Add(myCurrentState.myTransitions[i]);
-					}
-					List<int> indices = new List<int>(4);
-					for (int i=0; i<states.Count; ++i)
-					{
-						if (states[i] == state)
-							indices.Add(i);
-					}
-					if (indices.Count == 0)
-					{
-						states.Clear();
-						myNextState = state;
-						for (int i=0; i< myCurrentState.myTransitions.Count; i++) {
-							states.Add(myCurrentState.myTransitions[i]);
-						}
+				SuperController.LogError("Set blend transition");
+				SuperController.LogError(myCurrentState.myName);
+				SuperController.LogError(state.myName);
+				myTransition = new Transition(myCurrentState, state);
+				myNextState = state;
+				// if (myCurrentState != null)
+				// {
+				// 	myNextState = null;
+				// 	List<State> states = new List<State>(16);
+				// 	for (int i=0; i< myCurrentState.myTransitions.Count; i++) {
+				// 		states.Add(myCurrentState.myTransitions[i]);
+				// 	}
+				// 	List<int> indices = new List<int>(4);
+				// 	for (int i=0; i<states.Count; ++i)
+				// 	{
+				// 		if (states[i] == state)
+				// 			indices.Add(i);
+				// 	}
+				// 	if (indices.Count == 0)
+				// 	{
+				// 		states.Clear();
+				// 		myNextState = state;
+				// 		for (int i=0; i< myCurrentState.myTransitions.Count; i++) {
+				// 			states.Add(myCurrentState.myTransitions[i]);
+				// 		}
 
-						for (int i=0; i<states.Count; ++i)
-						{
-							if (states[i] == state)
-								indices.Add(i);
-						}
-					}
-					if (indices.Count > 0)
-					{
-						int selected = UnityEngine.Random.Range(0, indices.Count);
-						myTransition.Add(states[indices[selected]]);
-					}
-				}
+				// 		for (int i=0; i<states.Count; ++i)
+				// 		{
+				// 			if (states[i] == state)
+				// 				indices.Add(i);
+				// 		}
+				// 	}
+				// 	if (indices.Count > 0)
+				// 	{
+				// 		int selected = UnityEngine.Random.Range(0, indices.Count);
+				// 		myTransition.myState2 = states[indices[selected]];
+				// 	}
+				// }
 
-				if (myCurrentState == null || debug)
+				if (myCurrentState == null)
 				{
 					CaptureState(myBlendState);
-					myTransition[0] = myBlendState;
-					if (myCurrentState != null && myTransition.Count > 1)
+					myTransition.myState1 = myBlendState;
+					if (myCurrentState != null && myTransition != null)
 					{
 						myBlendState.myTransitionDuration = myCurrentState.myTransitionDuration;
 						myBlendState.myEaseInDuration = myCurrentState.myEaseInDuration;
@@ -1122,10 +1115,10 @@ namespace HaremLife
 					SetState(myBlendState);
 				}
 
-				if (myTransition.Count == 1) // Did not find transition....fake one
-				{
-					myTransition.Add(state);
-				}
+				// if (myTransition.Count == 1) // Did not find transition....fake one
+				// {
+				// 	myTransition.Add(state);
+				// }
 
 				SetTransition();
 			}
@@ -1136,7 +1129,7 @@ namespace HaremLife
 				&& myClock >= myDuration && !myCurrentState.myWaitInfiniteDuration
 				&& myCurrentState.myWaitForSync && !myPaused)
 				{
-					if (myTransition.Count == 0)
+					if (myTransition == null)
 						SetRandomTransition();
 					else
 						SetTransition();
@@ -1144,6 +1137,21 @@ namespace HaremLife
 			}
 		}
 
+		private class Transition
+		{
+			public State myState1;
+			public State myState2;
+			public float myProbability = DEFAULT_PROBABILITY;
+			public float myDuration;
+
+			public Transition(State state1, State state2)
+			{
+				myState1 = state1;
+				myState2 = state2;
+				myProbability = myState2.myProbability;
+				myDuration = myState1.myTransitionDuration + myState2.myTransitionDuration;
+			}
+		}
 
 		private class State
 		{
@@ -1269,17 +1277,20 @@ namespace HaremLife
 				entry.myAnchorMode = oldEntry.myAnchorMode;
 			}
 
-			public void SetTransition(List<State> states, int entryCount)
+			public void SetTransition(Transition transition)
 			{
-				myEntryCount = entryCount;
-				for (int i=0; i<myEntryCount; ++i)
+				if (!transition.myState1.myControlEntries.TryGetValue(this, out myTransition[0]))
 				{
-					if (!states[i].myControlEntries.TryGetValue(this, out myTransition[i]))
-					{
-						CaptureEntry(states[i]);
-						myTransition[i] = states[i].myControlEntries[this];
-					}
+					CaptureEntry(transition.myState1);
+					myTransition[0] = transition.myState1.myControlEntries[this];
 				}
+
+				if (!transition.myState2.myControlEntries.TryGetValue(this, out myTransition[1]))
+				{
+					CaptureEntry(transition.myState2);
+					myTransition[1] = transition.myState2.myControlEntries[this];
+				}
+
 			}
 
 			public void UpdateTransition(float t)
@@ -1650,23 +1661,32 @@ namespace HaremLife
 				state.myMorphEntries[this] = myMorph.morphValue;
 			}
 
-			public void SetTransition(List<State> states, int entryCount)
+			public void SetTransition(Transition transition)
 			{
-				myEntryCount = entryCount;
+				myEntryCount = 2;
 				bool identical = true;
 				float morphValue = myMorph.morphValue;
-				for (int i=0; i<myEntryCount; ++i)
+
+				if (!transition.myState1.myMorphEntries.TryGetValue(this, out myTransition[0]))
 				{
-					if (!states[i].myMorphEntries.TryGetValue(this, out myTransition[i]))
-					{
-						CaptureEntry(states[i]);
-						myTransition[i] = morphValue;
-					}
-					else
-					{
-						identical &= (myTransition[i] == morphValue);
-					}
+					CaptureEntry(transition.myState1);
+					myTransition[0] = morphValue;
 				}
+				else
+				{
+					identical &= (myTransition[0] == morphValue);
+				}
+
+				if (!transition.myState2.myMorphEntries.TryGetValue(this, out myTransition[1]))
+				{
+					CaptureEntry(transition.myState2);
+					myTransition[1] = morphValue;
+				}
+				else
+				{
+					identical &= (myTransition[0] == morphValue);
+				}
+	
 				if (identical)
 					myEntryCount = 0; // nothing to do, save some performance
 			}
