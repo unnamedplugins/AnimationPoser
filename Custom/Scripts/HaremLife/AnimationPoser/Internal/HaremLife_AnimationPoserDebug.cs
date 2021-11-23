@@ -114,79 +114,65 @@ namespace HaremLife
 
 		private void DebugUpdateUI()
 		{
-			if (myDebugCurvesActive)
-			{
-				if (!myPaused || myNextState != null || myTransition.Count > 0 || myPlayMode)
-				{
-					foreach (var s in myCurrentLayer.myStates)
-					{
-						State state = s.Value;
-						if (state == myCurrentState || myCurrentTransition.Contains(state))
-							continue; // these have been already updated
-						for (int i=0; i<myControlCaptures.Count; ++i)
-							myControlCaptures[i].UpdateState(state);
-					}
-				}
+			// if (myDebugCurvesActive)
+			// {
+			// 	if (!myPaused || myNextState != null || myLayer.myTransition.Count > 0 || myPlayMode)
+			// 	{
+			// 		foreach (var s in myCurrentLayer.myStates)
+			// 		{
+			// 			State state = s.Value;
+			// 			if (state == myCurrentState || myCurrentTransition.Contains(state))
+			// 				continue; // these have been already updated
+			// 			for (int i=0; i<myControlCaptures.Count; ++i)
+			// 				myControlCaptures[i].UpdateState(state);
+			// 		}
+			// 	}
 
-				DebugUpdateLines();
-				DebugUpdateSpheres();
-			}
+			// 	DebugUpdateLines();
+			// 	DebugUpdateSpheres();
+			// }
 
-			if (myDebugShowInfo.val)
-			{
-				if (myPlayInfoBuilder == null)
-					myPlayInfoBuilder = new StringBuilder();
-				else
-					myPlayInfoBuilder.Length = 0;
+			// if (myDebugShowInfo.val)
+			// {
+			// 	if (myPlayInfoBuilder == null)
+			// 		myPlayInfoBuilder = new StringBuilder();
+			// 	else
+			// 		myPlayInfoBuilder.Length = 0;
 
-				if (myNextState != null)
-				{
-					myPlayInfoBuilder.Append("Current Transition:\n  ");
-					myPlayInfoBuilder.AppendFormat("{0:N2}", myClock).Append(" / ").AppendFormat("{0:N2}", myDuration);
-					myPlayInfoBuilder.Append("\n  ").Append(myCurrentTransition[0].myName);
-					for (int i=1; i<myCurrentTransition.Count; ++i)
-						myPlayInfoBuilder.Append("\n  => ").Append(myCurrentTransition[i].myName);
-				}
-				else
-				{
-					myPlayInfoBuilder.Append("Current State:\n  ");
-					if (myCurrentState != null)
-					{
-						if (myNoValidTransition)
-							myPlayInfoBuilder.AppendFormat("No valid transition");
-						else if (myCurrentState.myWaitInfiniteDuration)
-							myPlayInfoBuilder.AppendFormat("Infinite");
-						else if (myClock >= myDuration && myCurrentState.myWaitForSync)
-							myPlayInfoBuilder.AppendFormat("Waiting for TriggerSync");
-						else
-							myPlayInfoBuilder.AppendFormat("{0:N2}", myClock).Append(" / ").AppendFormat("{0:N2}", myDuration);
-						myPlayInfoBuilder.Append("\n  ");
-						myPlayInfoBuilder.Append(myCurrentState.myName);
-					}
-					else
-					{
-						myPlayInfoBuilder.Append("NULL");
-					}
-				}
+			// 	if (myNextState != null)
+			// 	{
+			// 		myPlayInfoBuilder.Append("Current Transition:\n  ");
+			// 		myPlayInfoBuilder.AppendFormat("{0:N2}", myClock).Append(" / ").AppendFormat("{0:N2}", myDuration);
+			// 		myPlayInfoBuilder.Append("\n  ").Append(myCurrentTransition[0].myName);
+			// 		for (int i=1; i<myCurrentTransition.Count; ++i)
+			// 			myPlayInfoBuilder.Append("\n  => ").Append(myCurrentTransition[i].myName);
+			// 	}
+			// 	else
+			// 	{
+			// 		myPlayInfoBuilder.Append("Current State:\n  ");
+			// 		if (myCurrentState != null)
+			// 		{
+			// 			if (myNoValidTransition)
+			// 				myPlayInfoBuilder.AppendFormat("No valid transition");
+			// 			else if (myCurrentState.myWaitInfiniteDuration)
+			// 				myPlayInfoBuilder.AppendFormat("Infinite");
+			// 			else if (myClock >= myDuration && myCurrentState.myWaitForSync)
+			// 				myPlayInfoBuilder.AppendFormat("Waiting for TriggerSync");
+			// 			else
+			// 				myPlayInfoBuilder.AppendFormat("{0:N2}", myClock).Append(" / ").AppendFormat("{0:N2}", myDuration);
+			// 			myPlayInfoBuilder.Append("\n  ");
+			// 			myPlayInfoBuilder.Append(myCurrentState.myName);
+			// 		}
+			// 		else
+			// 		{
+			// 			myPlayInfoBuilder.Append("NULL");
+			// 		}
+			// 	}
 
-				myPlayInfoBuilder.Append("\n\n");
+			// 	myPlayInfoBuilder.Append("\n\n");
 
-				if (myStateMask == 0)
-				{
-					myPlayInfoBuilder.Append("StateMask:\n  Clear");
-				}
-				else
-				{
-					myPlayInfoBuilder.Append("StateMask:\n  ");
-					for (int i=0; i<8; ++i)
-					{
-						if ((myStateMask & (1u << (i+1))) != 0)
-							myPlayInfoBuilder.Append((char)('A' + i));
-					}
-				}
-
-				myPlayInfo.val = myPlayInfoBuilder.ToString();
-			}
+			// 	myPlayInfo.val = myPlayInfoBuilder.ToString();
+			// }
 		}
 
 		private void DebugUpdateSpheres()
@@ -312,9 +298,6 @@ namespace HaremLife
 				}
 				else
 				{
-					if (next.IsRegularState && !myCurrentLayer.DoAcceptRegularState(source, next, true))
-						continue;
-
 					if (myDebugShowSelectedOnly.val && next != selectedState)
 					{
 						bool foundSelected = false;
@@ -523,31 +506,7 @@ namespace HaremLife
 
 		private static Color32 DebugGetStateColor(State state)
 		{
-			if (state.IsRegularState)
-			{
-				// 'Distinct Colors' by Sasha Trubetskoy
-				// https://sashamaps.net/docs/tools/20-colors/
-				switch (state.myStateGroup)
-				{
-					case  1: return new Color32(230, 25, 75,255); // red
-					case  2: return new Color32( 60,180, 75,255); // green
-					case  3: return new Color32(255,225, 25,255); // yellow
-					case  4: return new Color32(240, 50,230,255); // magenta
-					case  5: return new Color32( 70,240,240,255); // cyan
-					case  6: return new Color32(245,130, 48,255); // orange
-					case  7: return new Color32(  0,128,128,255); // teal
-					case  8: return new Color32(170,110, 40,255); // brown
-					case  9: return new Color32(191,239, 69,255); // lime
-					case 10: return new Color32(145, 30,180,255); // purple
-					case 11: return new Color32(  0,  0,117,255); // navy
-					case 12: return new Color32(128,128,  0,255); // olive
-					default: return new Color32(  0,130,200,255); // blue
-				}
-			}
-			else
-			{
-				return DEBUG_CONTROL_COLOR;
-			}
+			return DEBUG_CONTROL_COLOR;
 		}
 	}
 }

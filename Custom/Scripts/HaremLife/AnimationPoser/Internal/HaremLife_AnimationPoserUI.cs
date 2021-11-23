@@ -52,12 +52,6 @@ namespace HaremLife
 			COLORTAG_CONTROLPOINT+"Control Point</color>",
 			COLORTAG_INTERMEDIATE+"Intermediate Point</color>"
 		};
-		private readonly List<string> myStateGroups = new List<string>() {
-			"None",
-			"Group A", "Group B", "Group C", "Group D",
-			"Group E", "Group F", "Group G", "Group H",
-			"Group I", "Group J", "Group K", "Group L"
-		};
 		private readonly List<string> myAnchorModes = new List<string>() {
 			"World",
 			"Single Anchor",
@@ -886,14 +880,6 @@ namespace HaremLife
 
 			if (state.IsRegularState)
 			{
-				JSONStorableStringChooser groupChooser = new JSONStorableStringChooser("StateGroup", myStateGroups, myStateGroups[state.myStateGroup], "State\nGroup");
-				groupChooser.setCallbackFunction += (string v) => {
-					State s = UIGetState();
-					if (s != null)
-						s.myStateGroup = myStateGroups.IndexOf(v);
-				};
-				CreateMenuPopup(groupChooser, false);
-
 				JSONStorableFloat probability = new JSONStorableFloat("Relative Probability", DEFAULT_PROBABILITY, 0.0f, 1.0f, true, true);
 				probability.valNoCallback = state.myProbability;
 				probability.setCallbackFunction = (float v) => {

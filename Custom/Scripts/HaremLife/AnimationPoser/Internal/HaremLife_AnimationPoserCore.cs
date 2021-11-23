@@ -31,21 +31,19 @@ namespace HaremLife
 		private const int STATETYPE_INTERMEDIATE = 2;
 		private const int NUM_STATETYPES = 3;
 
-		private const float DEFAULT_TRANSITION_DURATION = 0.5f;
+		private const float DEFAULT_TRANSITION_DURATION = 0.1f;
 		private const float DEFAULT_BLEND_DURATION = 0.2f;
-		private const float DEFAULT_EASEIN_DURATION = 1.0f;
-		private const float DEFAULT_EASEOUT_DURATION = 1.0f;
+		private const float DEFAULT_EASEIN_DURATION = 0.0f;
+		private const float DEFAULT_EASEOUT_DURATION = 0.0f;
 		private const float DEFAULT_PROBABILITY = 0.5f;
-		private const float DEFAULT_WAIT_DURATION_MIN = 2.0f;
-		private const float DEFAULT_WAIT_DURATION_MAX = 4.0f;
+		private const float DEFAULT_WAIT_DURATION_MIN = 0.0f;
+		private const float DEFAULT_WAIT_DURATION_MAX = 0.0f;
 		private const float DEFAULT_ANCHOR_BLEND_RATIO = 0.5f;
 		private const float DEFAULT_ANCHOR_DAMPING_TIME = 0.2f;
 
 		private Dictionary<string, Animation> myAnimations = new Dictionary<string, Animation>();
 		private List<ControlCapture> myControlCaptures = new List<ControlCapture>();
 		private List<MorphCapture> myMorphCaptures = new List<MorphCapture>();
-		private List<State> myTransition = new List<State>(8);
-		private List<State> myCurrentTransition = new List<State>(MAX_STATES);
 		private List<TriggerActionDiscrete> myTriggerActionsNeedingUpdate = new List<TriggerActionDiscrete>();
 		private static Animation myCurrentAnimation;
 		private static Layer myCurrentLayer;
@@ -55,8 +53,6 @@ namespace HaremLife
 
 		private float myDuration = 1.0f;
 		private float myClock = 0.0f;
-		private static uint myStateMask = 0;
-		private static bool myStateMaskChanged = false;
 		private static bool myNoValidTransition = false;
 		private static bool myPlayMode = false;
 		private static bool myPaused = false;
@@ -68,8 +64,6 @@ namespace HaremLife
 		private static JSONStorableString mySwitchState;
 		private static JSONStorableString myLoadAnimation;
 		private static JSONStorableBool myPlayPaused;
-		private static JSONStorableString mySetStateMask;
-		private static JSONStorableString myPartialStateMask;
 
 		public override void Init()
 		{
@@ -101,14 +95,6 @@ namespace HaremLife
 			mySwitchState = new JSONStorableString("SwitchState", "", SwitchStateAction);
 			mySwitchState.isStorable = mySwitchState.isRestorable = false;
 			RegisterString(mySwitchState);
-
-			mySetStateMask = new JSONStorableString("SetStateMask", "", SetStateMaskAction);
-			mySetStateMask.isStorable = mySetStateMask.isRestorable = false;
-			RegisterString(mySetStateMask);
-
-			myPartialStateMask = new JSONStorableString("PartialStateMask", "", PartialStateMaskAction);
-			myPartialStateMask.isStorable = myPartialStateMask.isRestorable = false;
-			RegisterString(myPartialStateMask);
 
 			myPlayPaused = new JSONStorableBool("PlayPause", false, PlayPauseAction);
 			myPlayPaused.isStorable = myPlayPaused.isRestorable = false;
@@ -262,108 +248,6 @@ namespace HaremLife
 		{
 			myPlayPaused.val = b;
 			myPaused = (myMenuItem != MENU_PLAY || myPlayPaused.val);
-		}
-
-		private void SetStateMaskAction(string v)
-		{
-			mySetStateMask.valNoCallback = string.Empty;
-
-			myStateMask = 0;
-			bool invert = false;
-			bool error = false;
-			if (v.ToLower() != "clear")
-			{
-				for (int i=0; i<v.Length; ++i)
-				{
-					char c = v[i];
-					if (i == 0 && c == '!')
-						invert = true;
-					else if (c >= 'A' && c <= 'L')
-						myStateMask |= 1u << (c - 'A' + 1);
-					else if (c >= 'a' && c <= 'l')
-						myStateMask |= 1u << (c - 'a' + 1);
-					else if (c == 'N' || c == 'n')
-						myStateMask |= 1u << 0;
-					else
-						error = true;
-				}
-			}
-
-			if (error)
-			{
-				SuperController.LogError("AnimationPoser: SetStateMask set to invalid data: '"+v+"'");
-				return;
-			}
-
-			if (myStateMask != 0 && invert)
-				myStateMask = ~myStateMask;
-
-			myStateMaskChanged = true;
-			TryApplyStateMaskChange();
-		}
-
-		private void PartialStateMaskAction(string v)
-		{
-			myPartialStateMask.valNoCallback = string.Empty;
-
-			uint stateMask = 0;
-			bool invert = false;
-			bool error = false;
-			string[] masks = v.Split(new char[]{' ',';','|'}, 32, StringSplitOptions.RemoveEmptyEntries);
-			for (int m=0; m<masks.Length; ++m)
-			{
-				stateMask = 0;
-				invert = false;
-				for (int i=0; i<masks[m].Length; ++i)
-				{
-					char c = masks[m][i];
-					if (i == 0 && c == '!')
-						invert = true;
-					else if (c >= 'A' && c <= 'L')
-						stateMask |= 1u << (c - 'A' + 1);
-					else if (c >= 'a' && c <= 'l')
-						stateMask |= 1u << (c - 'a' + 1);
-					else if (c == 'N' || c == 'n')
-						stateMask |= 1u << 0;
-					else
-						error = true;
-				}
-
-				if (error)
-				{
-					SuperController.LogError("AnimationPoser: PartialStateMask set to invalid data: '"+v+"'");
-					return;
-				}
-
-				if (stateMask == 0)
-					continue;
-
-				if (invert)
-					myStateMask = myStateMask & ~stateMask;
-				else
-					myStateMask = myStateMask | stateMask;
-			}
-
-			myStateMaskChanged = true;
-			TryApplyStateMaskChange();
-		}
-
-		private void TryApplyStateMaskChange()
-		{
-			if (myCurrentState == null || myNextState != null || !myCurrentState.IsRegularState){
-				return;
-			}
-
-			if (myClock >= myDuration && !myCurrentState.myWaitForSync && !myPaused)
-			{
-				myStateMaskChanged = false;
-				myCurrentLayer.SetRandomTransition();
-			}
-			else if (myStateMask != 0 && (myCurrentState.StateMask & myStateMask) == 0)
-			{
-				myStateMaskChanged = false;
-				myCurrentLayer.SetRandomTransition();
-			}
 		}
 
 		private void TriggerSyncAction()
@@ -538,7 +422,6 @@ namespace HaremLife
 			if (myCurrentState != null)
 				jc["InitialState"] = myCurrentState.myName;
 			jc["Paused"].AsBool = myPlayPaused.val;
-			jc["StateMask"].AsInt = (int)myStateMask;
 			jc["DefaultToWorldAnchor"].AsBool = myOptionsDefaultToWorldAnchor.val;
 
 			JSONClass layer = new JSONClass();
@@ -591,7 +474,6 @@ namespace HaremLife
 				st["EaseOutDuration"].AsFloat = state.myEaseOutDuration;
 				st["Probability"].AsFloat = state.myProbability;
 				st["StateType"].AsInt = state.myStateType;
-				st["StateGroup"].AsInt = state.myStateGroup;
 
 				JSONArray tlist = new JSONArray();
 				for (int i=0; i<state.myTransitions.Count; ++i)
@@ -770,7 +652,6 @@ namespace HaremLife
 						myTransitionDuration = st["TransitionDuration"].AsFloat,
 						myProbability = DEFAULT_PROBABILITY,
 						myStateType = st["IsTransition"].AsBool ? STATETYPE_CONTROLPOINT : STATETYPE_REGULARSTATE,
-						myStateGroup = 0
 					};
 				}
 				else
@@ -786,7 +667,6 @@ namespace HaremLife
 						myEaseOutDuration = st.HasKey("EaseOutDuration") ? st["EaseOutDuration"].AsFloat : DEFAULT_EASEOUT_DURATION,
 						myProbability = st["Probability"].AsFloat,
 						myStateType = st["StateType"].AsInt,
-						myStateGroup = st["StateGroup"].AsInt
 					};
 				}
 
@@ -942,8 +822,6 @@ namespace HaremLife
 			myPlayPaused.valNoCallback = jc.HasKey("Paused") && jc["Paused"].AsBool;
 			myPlayPaused.setCallbackFunction(myPlayPaused.val);
 
-			int stateMask = jc["StateMask"].AsInt;
-			myStateMask = (uint)stateMask;
 
 			myOptionsDefaultToWorldAnchor.val = jc.HasKey("DefaultToWorldAnchor") && jc["DefaultToWorldAnchor"].AsBool;
 
@@ -990,7 +868,6 @@ namespace HaremLife
 		private class Layer
 		{
 			public string myName;
-			public string myDefaultState;
 			public Dictionary<string, State> myStates = new Dictionary<string, State>();
 			public bool myNoValidTransition = false;
 			public State myCurrentState;
@@ -998,7 +875,6 @@ namespace HaremLife
 			public List<ControlCapture> myControlCaptures = new List<ControlCapture>();
 			public List<MorphCapture> myMorphCaptures = new List<MorphCapture>();
 			private List<State> myTransition = new List<State>(8);
-			private List<State> myCurrentTransition = new List<State>(MAX_STATES);
 			public float myClock = 0.0f;
 			public float myDuration = 1.0f;
 			private List<TriggerActionDiscrete> myTriggerActionsNeedingUpdate = new List<TriggerActionDiscrete>();
@@ -1029,7 +905,6 @@ namespace HaremLife
 				else {
 					myDuration = UnityEngine.Random.Range(state.myWaitDurationMin, state.myWaitDurationMax);
 				}
-				myCurrentTransition.Clear();
 			}
 
 			public void Clear()
@@ -1120,14 +995,6 @@ namespace HaremLife
 						else
 							SetTransition();
 					}
-					else if (myStateMaskChanged)
-					{
-						TryApplyStateMaskChange();
-					}
-				}
-				else if (myStateMaskChanged)
-				{
-					TryApplyStateMaskChange();
 				}
 			}
 
@@ -1146,9 +1013,6 @@ namespace HaremLife
 				}
 
 				myNoValidTransition = false;
-				myCurrentTransition.Clear();
-				for (int i=0; i<entryCount; ++i)
-					myCurrentTransition.Add(myTransition[i]);
 
 				myClock = 0.0f;
 				myDuration = (duration < 0) ? d : duration;
@@ -1172,11 +1036,9 @@ namespace HaremLife
 
 			public void SetRandomTransition()
 			{
-				List<State> states = new List<State>(16);
 				myTransition.Clear();
 				myTransition.Add(myCurrentState);
-				myNextState = null;
-				GatherStates(1, states);
+				List<State> states = myCurrentState.myTransitions;
 
 				int i;
 				float sum = 0.0f;
@@ -1197,7 +1059,7 @@ namespace HaremLife
 						if (threshold <= sum)
 							break;
 					}
-					GatherTransition(1, i, 0);
+					myTransition.Add(states[i]);
 					SetTransition();
 				}
 			}
@@ -1206,13 +1068,13 @@ namespace HaremLife
 			{
 				myTransition.Clear();
 				myTransition.Add(myCurrentState);
-				for (int i=0; i<myTransition.Count; ++i) {
-				}
 				if (myCurrentState != null)
 				{
-					List<State> states = new List<State>(16);
 					myNextState = null;
-					GatherStates(1, states);
+					List<State> states = new List<State>(16);
+					for (int i=0; i< myCurrentState.myTransitions.Count; i++) {
+						states.Add(myCurrentState.myTransitions[i]);
+					}
 					List<int> indices = new List<int>(4);
 					for (int i=0; i<states.Count; ++i)
 					{
@@ -1223,7 +1085,10 @@ namespace HaremLife
 					{
 						states.Clear();
 						myNextState = state;
-						GatherStates(1, states);
+						for (int i=0; i< myCurrentState.myTransitions.Count; i++) {
+							states.Add(myCurrentState.myTransitions[i]);
+						}
+
 						for (int i=0; i<states.Count; ++i)
 						{
 							if (states[i] == state)
@@ -1233,7 +1098,7 @@ namespace HaremLife
 					if (indices.Count > 0)
 					{
 						int selected = UnityEngine.Random.Range(0, indices.Count);
-						GatherTransition(1, indices[selected], 0);
+						myTransition.Add(states[indices[selected]]);
 					}
 				}
 
@@ -1265,137 +1130,6 @@ namespace HaremLife
 				SetTransition();
 			}
 
-			public void GatherStates(int transitionLength, List<State> states)
-			{
-				State source = myTransition[0];
-				State current = myTransition[myTransition.Count-1];
-				for (int i=0; i<current.myTransitions.Count; ++i)
-				{
-					State next = current.myTransitions[i];
-					if (myTransition.Contains(next))
-						continue;
-
-					if (next.IsRegularState || next == myNextState)
-					{
-						if (DoAcceptRegularState(source, next))
-							states.Add(next);
-					}
-					else if (next.IsControlPoint)
-					{
-						if (transitionLength >= MAX_STATES-1)
-							continue;
-						myTransition.Add(next);
-						GatherStates(transitionLength+1, states);
-						myTransition.RemoveAt(myTransition.Count-1);
-					}
-					else // next.IsIntermediate
-					{
-						myTransition.Add(next);
-						GatherStates(1, states);
-						myTransition.RemoveAt(myTransition.Count-1);
-					}
-				}
-			}
-
-			public int GatherTransition(int transitionLength, int selected, int index)
-			{
-				State source = myTransition[0];
-				State current = myTransition[myTransition.Count-1];
-				for (int i=0; i<current.myTransitions.Count; ++i)
-				{
-					State next = current.myTransitions[i];
-					if (myTransition.Contains(next))
-						continue;
-
-					if (next.IsRegularState || next == myNextState)
-					{
-						if (!DoAcceptRegularState(source, next))
-						{
-							continue;
-						}
-						else if (index == selected)
-						{
-							myTransition.Add(next);
-							return -1;
-						}
-						else
-						{
-							++index;
-						}
-					}
-					else if (next.IsControlPoint)
-					{
-						if (transitionLength >= MAX_STATES-1)
-							continue;
-						myTransition.Add(next);
-						index = GatherTransition(transitionLength+1, selected, index);
-						if (index == -1)
-							return -1;
-						myTransition.RemoveAt(myTransition.Count-1);
-					}
-					else // next.IsIntermediate
-					{
-						myTransition.Add(next);
-						index = GatherTransition(1, selected, index);
-						if (index == -1)
-							return -1;
-						myTransition.RemoveAt(myTransition.Count-1);
-					}
-				}
-				return index;
-			}
-
-			public bool DoAcceptRegularState(State source, State next, bool debugMode = false)
-			{
-				if (next == myNextState && !debugMode){
-					return true;
-				}
-				if (next.myProbability < 0.01f){
-					return false;
-				}
-				if (myStateMask != 0 && (myStateMask & next.StateMask) == 0 && !debugMode){
-					return false;
-				}
-				if (source.myStateGroup == 0 || source.myStateGroup != next.myStateGroup){
-					return true;
-				}
-
-				// in-group transition: source.myStateGroup == next.myStateGroup
-				if (!source.myAllowInGroupTransition || !next.myAllowInGroupTransition) {
-					return false;
-				}
-
-				List<State> transition = debugMode ? myDebugTransition : myTransition;
-				for (int t=1; t<transition.Count; ++t)
-				{
-					if (!transition[t].myAllowInGroupTransition) {
-						return false;
-					}
-				}
-
-				return true;
-			}
-
-			public void BlendToRandomState(float duration)
-			{
-				List<State> possible = new List<State>(myCurrentLayer.myStates.Count);
-				foreach (var state in myCurrentLayer.myStates)
-				{
-					if (state.Value.IsRegularState)
-						possible.Add(state.Value);
-				}
-				int idx = UnityEngine.Random.Range(0, possible.Count);
-
-				CaptureState(myBlendState);
-				myTransition.Clear();
-				myTransition.Add(myBlendState);
-				myTransition.Add(possible[idx]);
-
-				myBlendState.AssignOutTriggers(myCurrentState);
-				SetState(myBlendState);
-				SetTransition(duration);
-			}
-
 			public void TriggerSyncAction()
 			{
 				if (myCurrentState != null && myNextState == null
@@ -1406,108 +1140,6 @@ namespace HaremLife
 						SetRandomTransition();
 					else
 						SetTransition();
-				}
-			}
-
-			private void SetStateMaskAction(string v)
-			{
-				mySetStateMask.valNoCallback = string.Empty;
-
-				myStateMask = 0;
-				bool invert = false;
-				bool error = false;
-				if (v.ToLower() != "clear")
-				{
-					for (int i=0; i<v.Length; ++i)
-					{
-						char c = v[i];
-						if (i == 0 && c == '!')
-							invert = true;
-						else if (c >= 'A' && c <= 'L')
-							myStateMask |= 1u << (c - 'A' + 1);
-						else if (c >= 'a' && c <= 'l')
-							myStateMask |= 1u << (c - 'a' + 1);
-						else if (c == 'N' || c == 'n')
-							myStateMask |= 1u << 0;
-						else
-							error = true;
-					}
-				}
-
-				if (error)
-				{
-					SuperController.LogError("AnimationPoser: SetStateMask set to invalid data: '"+v+"'");
-					return;
-				}
-
-				if (myStateMask != 0 && invert)
-					myStateMask = ~myStateMask;
-
-				myStateMaskChanged = true;
-				TryApplyStateMaskChange();
-			}
-
-			private void PartialStateMaskAction(string v)
-			{
-				myPartialStateMask.valNoCallback = string.Empty;
-
-				uint stateMask = 0;
-				bool invert = false;
-				bool error = false;
-				string[] masks = v.Split(new char[]{' ',';','|'}, 32, StringSplitOptions.RemoveEmptyEntries);
-				for (int m=0; m<masks.Length; ++m)
-				{
-					stateMask = 0;
-					invert = false;
-					for (int i=0; i<masks[m].Length; ++i)
-					{
-						char c = masks[m][i];
-						if (i == 0 && c == '!')
-							invert = true;
-						else if (c >= 'A' && c <= 'L')
-							stateMask |= 1u << (c - 'A' + 1);
-						else if (c >= 'a' && c <= 'l')
-							stateMask |= 1u << (c - 'a' + 1);
-						else if (c == 'N' || c == 'n')
-							stateMask |= 1u << 0;
-						else
-							error = true;
-					}
-
-					if (error)
-					{
-						SuperController.LogError("AnimationPoser: PartialStateMask set to invalid data: '"+v+"'");
-						return;
-					}
-
-					if (stateMask == 0)
-						continue;
-
-					if (invert)
-						myStateMask = myStateMask & ~stateMask;
-					else
-						myStateMask = myStateMask | stateMask;
-				}
-
-				myStateMaskChanged = true;
-				TryApplyStateMaskChange();
-			}
-
-			private void TryApplyStateMaskChange()
-			{
-				if (myCurrentState == null || myNextState != null || !myCurrentState.IsRegularState){
-					return;
-				}
-
-				if (myClock >= myDuration && !myCurrentState.myWaitForSync && !myPaused)
-				{
-					myStateMaskChanged = false;
-					myCurrentLayer.SetRandomTransition();
-				}
-				else if (myStateMask != 0 && (myCurrentState.StateMask & myStateMask) == 0)
-				{
-					myStateMaskChanged = false;
-					myCurrentLayer.SetRandomTransition();
 				}
 			}
 		}
@@ -1523,7 +1155,6 @@ namespace HaremLife
 			public float myEaseOutDuration = DEFAULT_EASEOUT_DURATION;
 			public float myProbability = DEFAULT_PROBABILITY;
 			public int myStateType;
-			public int myStateGroup;
 			public bool myWaitInfiniteDuration = false;
 			public bool myWaitForSync = false;
 			public bool myAllowInGroupTransition = false;
@@ -1539,7 +1170,6 @@ namespace HaremLife
 			public bool IsRegularState { get { return myStateType == STATETYPE_REGULARSTATE; } }
 			public bool IsControlPoint { get { return myStateType == STATETYPE_CONTROLPOINT; } }
 			public bool IsIntermediate { get { return myStateType == STATETYPE_INTERMEDIATE; } }
-			public uint StateMask { get { return 1u << myStateGroup; } }
 
 			private State(string name)
 			{
@@ -1566,7 +1196,6 @@ namespace HaremLife
 				myEaseOutDuration = source.myEaseOutDuration;
 				myProbability = source.myProbability;
 				myStateType = source.myStateType;
-				myStateGroup = source.myStateGroup;
 				myWaitInfiniteDuration = source.myWaitInfiniteDuration;
 				myWaitForSync = source.myWaitForSync;
 				myAllowInGroupTransition = source.myAllowInGroupTransition;
