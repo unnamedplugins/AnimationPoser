@@ -26,9 +26,6 @@ namespace HaremLife
 		private const int MAX_STATES = 4;
 		private static readonly int[] DISTANCE_SAMPLES = new int[] { 0, 0, 0, 11, 20};
 
-		private const int STATETYPE_REGULARSTATE = 0;
-		private const int STATETYPE_CONTROLPOINT = 1;
-		private const int STATETYPE_INTERMEDIATE = 2;
 		private const int NUM_STATETYPES = 3;
 
 		private const float DEFAULT_TRANSITION_DURATION = 0.1f;
@@ -141,7 +138,6 @@ namespace HaremLife
 				myWaitDurationMin = DEFAULT_WAIT_DURATION_MIN,
 				myWaitDurationMax = DEFAULT_WAIT_DURATION_MAX,
 				myTransitionDuration = DEFAULT_TRANSITION_DURATION,
-				myStateType = STATETYPE_REGULARSTATE
 			};
 			CaptureState(s);
 			if(myCurrentLayer.myCurrentState != null) {
@@ -473,7 +469,6 @@ namespace HaremLife
 				st["EaseInDuration"].AsFloat = state.myEaseInDuration;
 				st["EaseOutDuration"].AsFloat = state.myEaseOutDuration;
 				st["Probability"].AsFloat = state.myProbability;
-				st["StateType"].AsInt = state.myStateType;
 
 				JSONArray tlist = new JSONArray();
 				for (int i=0; i<state.myTransitions.Count; ++i)
@@ -651,7 +646,6 @@ namespace HaremLife
 						myWaitDurationMax = st["WaitDurationMax"].AsFloat,
 						myTransitionDuration = st["TransitionDuration"].AsFloat,
 						myProbability = DEFAULT_PROBABILITY,
-						myStateType = st["IsTransition"].AsBool ? STATETYPE_CONTROLPOINT : STATETYPE_REGULARSTATE,
 					};
 				}
 				else
@@ -666,7 +660,6 @@ namespace HaremLife
 						myEaseInDuration = st.HasKey("EaseInDuration") ? st["EaseInDuration"].AsFloat : DEFAULT_EASEIN_DURATION,
 						myEaseOutDuration = st.HasKey("EaseOutDuration") ? st["EaseOutDuration"].AsFloat : DEFAULT_EASEOUT_DURATION,
 						myProbability = st["Probability"].AsFloat,
-						myStateType = st["StateType"].AsInt,
 					};
 				}
 
@@ -965,8 +958,6 @@ namespace HaremLife
 				if (myNextState != null)
 				{
 					float t = Smooth(myCurrentState.myEaseOutDuration, myNextState.myEaseInDuration, myDuration, myClock);
-					SuperController.LogError(t.ToString());
-					SuperController.LogError(myDuration.ToString());
 					for (int i=0; i<myControlCaptures.Count; ++i)
 						myControlCaptures[i].UpdateTransition(t);
 					for (int i=0; i<myMorphCaptures.Count; ++i)
@@ -1160,7 +1151,6 @@ namespace HaremLife
 			public float myEaseInDuration = DEFAULT_EASEIN_DURATION;
 			public float myEaseOutDuration = DEFAULT_EASEOUT_DURATION;
 			public float myProbability = DEFAULT_PROBABILITY;
-			public int myStateType;
 			public bool myWaitInfiniteDuration = false;
 			public bool myWaitForSync = false;
 			public bool myAllowInGroupTransition = false;
@@ -1172,10 +1162,6 @@ namespace HaremLife
 			public EventTrigger EnterEndTrigger;
 			public EventTrigger ExitBeginTrigger;
 			public EventTrigger ExitEndTrigger;
-
-			public bool IsRegularState { get { return myStateType == STATETYPE_REGULARSTATE; } }
-			public bool IsControlPoint { get { return myStateType == STATETYPE_CONTROLPOINT; } }
-			public bool IsIntermediate { get { return myStateType == STATETYPE_INTERMEDIATE; } }
 
 			private State(string name)
 			{
@@ -1201,7 +1187,6 @@ namespace HaremLife
 				myEaseInDuration = source.myEaseInDuration;
 				myEaseOutDuration = source.myEaseOutDuration;
 				myProbability = source.myProbability;
-				myStateType = source.myStateType;
 				myWaitInfiniteDuration = source.myWaitInfiniteDuration;
 				myWaitForSync = source.myWaitForSync;
 				myAllowInGroupTransition = source.myAllowInGroupTransition;
@@ -1217,7 +1202,6 @@ namespace HaremLife
 					myWaitDurationMin = 0.0f,
 					myWaitDurationMax = 0.0f,
 					myTransitionDuration = 0.2f,
-					myStateType = STATETYPE_CONTROLPOINT
 				};
 			}
 

@@ -183,9 +183,6 @@ namespace HaremLife
 			foreach (var s in myCurrentLayer.myStates)
 			{
 				State state = s.Value;
-				int stateType = state.myStateType;
-				if (stateType >= NUM_STATETYPES)
-					continue;
 
 				foreach (var e in state.myControlEntries)
 				{
@@ -199,7 +196,7 @@ namespace HaremLife
 
 					material.color = DebugGetStateColor(state);
 					Vector3 position = ce.myEntry.myPosition;
-					Vector3 localScale = state.IsControlPoint ? DEBUG_CUBE_CONTROL_VECTOR : DEBUG_CUBE_REGULAR_VECTOR;
+					Vector3 localScale = DEBUG_CUBE_REGULAR_VECTOR;
 					matrix.SetTRS(position, Quaternion.identity, localScale);
 					Graphics.DrawMesh(myDebugSphereMesh, matrix, material, gameObject.layer, null, 0, null, castShadows: false, receiveShadows: false);
 				}
@@ -244,8 +241,6 @@ namespace HaremLife
 			foreach (var s in myCurrentLayer.myStates)
 			{
 				State state = s.Value;
-				if (state.IsControlPoint)
-					continue;
 				myDebugTransition.Add(state);
 				DebugGather();
 				myDebugTransition.Clear();
@@ -288,30 +283,19 @@ namespace HaremLife
 				if (myDebugTransition.Contains(next))
 					continue;
 
-				if (next.IsControlPoint)
+				if (myDebugShowSelectedOnly.val && next != selectedState)
 				{
-					if (myDebugTransition.Count >= MAX_STATES-1)
+					bool foundSelected = false;
+					for (int t=0; t <myDebugTransition.Count; ++t)
+						foundSelected |= myDebugTransition[t] == selectedState;
+					if (!foundSelected)
 						continue;
-					myDebugTransition.Add(next);
-					DebugGather();
-					myDebugTransition.RemoveAt(myDebugTransition.Count-1);
 				}
-				else
-				{
-					if (myDebugShowSelectedOnly.val && next != selectedState)
-					{
-						bool foundSelected = false;
-						for (int t=0; t <myDebugTransition.Count; ++t)
-							foundSelected |= myDebugTransition[t] == selectedState;
-						if (!foundSelected)
-							continue;
-					}
 
-					myDebugTransition.Add(next);
-					DebugGatherPath();
-					DebugGatherTransitions();
-					myDebugTransition.RemoveAt(myDebugTransition.Count-1);
-				}
+				myDebugTransition.Add(next);
+				DebugGatherPath();
+				DebugGatherTransitions();
+				myDebugTransition.RemoveAt(myDebugTransition.Count-1);
 			}
 		}
 
@@ -480,12 +464,7 @@ namespace HaremLife
 			foreach (var s in myCurrentLayer.myStates)
 			{
 				State state = s.Value;
-				if (state.IsRegularState)
-					++regularStates;
-				else if (state.IsControlPoint)
-					++controlPoints;
-				else if (state.IsIntermediate)
-					++intermediatePoints;
+				++regularStates;
 
 				transitions += state.myTransitions.Count;
 			}

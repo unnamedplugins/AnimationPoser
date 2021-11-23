@@ -47,11 +47,6 @@ namespace HaremLife
 		private bool myIsAddingNewLayer = false;
 		private bool myIsFullRefresh = true;
 
-		private readonly List<string> myStateTypes = new List<string>() {
-			"Regular State",
-			COLORTAG_CONTROLPOINT+"Control Point</color>",
-			COLORTAG_INTERMEDIATE+"Intermediate Point</color>"
-		};
 		private readonly List<string> myAnchorModes = new List<string>() {
 			"World",
 			"Single Anchor",
@@ -518,12 +513,7 @@ namespace HaremLife
 			for (int i=0; i<states.Count; ++i)
 			{
 				State state = myCurrentLayer.myStates[states[i]];
-				if (state.IsIntermediate)
-					stateDisplays.Add(COLORTAG_INTERMEDIATE+state.myName+"</color>");
-				else if (state.IsControlPoint)
-					stateDisplays.Add(COLORTAG_CONTROLPOINT+state.myName+"</color>");
-				else
-					stateDisplays.Add(state.myName);
+				stateDisplays.Add(state.myName);
 			}
 			myMainState.choices = states;
 			myMainState.displayChoices = stateDisplays;
@@ -867,28 +857,14 @@ namespace HaremLife
 			JSONStorableString name = new JSONStorableString("State Name", state.myName, UIRenameState);
 			CreateMenuTextInput("Name", name, false);
 
-
-
-			JSONStorableStringChooser typeChooser = new JSONStorableStringChooser("StateType", myStateTypes, myStateTypes[state.myStateType], "State\nType");
-			typeChooser.setCallbackFunction += (string v) => {
+			JSONStorableFloat probability = new JSONStorableFloat("Relative Probability", DEFAULT_PROBABILITY, 0.0f, 1.0f, true, true);
+			probability.valNoCallback = state.myProbability;
+			probability.setCallbackFunction = (float v) => {
 				State s = UIGetState();
 				if (s != null)
-					s.myStateType = myStateTypes.IndexOf(v);
-				UIRefreshMenu();
+					s.myProbability = v;
 			};
-			CreateMenuPopup(typeChooser, false);
-
-			if (state.IsRegularState)
-			{
-				JSONStorableFloat probability = new JSONStorableFloat("Relative Probability", DEFAULT_PROBABILITY, 0.0f, 1.0f, true, true);
-				probability.valNoCallback = state.myProbability;
-				probability.setCallbackFunction = (float v) => {
-					State s = UIGetState();
-					if (s != null)
-						s.myProbability = v;
-				};
-				CreateMenuSlider(probability, false);
-			}
+			CreateMenuSlider(probability, false);
 
 			JSONStorableBool allowInnerGroupTransition = new JSONStorableBool("Allow for in-group Transition", state.myAllowInGroupTransition);
 			allowInnerGroupTransition.setCallbackFunction = (bool v) => {
@@ -898,53 +874,50 @@ namespace HaremLife
 			};
 			CreateMenuToggle(allowInnerGroupTransition, false);
 
-			if (state.IsRegularState || state.IsIntermediate)
+			JSONStorableBool waitInfiniteDuration = new JSONStorableBool("Wait Infinite Duration", state.myWaitInfiniteDuration);
+			waitInfiniteDuration.setCallbackFunction = (bool v) => {
+				State s = UIGetState();
+				if (s != null)
+				{
+					s.myWaitInfiniteDuration = v;
+					myCurrentLayer.myDuration = v ? float.MaxValue : UnityEngine.Random.Range(s.myWaitDurationMin, s.myWaitDurationMax);
+				}
+				UIRefreshMenu();
+			};
+			CreateMenuToggle(waitInfiniteDuration, true);
+
+			if (!state.myWaitInfiniteDuration)
 			{
-				JSONStorableBool waitInfiniteDuration = new JSONStorableBool("Wait Infinite Duration", state.myWaitInfiniteDuration);
-				waitInfiniteDuration.setCallbackFunction = (bool v) => {
+				JSONStorableBool waitForSync = new JSONStorableBool("Wait for TriggerSync", state.myWaitForSync);
+				waitForSync.setCallbackFunction = (bool v) => {
 					State s = UIGetState();
 					if (s != null)
-					{
-						s.myWaitInfiniteDuration = v;
-						myCurrentLayer.myDuration = v ? float.MaxValue : UnityEngine.Random.Range(s.myWaitDurationMin, s.myWaitDurationMax);
-					}
-					UIRefreshMenu();
+						s.myWaitForSync = v;
 				};
-				CreateMenuToggle(waitInfiniteDuration, true);
+				CreateMenuToggle(waitForSync, true);
 
-				if (!state.myWaitInfiniteDuration)
-				{
-					JSONStorableBool waitForSync = new JSONStorableBool("Wait for TriggerSync", state.myWaitForSync);
-					waitForSync.setCallbackFunction = (bool v) => {
-						State s = UIGetState();
-						if (s != null)
-							s.myWaitForSync = v;
-					};
-					CreateMenuToggle(waitForSync, true);
+				JSONStorableFloat waitDurationMin = new JSONStorableFloat("Wait Duration Min", DEFAULT_WAIT_DURATION_MIN, 0.0f, 300.0f, true, true);
+				JSONStorableFloat waitDurationMax = new JSONStorableFloat("Wait Duration Max", DEFAULT_WAIT_DURATION_MAX, 0.0f, 300.0f, true, true);
+				waitDurationMin.valNoCallback = state.myWaitDurationMin;
+				waitDurationMax.valNoCallback = state.myWaitDurationMax;
 
-					JSONStorableFloat waitDurationMin = new JSONStorableFloat("Wait Duration Min", DEFAULT_WAIT_DURATION_MIN, 0.0f, 300.0f, true, true);
-					JSONStorableFloat waitDurationMax = new JSONStorableFloat("Wait Duration Max", DEFAULT_WAIT_DURATION_MAX, 0.0f, 300.0f, true, true);
-					waitDurationMin.valNoCallback = state.myWaitDurationMin;
-					waitDurationMax.valNoCallback = state.myWaitDurationMax;
+				waitDurationMin.setCallbackFunction = (float v) => {
+					State s = UIGetState();
+					if (s != null)
+						s.myWaitDurationMin = v;
+					if (waitDurationMax.val < v)
+						waitDurationMax.val = v;
+				};
+				waitDurationMax.setCallbackFunction = (float v) => {
+					State s = UIGetState();
+					if (s != null)
+						s.myWaitDurationMax = v;
+					if (waitDurationMin.val > v)
+						waitDurationMin.val = v;
+				};
 
-					waitDurationMin.setCallbackFunction = (float v) => {
-						State s = UIGetState();
-						if (s != null)
-							s.myWaitDurationMin = v;
-						if (waitDurationMax.val < v)
-							waitDurationMax.val = v;
-					};
-					waitDurationMax.setCallbackFunction = (float v) => {
-						State s = UIGetState();
-						if (s != null)
-							s.myWaitDurationMax = v;
-						if (waitDurationMin.val > v)
-							waitDurationMin.val = v;
-					};
-
-					CreateMenuSlider(waitDurationMin, true);
-					CreateMenuSlider(waitDurationMax, true);
-				}
+				CreateMenuSlider(waitDurationMin, true);
+				CreateMenuSlider(waitDurationMax, true);
 			}
 		}
 
@@ -1092,12 +1065,7 @@ namespace HaremLife
 			for (int i=0; i<availableTargets.Count; ++i)
 			{
 				State target = myCurrentLayer.myStates[availableTargets[i]];
-				if (target.IsIntermediate)
-					availableTargetDisplays.Add(COLORTAG_INTERMEDIATE+target.myName+"</color>");
-				else if (target.IsControlPoint)
-					availableTargetDisplays.Add(COLORTAG_CONTROLPOINT+target.myName+"</color>");
-				else
-					availableTargetDisplays.Add(target.myName);
+				availableTargetDisplays.Add(target.myName);
 			}
 			myTransitionList.choices = availableTargets;
 			myTransitionList.displayChoices = availableTargetDisplays;
@@ -1123,12 +1091,7 @@ namespace HaremLife
 			{
 				string label;
 				State target = transitions[i].state;
-				if (target.IsIntermediate)
-					label = COLORTAG_INTERMEDIATE+target.myName+"</color>";
-				else if (target.IsControlPoint)
-					label = COLORTAG_CONTROLPOINT+target.myName+"</color>";
-				else
-					label = target.myName;
+				label = target.myName;
 
 				CreateMenuLabel2BXButton(
 					label, "IN", "OUT", transitions[i].incoming, transitions[i].outgoing,
@@ -1150,26 +1113,23 @@ namespace HaremLife
 			};
 			CreateMenuSlider(transitionDuration, true);
 
-			if (state.IsRegularState || state.IsIntermediate)
-			{
-				JSONStorableFloat easeInDuration = new JSONStorableFloat("EaseIn Duration", DEFAULT_EASEIN_DURATION, 0.0f, 3.0f, true, true);
-				easeInDuration.valNoCallback = state.myEaseInDuration;
-				easeInDuration.setCallbackFunction = (float v) => {
-					State s = UIGetState();
-					if (s != null)
-						s.myEaseInDuration = v;
-				};
-				CreateMenuSlider(easeInDuration, true);
+			JSONStorableFloat easeInDuration = new JSONStorableFloat("EaseIn Duration", DEFAULT_EASEIN_DURATION, 0.0f, 3.0f, true, true);
+			easeInDuration.valNoCallback = state.myEaseInDuration;
+			easeInDuration.setCallbackFunction = (float v) => {
+				State s = UIGetState();
+				if (s != null)
+					s.myEaseInDuration = v;
+			};
+			CreateMenuSlider(easeInDuration, true);
 
-				JSONStorableFloat easeOutDuration = new JSONStorableFloat("EaseOut Duration", DEFAULT_EASEOUT_DURATION, 0.0f, 3.0f, true, true);
-				easeOutDuration.valNoCallback = state.myEaseOutDuration;
-				easeOutDuration.setCallbackFunction = (float v) => {
-					State s = UIGetState();
-					if (s != null)
-						s.myEaseOutDuration = v;
-				};
-				CreateMenuSlider(easeOutDuration, true);
-			}
+			JSONStorableFloat easeOutDuration = new JSONStorableFloat("EaseOut Duration", DEFAULT_EASEOUT_DURATION, 0.0f, 3.0f, true, true);
+			easeOutDuration.valNoCallback = state.myEaseOutDuration;
+			easeOutDuration.setCallbackFunction = (float v) => {
+				State s = UIGetState();
+				if (s != null)
+					s.myEaseOutDuration = v;
+			};
+			CreateMenuSlider(easeOutDuration, true);
 		}
 
 		private void CreateTriggers()
