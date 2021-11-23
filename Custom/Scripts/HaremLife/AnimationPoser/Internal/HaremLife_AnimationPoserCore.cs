@@ -965,6 +965,8 @@ namespace HaremLife
 				if (myNextState != null)
 				{
 					float t = Smooth(myCurrentState.myEaseOutDuration, myNextState.myEaseInDuration, myDuration, myClock);
+					SuperController.LogError(t.ToString());
+					SuperController.LogError(myDuration.ToString());
 					for (int i=0; i<myControlCaptures.Count; ++i)
 						myControlCaptures[i].UpdateTransition(t);
 					for (int i=0; i<myMorphCaptures.Count; ++i)
@@ -1000,18 +1002,19 @@ namespace HaremLife
 				}
 			}
 
-			public void SetTransition(float duration = -1.0f)
+			public void SetTransition()
 			{
-				float d = myTransition.myDuration;
 				SuperController.LogError("Set transition");
-				SuperController.LogError(d.ToString());
+				SuperController.LogError(myTransition.myDuration.ToString());
 				SuperController.LogError(myTransition.myState1.myName);
 				SuperController.LogError(myTransition.myState2.myName);
+
 				myNoValidTransition = false;
 
 				myClock = 0.0f;
-				myDuration = (duration < 0) ? d : duration;
+				myDuration = myTransition.myDuration;
 				myDuration = Mathf.Max(myDuration, 0.001f);
+
 				myNextState = myTransition.myState2;
 				for (int i=0; i<myControlCaptures.Count; ++i)
 					myControlCaptures[i].SetTransition(myTransition);
@@ -1114,11 +1117,6 @@ namespace HaremLife
 					myBlendState.AssignOutTriggers(myCurrentState);
 					SetState(myBlendState);
 				}
-
-				// if (myTransition.Count == 1) // Did not find transition....fake one
-				// {
-				// 	myTransition.Add(state);
-				// }
 
 				SetTransition();
 			}
@@ -1279,6 +1277,7 @@ namespace HaremLife
 
 			public void SetTransition(Transition transition)
 			{
+				myEntryCount = 2;
 				if (!transition.myState1.myControlEntries.TryGetValue(this, out myTransition[0]))
 				{
 					CaptureEntry(transition.myState1);
