@@ -279,7 +279,7 @@ namespace HaremLife
 			State selectedState = UIGetState();
 			for (int i=0; i<current.myTransitions.Count; ++i)
 			{
-				State next = current.myTransitions[i];
+				State next = current.myTransitions[i].myState2;
 				if (myDebugTransition.Contains(next))
 					continue;
 
@@ -414,7 +414,7 @@ namespace HaremLife
 
 			for (int i=0; i<source.myTransitions.Count; ++i)
 			{
-				State target = source.myTransitions[i];
+				State target = source.myTransitions[i].myState2;
 				DebugGatherTransition(source, target);
 			}
 		}
@@ -431,7 +431,7 @@ namespace HaremLife
 			if (!myDebugTransitionHashes.Add(hash))
 				return;
 
-			bool oneWay = !target.myTransitions.Contains(source);
+			bool oneWay = !target.isReachable(source);
 			Color32 color = oneWay ? DEBUG_TRANSITION_ONEWAY_COLOR : DEBUG_TRANSITION_COLOR;
 
 			for (int j=0; j<myControlCaptures.Count; ++j)

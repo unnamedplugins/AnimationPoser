@@ -48,7 +48,6 @@ namespace HaremLife
 		private State myNextState;
 		private State myBlendState = State.CreateBlendState();
 
-		private float myDuration = 1.0f;
 		private float myClock = 0.0f;
 		private static bool myNoValidTransition = false;
 		private static bool myPlayMode = false;
@@ -137,7 +136,6 @@ namespace HaremLife
 			State s = new State(this, name) {
 				myWaitDurationMin = DEFAULT_WAIT_DURATION_MIN,
 				myWaitDurationMax = DEFAULT_WAIT_DURATION_MAX,
-				myTransitionDuration = DEFAULT_TRANSITION_DURATION,
 			};
 			CaptureState(s);
 			if(myCurrentLayer.myCurrentState != null) {
@@ -462,17 +460,15 @@ namespace HaremLife
 				st["Name"] = state.myName;
 				st["WaitInfiniteDuration"].AsBool = state.myWaitInfiniteDuration;
 				st["WaitForSync"].AsBool = state.myWaitForSync;
-				st["AllowInGroupT"].AsBool = state.myAllowInGroupTransition;
 				st["WaitDurationMin"].AsFloat = state.myWaitDurationMin;
 				st["WaitDurationMax"].AsFloat = state.myWaitDurationMax;
-				st["TransitionDuration"].AsFloat = state.myTransitionDuration;
-				st["EaseInDuration"].AsFloat = state.myEaseInDuration;
-				st["EaseOutDuration"].AsFloat = state.myEaseOutDuration;
-				st["Probability"].AsFloat = state.myProbability;
+				st["DefaultEaseInDuration"].AsFloat = state.myDefaultEaseInDuration;
+				st["DefaultEaseOutDuration"].AsFloat = state.myDefaultEaseOutDuration;
+				st["DefaultProbability"].AsFloat = state.myDefaultProbability;
 
 				JSONArray tlist = new JSONArray();
-				for (int i=0; i<state.myTransitions.Count; ++i)
-					tlist.Add("", state.myTransitions[i].myName);
+				// for (int i=0; i<state.myTransitions.Count; ++i)
+					// tlist.Add("", state.myTransitions[i].myName);
 				st["Transitions"] = tlist;
 
 				if (state.myControlEntries.Count > 0)
@@ -637,31 +633,15 @@ namespace HaremLife
 			{
 				// load state
 				JSONClass st = slist[i].AsObject;
-				State state;
-				if (version == 1)
-				{
-					// handling legacy
-					state = new State(this, st["Name"]) {
-						myWaitDurationMin = st["WaitDurationMin"].AsFloat,
-						myWaitDurationMax = st["WaitDurationMax"].AsFloat,
-						myTransitionDuration = st["TransitionDuration"].AsFloat,
-						myProbability = DEFAULT_PROBABILITY,
-					};
-				}
-				else
-				{
-					state = new State(this, st["Name"]) {
-						myWaitInfiniteDuration = st["WaitInfiniteDuration"].AsBool,
-						myWaitForSync = st["WaitForSync"].AsBool,
-						myAllowInGroupTransition = st["AllowInGroupT"].AsBool,
-						myWaitDurationMin = st["WaitDurationMin"].AsFloat,
-						myWaitDurationMax = st["WaitDurationMax"].AsFloat,
-						myTransitionDuration = st["TransitionDuration"].AsFloat,
-						myEaseInDuration = st.HasKey("EaseInDuration") ? st["EaseInDuration"].AsFloat : DEFAULT_EASEIN_DURATION,
-						myEaseOutDuration = st.HasKey("EaseOutDuration") ? st["EaseOutDuration"].AsFloat : DEFAULT_EASEOUT_DURATION,
-						myProbability = st["Probability"].AsFloat,
-					};
-				}
+				State state = new State(this, st["Name"]) {
+					myWaitInfiniteDuration = st["WaitInfiniteDuration"].AsBool,
+					myWaitForSync = st["WaitForSync"].AsBool,
+					myWaitDurationMin = st["WaitDurationMin"].AsFloat,
+					myWaitDurationMax = st["WaitDurationMax"].AsFloat,
+					myDefaultEaseInDuration = st.HasKey("DefaultEaseInDuration") ? st["DefaultEaseInDuration"].AsFloat : DEFAULT_EASEIN_DURATION,
+					myDefaultEaseOutDuration = st.HasKey("DefaultEaseOutDuration") ? st["DefaultEaseOutDuration"].AsFloat : DEFAULT_EASEOUT_DURATION,
+					myDefaultProbability = st["DefaultProbability"].AsFloat,
+				};
 
 				state.EnterBeginTrigger.RestoreFromJSON(st, base.subScenePrefix, base.mergeRestore, true);
 				state.EnterEndTrigger.RestoreFromJSON(st, base.subScenePrefix, base.mergeRestore, true);
@@ -806,8 +786,8 @@ namespace HaremLife
 				for (int j=0; j<tlist.Count; ++j)
 				{
 					State target;
-					if (myCurrentLayer.myStates.TryGetValue(tlist[j].Value, out target))
-						source.myTransitions.Add(target);
+					// if (myCurrentLayer.myStates.TryGetValue(tlist[j].Value, out target))
+					// 	source.myTransitions.Add(target);
 				}
 			}
 
@@ -957,7 +937,14 @@ namespace HaremLife
 
 				if (myNextState != null)
 				{
-					float t = Smooth(myCurrentState.myEaseOutDuration, myNextState.myEaseInDuration, myDuration, myClock);
+					float t;
+					if(myTransition != null) {
+						t = Smooth(myTransition.myEaseOutDuration, myTransition.myEaseInDuration, myDuration, myClock);
+					} else {
+						t = Smooth(0, 0, myDuration, myClock);
+					}
+					SuperController.LogError(myClock.ToString());
+					SuperController.LogError(myDuration.ToString());
 					for (int i=0; i<myControlCaptures.Count; ++i)
 						myControlCaptures[i].UpdateTransition(t);
 					for (int i=0; i<myMorphCaptures.Count; ++i)
@@ -1022,12 +1009,12 @@ namespace HaremLife
 
 			public void SetRandomTransition()
 			{
-				List<State> states = myCurrentState.myTransitions;
+				List<State> states = myCurrentState.getReachableStates();
 
 				int i;
 				float sum = 0.0f;
 				for (i=0; i<states.Count; ++i)
-					sum += states[i].myProbability;
+					sum += states[i].myDefaultProbability;
 				if (sum == 0.0f)
 				{
 					myTransition = null;
@@ -1039,11 +1026,11 @@ namespace HaremLife
 					sum = 0.0f;
 					for (i=0; i<states.Count-1; ++i)
 					{
-						sum += states[i].myProbability;
+						sum += states[i].myDefaultProbability;
 						if (threshold <= sum)
 							break;
 					}
-					myTransition = new Transition(myCurrentState, states[i]);
+					myTransition = myCurrentState.getIncomingTransition(states[i]);
 					SetTransition();
 				}
 			}
@@ -1093,18 +1080,8 @@ namespace HaremLife
 				{
 					CaptureState(myBlendState);
 					myTransition.myState1 = myBlendState;
-					if (myCurrentState != null && myTransition != null)
-					{
-						myBlendState.myTransitionDuration = myCurrentState.myTransitionDuration;
-						myBlendState.myEaseInDuration = myCurrentState.myEaseInDuration;
-						myBlendState.myEaseOutDuration = myCurrentState.myEaseOutDuration;
-					}
-					else
-					{
-						myBlendState.myTransitionDuration = DEFAULT_BLEND_DURATION;
-						myBlendState.myEaseInDuration = DEFAULT_EASEIN_DURATION;
-						myBlendState.myEaseOutDuration = DEFAULT_EASEOUT_DURATION;
-					}
+					myTransition.myEaseInDuration = myCurrentState.myDefaultEaseInDuration;
+					myTransition.myEaseOutDuration = myCurrentState.myDefaultEaseOutDuration;
 					myBlendState.AssignOutTriggers(myCurrentState);
 					SetState(myBlendState);
 				}
@@ -1131,14 +1108,28 @@ namespace HaremLife
 			public State myState1;
 			public State myState2;
 			public float myProbability = DEFAULT_PROBABILITY;
+			public float myEaseInDuration = DEFAULT_EASEIN_DURATION;
+			public float myEaseOutDuration = DEFAULT_EASEOUT_DURATION;
 			public float myDuration;
 
 			public Transition(State state1, State state2)
 			{
 				myState1 = state1;
 				myState2 = state2;
-				myProbability = myState2.myProbability;
-				myDuration = myState1.myTransitionDuration + myState2.myTransitionDuration;
+				myProbability = state2.myDefaultProbability;
+				myEaseInDuration = state2.myDefaultEaseInDuration;
+				myEaseOutDuration = state2.myDefaultEaseOutDuration;
+				myDuration = DEFAULT_TRANSITION_DURATION;
+			}
+
+			public Transition(Transition transition)
+			{
+				myState1 = transition.myState1;
+				myState2 = transition.myState2;
+				myProbability = transition.myProbability;
+				myDuration = transition.myDuration;
+				myEaseInDuration = transition.myEaseInDuration;
+				myEaseOutDuration = transition.myEaseOutDuration;
 			}
 		}
 
@@ -1147,17 +1138,15 @@ namespace HaremLife
 			public string myName;
 			public float myWaitDurationMin;
 			public float myWaitDurationMax;
-			public float myTransitionDuration;
-			public float myEaseInDuration = DEFAULT_EASEIN_DURATION;
-			public float myEaseOutDuration = DEFAULT_EASEOUT_DURATION;
-			public float myProbability = DEFAULT_PROBABILITY;
+			public float myDefaultEaseInDuration = DEFAULT_EASEIN_DURATION;
+			public float myDefaultEaseOutDuration = DEFAULT_EASEOUT_DURATION;
+			public float myDefaultProbability = DEFAULT_PROBABILITY;
 			public bool myWaitInfiniteDuration = false;
 			public bool myWaitForSync = false;
-			public bool myAllowInGroupTransition = false;
 			public uint myDebugIndex = 0;
 			public Dictionary<ControlCapture, ControlEntryAnchored> myControlEntries = new Dictionary<ControlCapture, ControlEntryAnchored>();
 			public Dictionary<MorphCapture, float> myMorphEntries = new Dictionary<MorphCapture, float>();
-			public List<State> myTransitions = new List<State>();
+			public List<Transition> myTransitions = new List<Transition>();
 			public EventTrigger EnterBeginTrigger;
 			public EventTrigger EnterEndTrigger;
 			public EventTrigger ExitBeginTrigger;
@@ -1183,17 +1172,39 @@ namespace HaremLife
 				myName = name;
 				myWaitDurationMin = source.myWaitDurationMin;
 				myWaitDurationMax = source.myWaitDurationMax;
-				myTransitionDuration = source.myTransitionDuration;
-				myEaseInDuration = source.myEaseInDuration;
-				myEaseOutDuration = source.myEaseOutDuration;
-				myProbability = source.myProbability;
+				myDefaultEaseInDuration = source.myDefaultEaseInDuration;
+				myDefaultEaseOutDuration = source.myDefaultEaseOutDuration;
+				myDefaultProbability = source.myDefaultProbability;
 				myWaitInfiniteDuration = source.myWaitInfiniteDuration;
 				myWaitForSync = source.myWaitForSync;
-				myAllowInGroupTransition = source.myAllowInGroupTransition;
 				EnterBeginTrigger = new EventTrigger(source.EnterBeginTrigger);
 				EnterEndTrigger = new EventTrigger(source.EnterEndTrigger);
 				ExitBeginTrigger = new EventTrigger(source.ExitBeginTrigger);
 				ExitEndTrigger = new EventTrigger(source.ExitEndTrigger);
+			}
+
+			public List<State> getReachableStates() {
+				List<State> states = new List<State>();
+				for(int i=0; i<myTransitions.Count; i++)
+					states.Add(myTransitions[i].myState2);
+				return states;
+			}
+
+			public bool isReachable(State state) {
+				List<State> states = this.getReachableStates();
+				return states.Contains(state);
+			}
+
+			public Transition getIncomingTransition(State state) {
+				for(int i=0; i<myTransitions.Count; i++)
+					if(myTransitions[i].myState2 == state)
+						return myTransitions[i];
+				return null;
+			}
+			public void removeTransition(State state) {
+				for(int i=0; i<myTransitions.Count; i++)
+					if(myTransitions[i].myState2 == state)
+						myTransitions.RemoveAt(i);
 			}
 
 			public static State CreateBlendState()
@@ -1201,7 +1212,6 @@ namespace HaremLife
 				return new State("BlendState") {
 					myWaitDurationMin = 0.0f,
 					myWaitDurationMax = 0.0f,
-					myTransitionDuration = 0.2f,
 				};
 			}
 

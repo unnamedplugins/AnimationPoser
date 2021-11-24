@@ -111,7 +111,12 @@ namespace HaremLife
 			myCapturesMorphList.setCallbackFunction += UIUpdateMorphFullename;
 
 			myStateAutoTransition = new JSONStorableBool("Auto-Transition on State Change", true);
+
+			myMainState = new JSONStorableStringChooser("State", stateItems, "", "State");
+			myMainState.setCallbackFunction += UISelectStateAndRefresh;
+
 			myTransitionList = new JSONStorableStringChooser("Transition", new List<string>(), "", "Transition");
+
 			myAnchorCaptureList = new JSONStorableStringChooser("ControlCapture", new List<string>(), "", "Control Capture");
 			myAnchorCaptureList.setCallbackFunction += (string v) => UIRefreshMenu();
 
@@ -857,22 +862,32 @@ namespace HaremLife
 			JSONStorableString name = new JSONStorableString("State Name", state.myName, UIRenameState);
 			CreateMenuTextInput("Name", name, false);
 
-			JSONStorableFloat probability = new JSONStorableFloat("Relative Probability", DEFAULT_PROBABILITY, 0.0f, 1.0f, true, true);
-			probability.valNoCallback = state.myProbability;
+			JSONStorableFloat probability = new JSONStorableFloat("Default Transition Probability", DEFAULT_PROBABILITY, 0.0f, 1.0f, true, true);
+			probability.valNoCallback = state.myDefaultProbability;
 			probability.setCallbackFunction = (float v) => {
 				State s = UIGetState();
 				if (s != null)
-					s.myProbability = v;
+					s.myDefaultProbability = v;
 			};
 			CreateMenuSlider(probability, false);
 
-			JSONStorableBool allowInnerGroupTransition = new JSONStorableBool("Allow for in-group Transition", state.myAllowInGroupTransition);
-			allowInnerGroupTransition.setCallbackFunction = (bool v) => {
+			JSONStorableFloat easeInDuration = new JSONStorableFloat("Default Ease In Duration", DEFAULT_EASEIN_DURATION, 0.0f, 5.0f, true, true);
+			easeInDuration.valNoCallback = state.myDefaultEaseInDuration;
+			easeInDuration.setCallbackFunction = (float v) => {
 				State s = UIGetState();
 				if (s != null)
-					s.myAllowInGroupTransition = v;
+					s.myDefaultEaseInDuration = v;
 			};
-			CreateMenuToggle(allowInnerGroupTransition, false);
+			CreateMenuSlider(easeInDuration, false);
+
+			JSONStorableFloat easeOutDuration = new JSONStorableFloat("Default Ease Out Duration", DEFAULT_EASEOUT_DURATION, 0.0f, 5.0f, true, true);
+			easeOutDuration.valNoCallback = state.myDefaultEaseOutDuration;
+			easeOutDuration.setCallbackFunction = (float v) => {
+				State s = UIGetState();
+				if (s != null)
+					s.myDefaultEaseOutDuration = v;
+			};
+			CreateMenuSlider(easeOutDuration, false);
 
 			JSONStorableBool waitInfiniteDuration = new JSONStorableBool("Wait Infinite Duration", state.myWaitInfiniteDuration);
 			waitInfiniteDuration.setCallbackFunction = (bool v) => {
@@ -1031,12 +1046,12 @@ namespace HaremLife
 			// collect transitions
 			List<UITransition> transitions = new List<UITransition>(state.myTransitions.Count);
 			for (int i=0; i<state.myTransitions.Count; ++i)
-				transitions.Add(new UITransition(state.myTransitions[i], false, true));
+				transitions.Add(new UITransition(state.myTransitions[i].myState2, false, true));
 
 			foreach (var s in myCurrentLayer.myStates)
 			{
 				State target = s.Value;
-				if (state == target || !target.myTransitions.Contains(state))
+				if (state == target || !target.isReachable(state))
 					continue;
 
 				int idx = transitions.FindIndex(t => t.state == target);
@@ -1053,8 +1068,6 @@ namespace HaremLife
 			{
 				State target = s.Value;
 				if (state == target)
-					continue;
-				if (transitions.FindIndex(t => t.state == target) >= 0)
 					continue;
 				availableTargets.Add(target.myName);
 			}
@@ -1104,32 +1117,50 @@ namespace HaremLife
 
 			CreateMenuInfoOneLine("<size=30><b>Transition Settings</b></size>", true);
 
-			JSONStorableFloat transitionDuration = new JSONStorableFloat("Transition Duration", DEFAULT_TRANSITION_DURATION, 0.01f, 5.0f, true, true);
-			transitionDuration.valNoCallback = state.myTransitionDuration;
-			transitionDuration.setCallbackFunction = (float v) => {
-				State s = UIGetState();
-				if (s != null)
-					s.myTransitionDuration = v;
-			};
-			CreateMenuSlider(transitionDuration, true);
+			State targetState;
+			myCurrentLayer.myStates.TryGetValue(myTransitionList.val, out targetState);
+			if(targetState == null) {
+				SuperController.LogError("No state to choose transitions from");
+			}
+			Transition transition = state.getIncomingTransition(targetState);
 
-			JSONStorableFloat easeInDuration = new JSONStorableFloat("EaseIn Duration", DEFAULT_EASEIN_DURATION, 0.0f, 3.0f, true, true);
-			easeInDuration.valNoCallback = state.myEaseInDuration;
-			easeInDuration.setCallbackFunction = (float v) => {
-				State s = UIGetState();
-				if (s != null)
-					s.myEaseInDuration = v;
-			};
-			CreateMenuSlider(easeInDuration, true);
+			if(transition != null) {
+				JSONStorableFloat transitionProbability = new JSONStorableFloat("Relative Transition Probability", transition.myProbability, 0.01f, 1.0f, true, true);
+				transitionProbability.valNoCallback = transition.myProbability;
+				transitionProbability.setCallbackFunction = (float v) => {
+					Transition t = UIGetTransition();
+					if (t != null)
+						t.myProbability = v;
+				};
+				CreateMenuSlider(transitionProbability, true);
 
-			JSONStorableFloat easeOutDuration = new JSONStorableFloat("EaseOut Duration", DEFAULT_EASEOUT_DURATION, 0.0f, 3.0f, true, true);
-			easeOutDuration.valNoCallback = state.myEaseOutDuration;
-			easeOutDuration.setCallbackFunction = (float v) => {
-				State s = UIGetState();
-				if (s != null)
-					s.myEaseOutDuration = v;
-			};
-			CreateMenuSlider(easeOutDuration, true);
+				JSONStorableFloat transitionDuration = new JSONStorableFloat("Transition Duration", transition.myDuration, 0.01f, 5.0f, true, true);
+				transitionDuration.valNoCallback = transition.myDuration;
+				transitionDuration.setCallbackFunction = (float v) => {
+					Transition t = UIGetTransition();
+					if (t != null)
+						t.myDuration = v;
+				};
+				CreateMenuSlider(transitionDuration, true);
+
+				JSONStorableFloat easeInDuration = new JSONStorableFloat("EaseIn Duration", transition.myEaseInDuration, 0.0f, 5.0f, true, true);
+				easeInDuration.valNoCallback = transition.myEaseInDuration;
+				easeInDuration.setCallbackFunction = (float v) => {
+					Transition t = UIGetTransition();
+					if (t != null)
+						t.myEaseInDuration = v;
+				};
+				CreateMenuSlider(easeInDuration, true);
+
+				JSONStorableFloat easeOutDuration = new JSONStorableFloat("EaseOut Duration", transition.myEaseOutDuration, 0.0f, 5.0f, true, true);
+				easeOutDuration.valNoCallback = transition.myEaseOutDuration;
+				easeOutDuration.setCallbackFunction = (float v) => {
+					Transition t = UIGetTransition();
+					if (t != null)
+						t.myEaseOutDuration = v;
+				};
+				CreateMenuSlider(easeOutDuration, true);
+			}
 		}
 
 		private void CreateTriggers()
@@ -1564,12 +1595,15 @@ namespace HaremLife
 				return;
 
 			State duplicate = new State(name, source);
-			duplicate.myTransitions = new List<State>(source.myTransitions);
+			duplicate.myTransitions = new List<Transition>(source.myTransitions);
 			foreach (var s in myCurrentLayer.myStates)
 			{
 				State state = s.Value;
-				if (state != source && state.myTransitions.Contains(source))
-					state.myTransitions.Add(duplicate);
+				if (state != source && state.isReachable(source)) {
+					Transition transition = state.getIncomingTransition(source);
+					Transition duplicatedTransition = new Transition(transition);
+					state.myTransitions.Add(duplicatedTransition);
+				}
 			}
 			foreach (var entry in source.myControlEntries)
 			{
@@ -1677,7 +1711,7 @@ namespace HaremLife
 
 			myCurrentLayer.myStates.Remove(state.myName);
 			foreach (var s in myCurrentLayer.myStates)
-				s.Value.myTransitions.RemoveAll(x => x == state);
+				s.Value.myTransitions.RemoveAll(x => x.myState2 == state);
 
 			state.EnterBeginTrigger.Remove();
 			state.EnterEndTrigger.Remove();
@@ -1809,26 +1843,25 @@ namespace HaremLife
 			if (!myCurrentLayer.myStates.TryGetValue(myTransitionList.val, out target))
 				return;
 
-			if (!source.myTransitions.Contains(target))
-				source.myTransitions.Add(target);
-			if (!target.myTransitions.Contains(source))
-				target.myTransitions.Add(source);
+			if (!source.isReachable(target)) {
+				Transition transition = new Transition(source, target);
+				source.myTransitions.Add(transition);
+			}
 
 			UIRefreshMenu();
 		}
 
 		private void UIUpdateTransition(State source, State target, bool transitionEnabled)
 		{
-			if (transitionEnabled && !source.myTransitions.Contains(target))
-				source.myTransitions.Add(target);
-			else if (!transitionEnabled)
-				source.myTransitions.Remove(target);
+			// if (transitionEnabled && !source.myTransitions.Contains(target))
+			// 	source.myTransitions.Add(target);
+			// else if (!transitionEnabled)
+			// 	source.myTransitions.Remove(target);
 		}
 
 		private void UIRemoveTransition(State source, State target)
 		{
-			source.myTransitions.Remove(target);
-			target.myTransitions.Remove(source);
+			source.removeTransition(target);
 			UIRefreshMenu();
 		}
 
@@ -1873,6 +1906,24 @@ namespace HaremLife
 				return state;
 			}
 		}
+		private Transition UIGetTransition()
+		{
+			State sourceState;
+			State targetState;
+
+			if (!myCurrentLayer.myStates.TryGetValue(myMainState.val, out sourceState))
+			{
+				SuperController.LogError("AnimationPoser: Invalid state selected!");
+				return null;
+			}
+			else
+			{
+				myCurrentLayer.myStates.TryGetValue(myTransitionList.val, out targetState);
+				return sourceState.getIncomingTransition(targetState);
+			}
+		}
+
+
 
 		// =======================================================================================
 
