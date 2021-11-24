@@ -1853,10 +1853,11 @@ namespace HaremLife
 
 		private void UIUpdateTransition(State source, State target, bool transitionEnabled)
 		{
-			// if (transitionEnabled && !source.myTransitions.Contains(target))
-			// 	source.myTransitions.Add(target);
-			// else if (!transitionEnabled)
-			// 	source.myTransitions.Remove(target);
+			if (transitionEnabled && !source.isReachable(target)) {
+				Transition transition = new Transition(source, target);
+				source.myTransitions.Add(transition);
+			} else if (!transitionEnabled)
+				source.removeTransition(target);
 		}
 
 		private void UIRemoveTransition(State source, State target)
