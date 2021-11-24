@@ -846,8 +846,7 @@ namespace HaremLife
 			if (!myCurrentLayer.myStates.TryGetValue(myMainState.val, out state))
 				return;
 
-			CreateMenuTwinButton("Add State", UIAddState, "Duplicate State", UIDuplicateState, false);
-			CreateMenuButton("Remove State", UIRemoveState, false);
+			CreateMenuTwinButton("Duplicate State", UIDuplicateState, "Remove State", UIRemoveState, false);
 			CreateMenuToggle(myStateAutoTransition, false);
 
 			CreateMenuButton("Capture State", UICaptureState, true);
