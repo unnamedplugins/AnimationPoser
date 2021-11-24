@@ -836,7 +836,6 @@ namespace HaremLife
 
 		}
 
-
 		// =======================================================================================
 		private class Layer
 		{
@@ -867,8 +866,8 @@ namespace HaremLife
 
 			public void SetState(State state)
 			{
-				SuperController.LogError("Set State");
-				SuperController.LogError(state.myName);
+				// SuperController.LogError("Set State");
+				// SuperController.LogError(state.myName);
 				myNoValidTransition = false;
 				myCurrentState = state;
 				myNextState = null;
@@ -943,8 +942,8 @@ namespace HaremLife
 					} else {
 						t = Smooth(0, 0, myDuration, myClock);
 					}
-					SuperController.LogError(myClock.ToString());
-					SuperController.LogError(myDuration.ToString());
+					// SuperController.LogError(myClock.ToString());
+					// SuperController.LogError(myDuration.ToString());
 					for (int i=0; i<myControlCaptures.Count; ++i)
 						myControlCaptures[i].UpdateTransition(t);
 					for (int i=0; i<myMorphCaptures.Count; ++i)
@@ -982,10 +981,10 @@ namespace HaremLife
 
 			public void SetTransition()
 			{
-				SuperController.LogError("Set transition");
-				SuperController.LogError(myTransition.myDuration.ToString());
-				SuperController.LogError(myTransition.myState1.myName);
-				SuperController.LogError(myTransition.myState2.myName);
+				// SuperController.LogError("Set transition");
+				// SuperController.LogError(myTransition.myDuration.ToString());
+				// SuperController.LogError(myTransition.myState1.myName);
+				// SuperController.LogError(myTransition.myState2.myName);
 
 				myNoValidTransition = false;
 
@@ -1037,9 +1036,9 @@ namespace HaremLife
 
 			public void SetBlendTransition(State state, bool debug = false)
 			{
-				SuperController.LogError("Set blend transition");
-				SuperController.LogError(myCurrentState.myName);
-				SuperController.LogError(state.myName);
+				// SuperController.LogError("Set blend transition");
+				// SuperController.LogError(myCurrentState.myName);
+				// SuperController.LogError(state.myName);
 				myTransition = new Transition(myCurrentState, state);
 				myNextState = state;
 				// if (myCurrentState != null)

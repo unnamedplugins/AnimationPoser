@@ -115,8 +115,6 @@ namespace HaremLife
 			myMainState = new JSONStorableStringChooser("State", stateItems, "", "State");
 			myMainState.setCallbackFunction += UISelectStateAndRefresh;
 
-			myTransitionList = new JSONStorableStringChooser("Transition", new List<string>(), "", "Transition");
-
 			myAnchorCaptureList = new JSONStorableStringChooser("ControlCapture", new List<string>(), "", "Control Capture");
 			myAnchorCaptureList.setCallbackFunction += (string v) => UIRefreshMenu();
 
@@ -1089,12 +1087,19 @@ namespace HaremLife
 				State target = myCurrentLayer.myStates[availableTargets[i]];
 				availableTargetDisplays.Add(target.myName);
 			}
-			myTransitionList.choices = availableTargets;
-			myTransitionList.displayChoices = availableTargetDisplays;
+
+
+			string selectedTargetState;
 			if (availableTargets.Count == 0)
-				myTransitionList.val = "";
-			else if (!availableTargets.Contains(myTransitionList.val))
-				myTransitionList.val = availableTargets[0];
+				selectedTargetState = "";
+			else if (myTransitionList == null || !availableTargets.Contains(myTransitionList.val))
+				selectedTargetState = availableTargets[0];
+			else
+				selectedTargetState = myTransitionList.val;
+
+			myTransitionList = new JSONStorableStringChooser("Transition", availableTargets, selectedTargetState, "Transition");
+			myTransitionList.displayChoices = availableTargetDisplays;
+			myTransitionList.setCallbackFunction += (string v) => UIRefreshMenu();
 
 			if (availableTargets.Count > 0)
 			{
