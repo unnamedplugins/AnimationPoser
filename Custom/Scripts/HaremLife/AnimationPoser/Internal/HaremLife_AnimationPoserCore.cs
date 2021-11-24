@@ -1677,7 +1677,7 @@ namespace HaremLife
 				}
 				else
 				{
-					identical &= (myTransition[0] == morphValue);
+					identical &= (myTransition[1] == morphValue);
 				}
 	
 				if (identical)
