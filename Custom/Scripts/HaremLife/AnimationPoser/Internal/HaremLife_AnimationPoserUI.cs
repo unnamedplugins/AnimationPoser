@@ -871,6 +871,15 @@ namespace HaremLife
 			};
 			CreateMenuSlider(probability, false);
 
+			JSONStorableFloat duration = new JSONStorableFloat("Default Transition Duration", DEFAULT_TRANSITION_DURATION, 0.0f, 5.0f, true, true);
+			duration.valNoCallback = state.myDefaultDuration;
+			duration.setCallbackFunction = (float v) => {
+				State s = UIGetState();
+				if (s != null)
+					s.myDefaultDuration = v;
+			};
+			CreateMenuSlider(duration, false);
+
 			JSONStorableFloat easeInDuration = new JSONStorableFloat("Default Ease In Duration", DEFAULT_EASEIN_DURATION, 0.0f, 5.0f, true, true);
 			easeInDuration.valNoCallback = state.myDefaultEaseInDuration;
 			easeInDuration.setCallbackFunction = (float v) => {

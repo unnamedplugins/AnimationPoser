@@ -1107,9 +1107,9 @@ namespace HaremLife
 		{
 			public State myState1;
 			public State myState2;
-			public float myProbability = DEFAULT_PROBABILITY;
-			public float myEaseInDuration = DEFAULT_EASEIN_DURATION;
-			public float myEaseOutDuration = DEFAULT_EASEOUT_DURATION;
+			public float myProbability;
+			public float myEaseInDuration;
+			public float myEaseOutDuration;
 			public float myDuration;
 
 			public Transition(State state1, State state2)
@@ -1119,7 +1119,7 @@ namespace HaremLife
 				myProbability = state2.myDefaultProbability;
 				myEaseInDuration = state2.myDefaultEaseInDuration;
 				myEaseOutDuration = state2.myDefaultEaseOutDuration;
-				myDuration = DEFAULT_TRANSITION_DURATION;
+				myDuration = state2.myDefaultDuration;
 			}
 
 			public Transition(Transition transition)
@@ -1127,9 +1127,9 @@ namespace HaremLife
 				myState1 = transition.myState1;
 				myState2 = transition.myState2;
 				myProbability = transition.myProbability;
-				myDuration = transition.myDuration;
 				myEaseInDuration = transition.myEaseInDuration;
 				myEaseOutDuration = transition.myEaseOutDuration;
+				myDuration = transition.myDuration;
 			}
 		}
 
@@ -1138,6 +1138,7 @@ namespace HaremLife
 			public string myName;
 			public float myWaitDurationMin;
 			public float myWaitDurationMax;
+			public float myDefaultDuration = DEFAULT_TRANSITION_DURATION;
 			public float myDefaultEaseInDuration = DEFAULT_EASEIN_DURATION;
 			public float myDefaultEaseOutDuration = DEFAULT_EASEOUT_DURATION;
 			public float myDefaultProbability = DEFAULT_PROBABILITY;
