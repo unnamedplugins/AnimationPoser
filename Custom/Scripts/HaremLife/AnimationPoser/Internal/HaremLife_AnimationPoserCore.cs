@@ -534,7 +534,10 @@ namespace HaremLife
 						if (ce.myAnchorMode >= ControlEntryAnchored.ANCHORMODE_SINGLE)
 						{
 							ceclass["DampingTime"].AsFloat = ce.myDampingTime;
-							ceclass["AnchorAAtom"] = ce.myAnchorAAtom;
+							if(ce.myAnchorAAtom == containingAtom.uid)
+								ceclass["AnchorAAtom"] = "[Self]";
+							else
+								ceclass["AnchorAAtom"] = ce.myAnchorAAtom;
 							ceclass["AnchorAControl"] = ce.myAnchorAControl;
 						}
 						if (ce.myAnchorMode == ControlEntryAnchored.ANCHORMODE_BLEND)
