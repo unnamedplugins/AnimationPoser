@@ -1096,29 +1096,31 @@ namespace HaremLife
 				return;
 			};
 
-			List<string> availableLayers = new List<string>();
-			foreach (var l in targetAnimation.myLayers)
-			{
-				Layer target = l.Value;
-				availableLayers.Add(target.myName);
-			}
-			availableLayers.Sort();
-
-			string selectedTargetLayer;
-			if (availableLayers.Count == 0)
-				selectedTargetLayer = "";
-			else if (myTargetLayerList == null || !availableLayers.Contains(myTargetLayerList.val))
-				selectedTargetLayer = myCurrentLayer.myName;
-			else
-				selectedTargetLayer = myTargetLayerList.val;
-
-			myTargetLayerList = new JSONStorableStringChooser("Target Layer", availableLayers, selectedTargetLayer, "Target Layer");
-			myTargetLayerList.setCallbackFunction += (string v) => UIRefreshMenu();
-
 			Layer targetLayer;
-			if(!targetAnimation.myLayers.TryGetValue(myTargetLayerList.val, out targetLayer)){
-				return;
-			};
+			List<string> availableLayers = new List<string>();
+			if(targetAnimation != myCurrentAnimation) {
+				foreach (var l in targetAnimation.myLayers)
+				{
+					Layer target = l.Value;
+					availableLayers.Add(target.myName);
+				}
+				availableLayers.Sort();
+
+				string selectedTargetLayer;
+				if (availableLayers.Count == 0)
+					selectedTargetLayer = "";
+				else if (myTargetLayerList == null || !availableLayers.Contains(myTargetLayerList.val))
+					selectedTargetLayer = myCurrentLayer.myName;
+				else
+					selectedTargetLayer = myTargetLayerList.val;
+
+				myTargetLayerList = new JSONStorableStringChooser("Target Layer", availableLayers, selectedTargetLayer, "Target Layer");
+				myTargetLayerList.setCallbackFunction += (string v) => UIRefreshMenu();
+
+				if(!targetAnimation.myLayers.TryGetValue(myTargetLayerList.val, out targetLayer))
+					return;
+			} else
+				targetLayer = myCurrentLayer;
 
 			List<string> availableStates = new List<string>();
 			foreach (var s in targetLayer.myStates)

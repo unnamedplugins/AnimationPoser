@@ -1115,6 +1115,7 @@ namespace HaremLife
 				// SuperController.LogError("Set transition");
 				// SuperController.LogError(myTransition.myDuration.ToString());
 				// SuperController.LogError(myTransition.mySourceState.myName);
+				// SuperController.LogError(myTransition.myTargetState.myAnimation.myName);
 				// SuperController.LogError(myTransition.myTargetState.myName);
 
 				myNoValidTransition = false;
