@@ -1056,7 +1056,8 @@ namespace HaremLife
 			// collect transitions
 			List<UITransition> transitions = new List<UITransition>(state.myTransitions.Count);
 			for (int i=0; i<state.myTransitions.Count; ++i)
-				transitions.Add(new UITransition(state.myTransitions[i], false, true));
+				transitions.Add(new UITransition(state.myTransitions[i].myTargetState, false, true));
+
 
 			foreach (var s in myCurrentLayer.myStates)
 			{
@@ -1066,9 +1067,9 @@ namespace HaremLife
 
 				int idx = transitions.FindIndex(t => t.state == target);
 				if (idx >= 0)
-					transitions[idx] = new UITransition(state.getIncomingTransition(target), true, true);
+					transitions[idx] = new UITransition(target, true, true);
 				else
-					transitions.Add(new UITransition(state.getIncomingTransition(target), true, false));
+					transitions.Add(new UITransition(target, true, false));
 			}
 			transitions.Sort((UITransition a, UITransition b) => a.state.myName.CompareTo(b.state.myName));
 
@@ -1702,8 +1703,8 @@ namespace HaremLife
 
 			CreateAnimation(name);
 			myMainAnimation.val = name;
-			UIRefreshMenu();
-			return;
+			myMainLayer.val = "";
+			myMainState.val = "";
 		}
 
 		private void UIAddLayer()
@@ -1714,6 +1715,7 @@ namespace HaremLife
 
 			CreateLayer(name);
 			myMainLayer.val = name;
+			myMainState.val = "";
 			UIRefreshMenu();
 			return;
 		}
@@ -1832,10 +1834,23 @@ namespace HaremLife
 		private void UIRemoveAnimation()
 		{
 			Animation animation = UIGetAnimation();
-			if (animation == null)
+			if (animation == null) {
 				return;
+			}
 
+			foreach (var a in myAnimations) {
+				foreach (var l in a.Value.myLayers) {
+					foreach (var s in l.Value.myStates)
+						s.Value.myTransitions.RemoveAll(x => x.myTargetState.myAnimation == animation);
+				}
+			}
 			myAnimations.Remove(animation.myName);
+
+			List<string> animations = myAnimations.Keys.ToList();
+			animations.Sort();
+			if(animations.Count > 0) {
+				myMainAnimation.val = animations[0];
+			}
 
 			UIRefreshMenu();
 		}
@@ -1846,7 +1861,19 @@ namespace HaremLife
 			if (layer == null)
 				return;
 
+			foreach (var a in myAnimations) {
+				foreach (var l in a.Value.myLayers) {
+					foreach (var s in l.Value.myStates)
+						s.Value.myTransitions.RemoveAll(x => x.myTargetState.myLayer == layer);
+				}
+			}
 			myCurrentAnimation.myLayers.Remove(layer.myName);
+
+			List<string> layers = myCurrentAnimation.myLayers.Keys.ToList();
+			layers.Sort();
+			if(layers.Count > 0) {
+				myMainLayer.val = layers[0];
+			}
 
 			UIRefreshMenu();
 		}
@@ -1857,9 +1884,14 @@ namespace HaremLife
 			if (state == null)
 				return;
 
+			foreach (var a in myAnimations) {
+				foreach (var l in a.Value.myLayers) {
+					foreach (var s in l.Value.myStates)
+						s.Value.myTransitions.RemoveAll(x => x.myTargetState == state);
+				}
+			}
+
 			myCurrentLayer.myStates.Remove(state.myName);
-			foreach (var s in myCurrentLayer.myStates)
-				s.Value.myTransitions.RemoveAll(x => x.myTargetState == state);
 
 			state.EnterBeginTrigger.Remove();
 			state.EnterEndTrigger.Remove();
@@ -1991,8 +2023,12 @@ namespace HaremLife
 			if (!myAnimations.TryGetValue(myTargetAnimationList.val, out targetAnimation))
 				return;
 			Layer targetLayer;
-			if (!targetAnimation.myLayers.TryGetValue(myTargetLayerList.val, out targetLayer))
-				return;
+			if(targetAnimation != myCurrentAnimation) {
+				if (!targetAnimation.myLayers.TryGetValue(myTargetLayerList.val, out targetLayer))
+					return;
+			} else {
+				targetLayer = myCurrentLayer;
+			}
 			State target;
 			if (!targetLayer.myStates.TryGetValue(myTargetStateList.val, out target))
 				return;
@@ -2012,6 +2048,7 @@ namespace HaremLife
 				source.myTransitions.Add(transition);
 			} else if (!transitionEnabled)
 				source.removeTransition(target);
+			UIRefreshMenu();
 		}
 
 		private void UIRemoveTransition(State source, State target)
@@ -2076,8 +2113,12 @@ namespace HaremLife
 				if (!myAnimations.TryGetValue(myTargetAnimationList.val, out targetAnimation))
 					return null;
 				Layer targetLayer;
-				if (!targetAnimation.myLayers.TryGetValue(myTargetLayerList.val, out targetLayer))
-					return null;
+				if(targetAnimation != myCurrentAnimation) {
+					if (!targetAnimation.myLayers.TryGetValue(myTargetLayerList.val, out targetLayer))
+						return null;
+				} else {
+					targetLayer = myCurrentLayer;
+				}
 				State target;
 				if (!targetLayer.myStates.TryGetValue(myTargetStateList.val, out target))
 					return null;
@@ -2305,11 +2346,11 @@ namespace HaremLife
 			public bool incoming;
 			public bool outgoing;
 
-			public UITransition(Transition transition, bool incoming, bool outgoing)
+			public UITransition(State target, bool incoming, bool outgoing)
 			{
-				this.state = transition.myTargetState;
-				this.layer = transition.myTargetState.myLayer;
-				this.animation = transition.myTargetState.myAnimation;
+				this.state = target;
+				this.layer = target.myLayer;
+				this.animation = target.myAnimation;
 				this.incoming = incoming;
 				this.outgoing = outgoing;
 			}

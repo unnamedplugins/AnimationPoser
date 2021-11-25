@@ -1071,7 +1071,7 @@ namespace HaremLife
 					{
 						State previousState = myCurrentState;
 						SetState(myNextState);
-						if (myTransition == null)
+						if (myTransition == null && myMainLayer.val == myName)
 							myMainState.valNoCallback = myCurrentState.myName;
 
 						if (previousState.ExitEndTrigger != null)
