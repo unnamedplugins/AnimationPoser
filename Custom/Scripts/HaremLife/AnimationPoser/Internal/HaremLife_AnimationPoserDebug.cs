@@ -279,7 +279,7 @@ namespace HaremLife
 			State selectedState = UIGetState();
 			for (int i=0; i<current.myTransitions.Count; ++i)
 			{
-				State next = current.myTransitions[i].myState2;
+				State next = current.myTransitions[i].myTargetState;
 				if (myDebugTransition.Contains(next))
 					continue;
 
@@ -414,7 +414,7 @@ namespace HaremLife
 
 			for (int i=0; i<source.myTransitions.Count; ++i)
 			{
-				State target = source.myTransitions[i].myState2;
+				State target = source.myTransitions[i].myTargetState;
 				DebugGatherTransition(source, target);
 			}
 		}

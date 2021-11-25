@@ -36,7 +36,11 @@ namespace HaremLife
 		private JSONStorableStringChooser myAnchorControlListB;
 		private JSONStorableFloat myAnchorBlendRatio;
 		private JSONStorableFloat myAnchorDampingTime;
-		private JSONStorableStringChooser myTransitionList;
+		private JSONStorableStringChooser myTargetAnimationList;
+		private JSONStorableStringChooser myTargetLayerList;
+		private JSONStorableStringChooser myTargetStateList;
+		private JSONStorableStringChooser mySyncLayerList;
+		private JSONStorableStringChooser mySyncStateList;
 		private JSONStorableBool myOptionsDefaultToWorldAnchor;
 		private JSONStorableBool myDebugShowInfo;
 		private JSONStorableBool myDebugShowPaths;
@@ -1052,7 +1056,7 @@ namespace HaremLife
 			// collect transitions
 			List<UITransition> transitions = new List<UITransition>(state.myTransitions.Count);
 			for (int i=0; i<state.myTransitions.Count; ++i)
-				transitions.Add(new UITransition(state.myTransitions[i].myState2, false, true));
+				transitions.Add(new UITransition(state.myTransitions[i], false, true));
 
 			foreach (var s in myCurrentLayer.myStates)
 			{
@@ -1062,47 +1066,90 @@ namespace HaremLife
 
 				int idx = transitions.FindIndex(t => t.state == target);
 				if (idx >= 0)
-					transitions[idx] = new UITransition(target, true, true);
+					transitions[idx] = new UITransition(state.getIncomingTransition(target), true, true);
 				else
-					transitions.Add(new UITransition(target, true, false));
+					transitions.Add(new UITransition(state.getIncomingTransition(target), true, false));
 			}
 			transitions.Sort((UITransition a, UITransition b) => a.state.myName.CompareTo(b.state.myName));
 
-			// collect available targets
-			List<string> availableTargets = new List<string>();
-			foreach (var s in myCurrentLayer.myStates)
+			List<string> availableAnimations = new List<string>();
+			foreach (var a in myAnimations)
+			{
+				Animation target = a.Value;
+				availableAnimations.Add(target.myName);
+			}
+			availableAnimations.Sort();
+
+			string selectedTargetAnimation;
+			if (availableAnimations.Count == 0)
+				selectedTargetAnimation= "";
+			else if (myTargetAnimationList == null || !availableAnimations.Contains(myTargetAnimationList.val))
+				selectedTargetAnimation = myCurrentAnimation.myName;
+			else
+				selectedTargetAnimation = myTargetAnimationList.val;
+
+			myTargetAnimationList = new JSONStorableStringChooser("Target Animation", availableAnimations, selectedTargetAnimation, "Target Animation");
+			myTargetAnimationList.setCallbackFunction += (string v) => UIRefreshMenu();
+
+			Animation targetAnimation;
+			if(!myAnimations.TryGetValue(myTargetAnimationList.val, out targetAnimation)){
+				return;
+			};
+
+			List<string> availableLayers = new List<string>();
+			foreach (var l in targetAnimation.myLayers)
+			{
+				Layer target = l.Value;
+				availableLayers.Add(target.myName);
+			}
+			availableLayers.Sort();
+
+			string selectedTargetLayer;
+			if (availableLayers.Count == 0)
+				selectedTargetLayer = "";
+			else if (myTargetLayerList == null || !availableLayers.Contains(myTargetLayerList.val))
+				selectedTargetLayer = myCurrentLayer.myName;
+			else
+				selectedTargetLayer = myTargetLayerList.val;
+
+			myTargetLayerList = new JSONStorableStringChooser("Target Layer", availableLayers, selectedTargetLayer, "Target Layer");
+			myTargetLayerList.setCallbackFunction += (string v) => UIRefreshMenu();
+
+			Layer targetLayer;
+			if(!targetAnimation.myLayers.TryGetValue(myTargetLayerList.val, out targetLayer)){
+				return;
+			};
+
+			List<string> availableStates = new List<string>();
+			foreach (var s in targetLayer.myStates)
 			{
 				State target = s.Value;
 				if (state == target)
 					continue;
-				availableTargets.Add(target.myName);
+				availableStates.Add(target.myName);
 			}
-			availableTargets.Sort();
-
-
-			List<string> availableTargetDisplays = new List<string>(availableTargets.Count);
-			for (int i=0; i<availableTargets.Count; ++i)
-			{
-				State target = myCurrentLayer.myStates[availableTargets[i]];
-				availableTargetDisplays.Add(target.myName);
-			}
-
+			availableStates.Sort();
 
 			string selectedTargetState;
-			if (availableTargets.Count == 0)
+			if (availableStates.Count == 0)
 				selectedTargetState = "";
-			else if (myTransitionList == null || !availableTargets.Contains(myTransitionList.val))
-				selectedTargetState = availableTargets[0];
+			else if (myTargetStateList == null || !availableStates.Contains(myTargetStateList.val))
+				selectedTargetState = availableStates[0];
 			else
-				selectedTargetState = myTransitionList.val;
+				selectedTargetState = myTargetStateList.val;
 
-			myTransitionList = new JSONStorableStringChooser("Transition", availableTargets, selectedTargetState, "Transition");
-			myTransitionList.displayChoices = availableTargetDisplays;
-			myTransitionList.setCallbackFunction += (string v) => UIRefreshMenu();
+			myTargetStateList = new JSONStorableStringChooser("Target State", availableStates, selectedTargetState, "Target State");
+			myTargetStateList.setCallbackFunction += (string v) => UIRefreshMenu();
 
-			if (availableTargets.Count > 0)
+			if(availableAnimations.Count > 0) {
+				CreateMenuPopup(myTargetAnimationList, false);
+			}
+			if(availableLayers.Count > 0) {
+				CreateMenuPopup(myTargetLayerList, false);
+			}
+			if (availableStates.Count > 0)
 			{
-				CreateMenuPopup(myTransitionList, false);
+				CreateMenuPopup(myTargetStateList, false);
 				CreateMenuButton("Add Transition", UIAddTransition, false);
 
 				if (transitions.Count > 0)
@@ -1117,7 +1164,7 @@ namespace HaremLife
 			{
 				string label;
 				State target = transitions[i].state;
-				label = target.myName;
+				label = transitions[i].displayString();
 
 				CreateMenuLabel2BXButton(
 					label, "IN", "OUT", transitions[i].incoming, transitions[i].outgoing,
@@ -1127,14 +1174,10 @@ namespace HaremLife
 				);
 			}
 
-
 			CreateMenuInfoOneLine("<size=30><b>Transition Settings</b></size>", true);
 
 			State targetState;
-			myCurrentLayer.myStates.TryGetValue(myTransitionList.val, out targetState);
-			if(targetState == null) {
-				SuperController.LogError("No state to choose transitions from");
-			}
+			targetLayer.myStates.TryGetValue(myTargetStateList.val, out targetState);
 			Transition transition = state.getIncomingTransition(targetState);
 
 			if(transition != null) {
@@ -1173,6 +1216,96 @@ namespace HaremLife
 						t.myEaseOutDuration = v;
 				};
 				CreateMenuSlider(easeOutDuration, true);
+
+				CreateMenuInfo("Use the following to sync other layers on target state arrival.", 80, true);
+
+				List<string> syncLayers = new List<string>();
+				foreach (var l in transition.myTargetState.myAnimation.myLayers)
+				{
+					Layer target = l.Value;
+					if(target != transition.myTargetState.myLayer)
+						syncLayers.Add(target.myName);
+				}
+				syncLayers.Sort();
+
+				if (syncLayers.Count == 0) {
+					return;
+				}
+
+				string selectedSyncLayer;
+				if (mySyncLayerList == null || !syncLayers.Contains(mySyncLayerList.val))
+					selectedSyncLayer = syncLayers[0];
+				else
+					selectedSyncLayer = mySyncLayerList.val;
+
+				mySyncLayerList = new JSONStorableStringChooser("Sync Layer", syncLayers, selectedSyncLayer, "Sync Layer");
+				mySyncLayerList.setCallbackFunction += (string v) => UIRefreshMenu();
+
+				CreateMenuPopup(mySyncLayerList, true);
+
+				Layer syncLayer;
+				if(!transition.myTargetState.myAnimation.myLayers.TryGetValue(mySyncLayerList.val, out syncLayer)){
+					return;
+				};
+
+				if(transition.mySyncTargets.ContainsKey(syncLayer)) {
+					CreateMenuLabelXButton(transition.mySyncTargets[syncLayer].myName, () => {
+						Transition t = UIGetTransition();
+						if(t == null)
+							return;
+
+						Layer l;
+						if(!t.myTargetState.myAnimation.myLayers.TryGetValue(mySyncLayerList.val, out l)){
+							return;
+						};
+
+						t.mySyncTargets.Remove(l);
+
+						UIRefreshMenu();
+					}, true);
+				} else {
+					List<string> syncStates = new List<string>();
+					foreach (var s in syncLayer.myStates)
+					{
+						State target = s.Value;
+						syncStates.Add(target.myName);
+					}
+					syncStates.Sort();
+
+					if (syncStates.Count == 0) {
+						return;
+					}
+
+					string selectedSyncState;
+					if (mySyncStateList == null || !syncStates.Contains(mySyncStateList.val))
+						selectedSyncState = syncStates[0];
+					else
+						selectedSyncState = mySyncStateList.val;
+
+					mySyncStateList = new JSONStorableStringChooser("Sync State", syncStates, selectedSyncState, "Sync State");
+					mySyncStateList.setCallbackFunction += (string v) => UIRefreshMenu();
+
+					CreateMenuPopup(mySyncStateList, true);
+					CreateMenuButton("Sync State", () => {
+						Transition t = UIGetTransition();
+						if(t == null)
+							return;
+
+						Layer l;
+						if(!t.myTargetState.myAnimation.myLayers.TryGetValue(mySyncLayerList.val, out l)){
+							return;
+						};
+
+						State s;
+						if(!syncLayer.myStates.TryGetValue(mySyncStateList.val, out s)){
+							return;
+						};
+
+						t.mySyncTargets[l] = s;
+
+						UIRefreshMenu();
+					}, true);
+				}
 			}
 		}
 
@@ -1724,7 +1857,7 @@ namespace HaremLife
 
 			myCurrentLayer.myStates.Remove(state.myName);
 			foreach (var s in myCurrentLayer.myStates)
-				s.Value.myTransitions.RemoveAll(x => x.myState2 == state);
+				s.Value.myTransitions.RemoveAll(x => x.myTargetState == state);
 
 			state.EnterBeginTrigger.Remove();
 			state.EnterEndTrigger.Remove();
@@ -1852,8 +1985,14 @@ namespace HaremLife
 			State source = UIGetState();
 			if (source == null)
 				return;
+			Animation targetAnimation;
+			if (!myAnimations.TryGetValue(myTargetAnimationList.val, out targetAnimation))
+				return;
+			Layer targetLayer;
+			if (!targetAnimation.myLayers.TryGetValue(myTargetLayerList.val, out targetLayer))
+				return;
 			State target;
-			if (!myCurrentLayer.myStates.TryGetValue(myTransitionList.val, out target))
+			if (!targetLayer.myStates.TryGetValue(myTargetStateList.val, out target))
 				return;
 
 			if (!source.isReachable(target)) {
@@ -1923,7 +2062,6 @@ namespace HaremLife
 		private Transition UIGetTransition()
 		{
 			State sourceState;
-			State targetState;
 
 			if (!myCurrentLayer.myStates.TryGetValue(myMainState.val, out sourceState))
 			{
@@ -1932,8 +2070,17 @@ namespace HaremLife
 			}
 			else
 			{
-				myCurrentLayer.myStates.TryGetValue(myTransitionList.val, out targetState);
-				return sourceState.getIncomingTransition(targetState);
+				Animation targetAnimation;
+				if (!myAnimations.TryGetValue(myTargetAnimationList.val, out targetAnimation))
+					return null;
+				Layer targetLayer;
+				if (!targetAnimation.myLayers.TryGetValue(myTargetLayerList.val, out targetLayer))
+					return null;
+				State target;
+				if (!targetLayer.myStates.TryGetValue(myTargetStateList.val, out target))
+					return null;
+
+				return sourceState.getIncomingTransition(target);
 			}
 		}
 
@@ -2151,14 +2298,27 @@ namespace HaremLife
 		private struct UITransition
 		{
 			public State state;
+			public Layer layer;
+			public Animation animation;
 			public bool incoming;
 			public bool outgoing;
 
-			public UITransition(State state, bool incoming, bool outgoing)
+			public UITransition(Transition transition, bool incoming, bool outgoing)
 			{
-				this.state = state;
+				this.state = transition.myTargetState;
+				this.layer = transition.myTargetState.myLayer;
+				this.animation = transition.myTargetState.myAnimation;
 				this.incoming = incoming;
 				this.outgoing = outgoing;
+			}
+
+			public string displayString() {
+				if(animation != myCurrentAnimation) {
+					return this.animation.myName + ":" + this.layer.myName + ":" + this.state.myName;
+				} else if (layer != myCurrentLayer) {
+					return this.layer.myName + ":" + this.state.myName;
+				}
+				return this.state.myName;
 			}
 		}
 	}

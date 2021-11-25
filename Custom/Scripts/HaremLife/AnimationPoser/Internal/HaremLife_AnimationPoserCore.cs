@@ -367,11 +367,44 @@ namespace HaremLife
 			{
 				JSONClass anim = anims[l].AsObject;
 				myCurrentAnimation = CreateAnimation(anim["Name"]);
+			}
+
+			for (int l=0; l<anims.Count; ++l)
+			{
+				JSONClass anim = anims[l].AsObject;
+				if (!myAnimations.TryGetValue(anim["Name"], out myCurrentAnimation))
+					continue;
 				JSONArray layers = anim["Layers"].AsArray;
 				for(int m=0; m<layers.Count; m++)
 				{
 					JSONClass layer = layers[m].AsObject;
 					LoadLayer(layer, false, false);
+				}
+			}
+
+			for (int l=0; l<anims.Count; ++l)
+			{
+				JSONClass anim = anims[l].AsObject;
+				if (!myAnimations.TryGetValue(anim["Name"], out myCurrentAnimation))
+					continue;
+				JSONArray layers = anim["Layers"].AsArray;
+				for(int m=0; m<layers.Count; m++)
+				{
+					JSONClass layer = layers[m].AsObject;
+					LoadInterLayerTransitions(layer, false, false);
+				}
+			}
+
+			for (int l=0; l<anims.Count; ++l)
+			{
+				JSONClass anim = anims[l].AsObject;
+				if (!myAnimations.TryGetValue(anim["Name"], out myCurrentAnimation))
+					continue;
+				JSONArray layers = anim["Layers"].AsArray;
+				for(int m=0; m<layers.Count; m++)
+				{
+					JSONClass layer = layers[m].AsObject;
+					LoadInterAnimationTransitions(layer, false, false);
 				}
 			}
 
@@ -467,8 +500,32 @@ namespace HaremLife
 				st["DefaultProbability"].AsFloat = state.myDefaultProbability;
 
 				JSONArray tlist = new JSONArray();
-				// for (int i=0; i<state.myTransitions.Count; ++i)
-					// tlist.Add("", state.myTransitions[i].myName);
+				for (int i=0; i<state.myTransitions.Count; ++i) {
+					Transition transition = state.myTransitions[i];
+					JSONClass t = new JSONClass();
+					t["SourceState"] = transition.mySourceState.myName;
+					t["TargetState"] = transition.myTargetState.myName;
+					if(transition.myTargetState.myLayer == transition.mySourceState.myLayer)
+						t["TargetLayer"] = "[Self]";
+					else
+						t["TargetLayer"] = transition.myTargetState.myLayer.myName;
+					if(transition.myTargetState.myAnimation == transition.mySourceState.myAnimation)
+						t["TargetAnimation"] = "[Self]";
+					else
+						t["TargetAnimation"] = transition.myTargetState.myAnimation.myName;
+					t["Duration"].AsFloat = transition.myDuration;
+					t["EaseInDuration"].AsFloat = transition.myEaseInDuration;
+					t["EaseOutDuration"].AsFloat = transition.myEaseOutDuration;
+					t["Probability"].AsFloat = transition.myProbability;
+
+					JSONClass synct = new JSONClass();
+					foreach (var syncl in transition.mySyncTargets) {
+						synct[syncl.Key.myName] = syncl.Value.myName;
+					}
+					t["SyncTargets"] = synct;
+
+					tlist.Add(t);
+				}
 				st["Transitions"] = tlist;
 
 				if (state.myControlEntries.Count > 0)
@@ -785,9 +842,30 @@ namespace HaremLife
 				JSONArray tlist = st["Transitions"].AsArray;
 				for (int j=0; j<tlist.Count; ++j)
 				{
-					State target;
-					// if (myCurrentLayer.myStates.TryGetValue(tlist[j].Value, out target))
-					// 	source.myTransitions.Add(target);
+					JSONClass tclass = tlist[j].AsObject;
+					if(!String.Equals(tclass["TargetLayer"], "[Self]"))
+						continue;
+					State target = myCurrentLayer.myStates[tclass["TargetState"]];
+					Transition transition = new Transition(source, target);
+					transition.myProbability = tclass["Probability"].AsFloat;
+					transition.myDuration = tclass["Duration"].AsFloat;
+					transition.myEaseInDuration = tclass["EaseInDuration"].AsFloat;
+					transition.myEaseOutDuration = tclass["EaseOutDuration"].AsFloat;
+					transition.mySourceState = source;
+					transition.myTargetState = target;
+
+					JSONClass synctlist = tclass["SyncTargets"].AsObject;
+					foreach (string key in synctlist.Keys) {
+						Layer syncLayer;
+						if (!myCurrentAnimation.myLayers.TryGetValue(key, out syncLayer))
+							continue;
+						State syncState;
+						if (!syncLayer.myStates.TryGetValue(synctlist[key], out syncState))
+							continue;
+						transition.mySyncTargets[syncLayer] = syncState;
+					}
+
+					source.myTransitions.Add(transition);
 				}
 			}
 
@@ -811,6 +889,125 @@ namespace HaremLife
 				}
 			}
 			return myCurrentLayer;
+		}
+
+		private void LoadInterLayerTransitions(JSONClass jc, bool keepName, bool clearStates)
+		{
+			JSONClass layer = jc["Layer"].AsObject;
+
+			if(!myCurrentAnimation.myLayers.TryGetValue(layer["Name"], out myCurrentLayer))
+				return;
+
+			// load transitions
+			JSONArray slist = layer["States"].AsArray;
+			for (int i=0; i<slist.Count; ++i)
+			{
+				JSONClass st = slist[i].AsObject;
+				State source;
+				if (!myCurrentLayer.myStates.TryGetValue(st["Name"], out source))
+					continue;
+
+				JSONArray tlist = st["Transitions"].AsArray;
+				for (int j=0; j<tlist.Count; ++j)
+				{
+					JSONClass tclass = tlist[j].AsObject;
+					if(String.Equals(tclass["TargetLayer"], "[Self]"))
+						continue;
+					if(!String.Equals(tclass["TargetAnimation"], "[Self]"))
+						continue;
+
+					Layer targetLayer;
+					if(!myCurrentAnimation.myLayers.TryGetValue(tclass["TargetLayer"], out targetLayer))
+						continue;
+
+					State target;
+					if(!targetLayer.myStates.TryGetValue(tclass["TargetState"], out target))
+						continue;
+
+					Transition transition = new Transition(source, target);
+					transition.myProbability = tclass["Probability"].AsFloat;
+					transition.myDuration = tclass["Duration"].AsFloat;
+					transition.myEaseInDuration = tclass["EaseInDuration"].AsFloat;
+					transition.myEaseOutDuration = tclass["EaseOutDuration"].AsFloat;
+					transition.mySourceState = source;
+					transition.myTargetState = target;
+
+					JSONClass synctlist = tclass["SyncTargets"].AsObject;
+					foreach (string key in synctlist.Keys) {
+						Layer syncLayer;
+						if (!myCurrentAnimation.myLayers.TryGetValue(key, out syncLayer))
+							continue;
+						State syncState;
+						if (!syncLayer.myStates.TryGetValue(synctlist[key], out syncState))
+							continue;
+						transition.mySyncTargets[syncLayer] = syncState;
+					}
+
+					source.myTransitions.Add(transition);
+				}
+			}
+		}
+
+		private void LoadInterAnimationTransitions(JSONClass jc, bool keepName, bool clearStates)
+		{
+			JSONClass layer = jc["Layer"].AsObject;
+
+			if (!myCurrentAnimation.myLayers.TryGetValue(layer["Name"], out myCurrentLayer))
+				return;
+
+			// load transitions
+			JSONArray slist = layer["States"].AsArray;
+			for (int i=0; i<slist.Count; ++i)
+			{
+				JSONClass st = slist[i].AsObject;
+				State source;
+				if (!myCurrentLayer.myStates.TryGetValue(st["Name"], out source))
+					continue;
+
+				JSONArray tlist = st["Transitions"].AsArray;
+				for (int j=0; j<tlist.Count; ++j)
+				{
+					JSONClass tclass = tlist[j].AsObject;
+					if(tclass["TargetLayer"] == "[Self]")
+					if(String.Equals(tclass["TargetLayer"], "[Self]"))
+						continue;
+					if(String.Equals(tclass["TargetAnimation"], "[Self]"))
+						continue;
+
+					Animation targetAnimation;
+					if(!myAnimations.TryGetValue(tclass["TargetAnimation"], out targetAnimation))
+						continue;
+
+					Layer targetLayer;
+					if(!targetAnimation.myLayers.TryGetValue(tclass["TargetLayer"], out targetLayer))
+						continue;
+
+					State target;
+					if(!targetLayer.myStates.TryGetValue(tclass["TargetState"], out target))
+						continue;
+
+					Transition transition = new Transition(source, target);
+					transition.myProbability = tclass["Probability"].AsFloat;
+					transition.myDuration = tclass["Duration"].AsFloat;
+					transition.myEaseInDuration = tclass["EaseInDuration"].AsFloat;
+					transition.myEaseOutDuration = tclass["EaseOutDuration"].AsFloat;
+					transition.mySourceState = source;
+					transition.myTargetState = target;
+
+					JSONClass synctlist = tclass["SyncTargets"].AsObject;
+					foreach (string key in synctlist.Keys) {
+						Layer syncLayer;
+						if (!targetAnimation.myLayers.TryGetValue(key, out syncLayer))
+							continue;
+						State syncState;
+						if (!syncLayer.myStates.TryGetValue(synctlist[key], out syncState))
+							continue;
+						transition.mySyncTargets[syncLayer] = syncState;
+					}
+
+					source.myTransitions.Add(transition);
+				}
+			}
 		}
 
 		// =======================================================================================
@@ -840,6 +1037,7 @@ namespace HaremLife
 		private class Layer
 		{
 			public string myName;
+			public Animation myAnimation;
 			public Dictionary<string, State> myStates = new Dictionary<string, State>();
 			public bool myNoValidTransition = false;
 			public State myCurrentState;
@@ -855,6 +1053,7 @@ namespace HaremLife
 			public Layer(string name)
 			{
 				myName = name;
+				myAnimation = myCurrentAnimation;
 			}
 			public void CaptureState(State state)
 			{
@@ -983,8 +1182,8 @@ namespace HaremLife
 			{
 				// SuperController.LogError("Set transition");
 				// SuperController.LogError(myTransition.myDuration.ToString());
-				// SuperController.LogError(myTransition.myState1.myName);
-				// SuperController.LogError(myTransition.myState2.myName);
+				// SuperController.LogError(myTransition.mySourceState.myName);
+				// SuperController.LogError(myTransition.myTargetState.myName);
 
 				myNoValidTransition = false;
 
@@ -992,7 +1191,7 @@ namespace HaremLife
 				myDuration = myTransition.myDuration;
 				myDuration = Mathf.Max(myDuration, 0.001f);
 
-				myNextState = myTransition.myState2;
+				myNextState = myTransition.myTargetState;
 				for (int i=0; i<myControlCaptures.Count; ++i)
 					myControlCaptures[i].SetTransition(myTransition);
 				for (int i=0; i<myMorphCaptures.Count; ++i)
@@ -1071,14 +1270,14 @@ namespace HaremLife
 				// 	if (indices.Count > 0)
 				// 	{
 				// 		int selected = UnityEngine.Random.Range(0, indices.Count);
-				// 		myTransition.myState2 = states[indices[selected]];
+				// 		myTransition.myTargetState = states[indices[selected]];
 				// 	}
 				// }
 
 				if (myCurrentState == null)
 				{
 					CaptureState(myBlendState);
-					myTransition.myState1 = myBlendState;
+					myTransition.mySourceState = myBlendState;
 					myTransition.myEaseInDuration = myCurrentState.myDefaultEaseInDuration;
 					myTransition.myEaseOutDuration = myCurrentState.myDefaultEaseOutDuration;
 					myBlendState.AssignOutTriggers(myCurrentState);
@@ -1104,37 +1303,41 @@ namespace HaremLife
 
 		private class Transition
 		{
-			public State myState1;
-			public State myState2;
+			public Dictionary<Layer, State> mySyncTargets = new Dictionary<Layer, State>();
+			public State mySourceState;
+			public State myTargetState;
 			public float myProbability;
 			public float myEaseInDuration;
 			public float myEaseOutDuration;
 			public float myDuration;
 
-			public Transition(State state1, State state2)
+			public Transition(State sourceState, State targetState)
 			{
-				myState1 = state1;
-				myState2 = state2;
-				myProbability = state2.myDefaultProbability;
-				myEaseInDuration = state2.myDefaultEaseInDuration;
-				myEaseOutDuration = state2.myDefaultEaseOutDuration;
-				myDuration = state2.myDefaultDuration;
+				mySourceState = sourceState;
+				myTargetState = targetState;
+				myProbability = targetState.myDefaultProbability;
+				myEaseInDuration = targetState.myDefaultEaseInDuration;
+				myEaseOutDuration = targetState.myDefaultEaseOutDuration;
+				myDuration = targetState.myDefaultDuration;
 			}
 
 			public Transition(Transition transition)
 			{
-				myState1 = transition.myState1;
-				myState2 = transition.myState2;
+				mySourceState = transition.mySourceState;
+				myTargetState = transition.myTargetState;
 				myProbability = transition.myProbability;
 				myEaseInDuration = transition.myEaseInDuration;
 				myEaseOutDuration = transition.myEaseOutDuration;
 				myDuration = transition.myDuration;
+				mySyncTargets = transition.mySyncTargets;
 			}
 		}
 
 		private class State
 		{
 			public string myName;
+			public Animation myAnimation;
+			public Layer myLayer;
 			public float myWaitDurationMin;
 			public float myWaitDurationMax;
 			public float myDefaultDuration = DEFAULT_TRANSITION_DURATION;
@@ -1155,12 +1358,16 @@ namespace HaremLife
 			private State(string name)
 			{
 				myName = name;
+				myAnimation = myCurrentAnimation;
+				myLayer = myCurrentLayer;
 				// do NOT init event triggers
 			}
 
 			public State(MVRScript script, string name)
 			{
 				myName = name;
+				myAnimation = myCurrentAnimation;
+				myLayer = myCurrentLayer;
 				EnterBeginTrigger = new EventTrigger(script, "OnEnterBegin", name);
 				EnterEndTrigger = new EventTrigger(script, "OnEnterEnd", name);
 				ExitBeginTrigger = new EventTrigger(script, "OnExitBegin", name);
@@ -1170,6 +1377,8 @@ namespace HaremLife
 			public State(string name, State source)
 			{
 				myName = name;
+				myAnimation = myCurrentAnimation;
+				myLayer = myCurrentLayer;
 				myWaitDurationMin = source.myWaitDurationMin;
 				myWaitDurationMax = source.myWaitDurationMax;
 				myDefaultEaseInDuration = source.myDefaultEaseInDuration;
@@ -1186,7 +1395,7 @@ namespace HaremLife
 			public List<State> getReachableStates() {
 				List<State> states = new List<State>();
 				for(int i=0; i<myTransitions.Count; i++)
-					states.Add(myTransitions[i].myState2);
+					states.Add(myTransitions[i].myTargetState);
 				return states;
 			}
 
@@ -1197,13 +1406,13 @@ namespace HaremLife
 
 			public Transition getIncomingTransition(State state) {
 				for(int i=0; i<myTransitions.Count; i++)
-					if(myTransitions[i].myState2 == state)
+					if(myTransitions[i].myTargetState == state)
 						return myTransitions[i];
 				return null;
 			}
 			public void removeTransition(State state) {
 				for(int i=0; i<myTransitions.Count; i++)
-					if(myTransitions[i].myState2 == state)
+					if(myTransitions[i].myTargetState == state)
 						myTransitions.RemoveAt(i);
 			}
 
@@ -1272,16 +1481,16 @@ namespace HaremLife
 			public void SetTransition(Transition transition)
 			{
 				myEntryCount = 2;
-				if (!transition.myState1.myControlEntries.TryGetValue(this, out myTransition[0]))
+				if (!transition.mySourceState.myControlEntries.TryGetValue(this, out myTransition[0]))
 				{
-					CaptureEntry(transition.myState1);
-					myTransition[0] = transition.myState1.myControlEntries[this];
+					CaptureEntry(transition.mySourceState);
+					myTransition[0] = transition.mySourceState.myControlEntries[this];
 				}
 
-				if (!transition.myState2.myControlEntries.TryGetValue(this, out myTransition[1]))
+				if (!transition.myTargetState.myControlEntries.TryGetValue(this, out myTransition[1]))
 				{
-					CaptureEntry(transition.myState2);
-					myTransition[1] = transition.myState2.myControlEntries[this];
+					CaptureEntry(transition.myTargetState);
+					myTransition[1] = transition.myTargetState.myControlEntries[this];
 				}
 
 			}
@@ -1660,9 +1869,9 @@ namespace HaremLife
 				bool identical = true;
 				float morphValue = myMorph.morphValue;
 
-				if (!transition.myState1.myMorphEntries.TryGetValue(this, out myTransition[0]))
+				if (!transition.mySourceState.myMorphEntries.TryGetValue(this, out myTransition[0]))
 				{
-					CaptureEntry(transition.myState1);
+					CaptureEntry(transition.mySourceState);
 					myTransition[0] = morphValue;
 				}
 				else
@@ -1670,9 +1879,9 @@ namespace HaremLife
 					identical &= (myTransition[0] == morphValue);
 				}
 
-				if (!transition.myState2.myMorphEntries.TryGetValue(this, out myTransition[1]))
+				if (!transition.myTargetState.myMorphEntries.TryGetValue(this, out myTransition[1]))
 				{
-					CaptureEntry(transition.myState2);
+					CaptureEntry(transition.myTargetState);
 					myTransition[1] = morphValue;
 				}
 				else
