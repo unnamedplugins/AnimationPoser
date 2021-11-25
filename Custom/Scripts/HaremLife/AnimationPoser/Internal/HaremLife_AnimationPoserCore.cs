@@ -27,6 +27,8 @@ namespace HaremLife
 		private static readonly int[] DISTANCE_SAMPLES = new int[] { 0, 0, 0, 11, 20};
 
 		private const int NUM_STATETYPES = 3;
+		private List<ControlCapture> myControlCaptures = new List<ControlCapture>();
+		private List<MorphCapture> myMorphCaptures = new List<MorphCapture>();
 
 		private const float DEFAULT_TRANSITION_DURATION = 0.1f;
 		private const float DEFAULT_BLEND_DURATION = 0.2f;
@@ -39,20 +41,17 @@ namespace HaremLife
 		private const float DEFAULT_ANCHOR_DAMPING_TIME = 0.2f;
 
 		private Dictionary<string, Animation> myAnimations = new Dictionary<string, Animation>();
-		private List<ControlCapture> myControlCaptures = new List<ControlCapture>();
-		private List<MorphCapture> myMorphCaptures = new List<MorphCapture>();
 		private List<TriggerActionDiscrete> myTriggerActionsNeedingUpdate = new List<TriggerActionDiscrete>();
 		private static Animation myCurrentAnimation;
 		private static Layer myCurrentLayer;
 		private static State myCurrentState;
 		private State myNextState;
-		private State myBlendState = State.CreateBlendState();
 
 		private float myClock = 0.0f;
 		private static bool myNoValidTransition = false;
 		private static bool myPlayMode = false;
 		private static bool myPaused = false;
-		private bool myNeedRefresh = false;
+		private static bool myNeedRefresh = false;
 		private bool myWasLoading = true;
 
 		private static JSONStorableString mySwitchAnimation;
@@ -65,17 +64,6 @@ namespace HaremLife
 		{
 			myWasLoading = true;
 			myClock = 0.0f;
-
-			ControlCapture lHand = new ControlCapture(this, "lHandControl");
-			if (lHand.IsValid())
-				myControlCaptures.Add(lHand);
-			ControlCapture rHand = new ControlCapture(this, "rHandControl");
-			if (rHand.IsValid())
-				myControlCaptures.Add(rHand);
-			ControlCapture control = new ControlCapture(this, "control");
-			if (myControlCaptures.Count == 0 && control.IsValid())
-				myControlCaptures.Add(control);
-
 
 			InitUI();
 
@@ -437,8 +425,8 @@ namespace HaremLife
 
 			// save info
 			JSONClass info = new JSONClass();
-			info["Format"] = "MacGruber.IdlePoser";
-			info["Version"].AsInt = 9;
+			info["Format"] = "HaremLife.AnimationPoser";
+			info["Version"] = "3.2";
 			string creatorName = UserPreferences.singleton.creatorName;
 			if (string.IsNullOrEmpty(creatorName))
 				creatorName = "Unknown";
@@ -603,8 +591,6 @@ namespace HaremLife
 				myCurrentLayer.myStates.Clear();
 				myCurrentState = null;
 				myNextState = null;
-				myBlendState.myControlEntries.Clear();
-				myBlendState.myMorphEntries.Clear();
 				myClock = 0.0f;
 			}
 
@@ -625,18 +611,10 @@ namespace HaremLife
 				for (int i=0; i<cclist.Count; ++i)
 				{
 					ControlCapture cc;
-					if (version <= 2)
-					{
-						// handling legacy
-						cc = new ControlCapture(this, cclist[i].Value);
-					}
-					else
-					{
-						JSONClass ccclass = cclist[i].AsObject;
-						cc = new ControlCapture(this, ccclass["Name"]);
-						cc.myApplyPosition = ccclass["ApplyPos"].AsBool;
-						cc.myApplyRotation = ccclass["ApplyRot"].AsBool;
-					}
+					JSONClass ccclass = cclist[i].AsObject;
+					cc = new ControlCapture(this, ccclass["Name"]);
+					cc.myApplyPosition = ccclass["ApplyPos"].AsBool;
+					cc.myApplyRotation = ccclass["ApplyRot"].AsBool;
 
 					if (cc.IsValid())
 						myCurrentLayer.myControlCaptures.Add(cc);
@@ -649,35 +627,13 @@ namespace HaremLife
 				for (int i=0; i<mclist.Count; ++i)
 				{
 					MorphCapture mc;
-					if (version >= 9)
-					{
-						JSONClass mcclass = mclist[i].AsObject;
-						string uid = mcclass["UID"];
-						if (uid.EndsWith(".vmi")) // handle custom morphs, resolve VAR packages
-							uid = SuperController.singleton.NormalizeLoadPath(uid);
-						string sid = mcclass["SID"];
-						mc = new MorphCapture(geometry, uid, sid);
-						mc.myApply = mcclass["Apply"].AsBool;
-					}
-					else if (version == 8)
-					{
-						// handling legacy
-						JSONClass mcclass = mclist[i].AsObject;
-						mc = new MorphCapture(this, geometry, mcclass["UID"], mcclass["IsFemale"].AsBool);
-						mc.myApply = mcclass["Apply"].AsBool;
-					}
-					else if (version >= 3 && version <= 7)
-					{
-						// handling legacy
-						JSONClass mcclass = mclist[i].AsObject;
-						mc = new MorphCapture(this, geometry, mcclass["Name"]);
-						mc.myApply = mcclass["Apply"].AsBool;
-					}
-					else // (version <= 2)
-					{
-						// handling legacy
-						mc = new MorphCapture(this, geometry, mclist[i].Value);
-					}
+					JSONClass mcclass = mclist[i].AsObject;
+					string uid = mcclass["UID"];
+					if (uid.EndsWith(".vmi")) // handle custom morphs, resolve VAR packages
+						uid = SuperController.singleton.NormalizeLoadPath(uid);
+					string sid = mcclass["SID"];
+					mc = new MorphCapture(geometry, uid, sid);
+					mc.myApply = mcclass["Apply"].AsBool;
 
 					if (mc.IsValid())
 						myCurrentLayer.myMorphCaptures.Add(mc);
@@ -767,55 +723,7 @@ namespace HaremLife
 					foreach (string key in melist.Keys)
 					{
 						MorphCapture mc = null;
-						if (version >= 9)
-						{
-							mc = myCurrentLayer.myMorphCaptures.Find(x => x.mySID == key);
-						}
-						else if (version == 8)
-						{
-							// legacy handling of old qualifiedName
-							string uid;
-							DAZCharacterSelector.Gender gender;
-							if (key.EndsWith("#Female"))
-							{
-								uid = key.Substring(0, key.Length-7);
-								gender = DAZCharacterSelector.Gender.Female;
-							}
-							else if (key.EndsWith("#Male"))
-							{
-								uid = key.Substring(0, key.Length-5);
-								gender = DAZCharacterSelector.Gender.Male;
-							}
-							else
-							{
-								continue;
-							}
-
-							mc = myCurrentLayer.myMorphCaptures.Find(x => x.myGender == gender && x.myMorph.uid == uid);
-						}
-						else // version <= 7
-						{
-							// legacy handling of old qualifiedName where the order was reversed
-							string uid;
-							DAZCharacterSelector.Gender gender;
-							if (key.StartsWith("Female#"))
-							{
-								uid = key.Substring(7);
-								gender = DAZCharacterSelector.Gender.Female;
-							}
-							else if (key.StartsWith("Male#"))
-							{
-								uid = key.Substring(5);
-								gender = DAZCharacterSelector.Gender.Male;
-							}
-							else
-							{
-								continue;
-							}
-
-							mc = myCurrentLayer.myMorphCaptures.Find(x => x.myGender == gender && x.myMorph.uid == uid);
-						}
-
+						mc = myCurrentLayer.myMorphCaptures.Find(x => x.mySID == key);
 						if (mc == null)
 						{
 							continue;
