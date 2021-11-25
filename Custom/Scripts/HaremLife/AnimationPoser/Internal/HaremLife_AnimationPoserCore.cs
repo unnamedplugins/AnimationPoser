@@ -1086,13 +1086,14 @@ namespace HaremLife
 				}
 			}
 
-			public void ArriveFromAnotherAnimation(Transition transition) {
+			public void ArriveFromAnotherAnimation(Transition transition, State targetState) {
 				CaptureState(myBlendState);
 				SetState(myBlendState);
 
 				myTransition = new Transition(transition);
 				myTransition.mySourceState = myBlendState;
-				myNextState = transition.myTargetState;
+				myTransition.myTargetState = targetState;
+				myNextState = targetState;
 
 				SetTransition();
 			}
@@ -1103,7 +1104,12 @@ namespace HaremLife
 				Animation animation = targetState.myAnimation;
 				Layer targetLayer = targetState.myLayer;
 				myCurrentAnimation = animation;
-				targetLayer.ArriveFromAnotherAnimation(transition);
+				targetLayer.ArriveFromAnotherAnimation(transition, targetState);
+				foreach(var sc in transition.mySyncTargets) {
+					Layer syncLayer = sc.Key;
+					State syncState = sc.Value;
+					syncLayer.ArriveFromAnotherAnimation(transition, syncState);
+				}
 
 				myMainAnimation.valNoCallback = myCurrentAnimation.myName;
 				myMainLayer.valNoCallback = myCurrentLayer.myName;
