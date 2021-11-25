@@ -1086,6 +1086,30 @@ namespace HaremLife
 				}
 			}
 
+			public void ArriveFromAnotherAnimation(Transition transition) {
+				CaptureState(myBlendState);
+				SetState(myBlendState);
+
+				myTransition = new Transition(transition);
+				myTransition.mySourceState = myBlendState;
+				myNextState = transition.myTargetState;
+
+				SetTransition();
+			}
+
+			private void TransitionToAnotherAnimation(Transition transition)
+			{
+				State targetState = transition.myTargetState;
+				Animation animation = targetState.myAnimation;
+				Layer targetLayer = targetState.myLayer;
+				myCurrentAnimation = animation;
+				targetLayer.ArriveFromAnotherAnimation(transition);
+
+				myMainAnimation.valNoCallback = myCurrentAnimation.myName;
+				myMainLayer.valNoCallback = myCurrentLayer.myName;
+				myMainState.valNoCallback = myCurrentState.myName;
+			}
+
 			public void SetTransition()
 			{
 				// SuperController.LogError("Set transition");
@@ -1098,6 +1122,11 @@ namespace HaremLife
 				myClock = 0.0f;
 				myDuration = myTransition.myDuration;
 				myDuration = Mathf.Max(myDuration, 0.001f);
+
+				if(myTransition.myTargetState.myAnimation != myCurrentAnimation) {
+					TransitionToAnotherAnimation(myTransition);
+					return;
+				}
 
 				myNextState = myTransition.myTargetState;
 				for (int i=0; i<myControlCaptures.Count; ++i)
@@ -1146,8 +1175,6 @@ namespace HaremLife
 				// SuperController.LogError("Set blend transition");
 				// SuperController.LogError(myCurrentState.myName);
 				// SuperController.LogError(state.myName);
-				myTransition = new Transition(myCurrentState, state);
-				myNextState = state;
 				// if (myCurrentState != null)
 				// {
 				// 	myNextState = null;
@@ -1185,12 +1212,12 @@ namespace HaremLife
 				if (myCurrentState == null)
 				{
 					CaptureState(myBlendState);
-					myTransition.mySourceState = myBlendState;
-					myTransition.myEaseInDuration = myCurrentState.myDefaultEaseInDuration;
-					myTransition.myEaseOutDuration = myCurrentState.myDefaultEaseOutDuration;
 					myBlendState.AssignOutTriggers(myCurrentState);
 					SetState(myBlendState);
 				}
+
+				myTransition = new Transition(myCurrentState, state);
+				myNextState = state;
 
 				SetTransition();
 			}
