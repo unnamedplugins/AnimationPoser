@@ -1158,8 +1158,8 @@ namespace HaremLife
 
 				int i;
 				float sum = 0.0f;
-				for (i=0; i<states.Count; ++i)
-					sum += states[i].myDefaultProbability;
+				for (i=0; i<myCurrentState.myTransitions.Count; ++i)
+					sum += myCurrentState.myTransitions[i].myProbability;
 				if (sum == 0.0f)
 				{
 					myTransition = null;
@@ -1171,7 +1171,7 @@ namespace HaremLife
 					sum = 0.0f;
 					for (i=0; i<states.Count-1; ++i)
 					{
-						sum += states[i].myDefaultProbability;
+						sum += myCurrentState.myTransitions[i].myProbability;
 						if (threshold <= sum)
 							break;
 					}
