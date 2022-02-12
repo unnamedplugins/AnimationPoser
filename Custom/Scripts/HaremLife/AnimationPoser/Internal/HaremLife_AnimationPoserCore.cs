@@ -483,6 +483,7 @@ namespace HaremLife
 				st["WaitForSync"].AsBool = state.myWaitForSync;
 				st["WaitDurationMin"].AsFloat = state.myWaitDurationMin;
 				st["WaitDurationMax"].AsFloat = state.myWaitDurationMax;
+				st["DefaultDuration"].AsFloat = state.myDefaultDuration;
 				st["DefaultEaseInDuration"].AsFloat = state.myDefaultEaseInDuration;
 				st["DefaultEaseOutDuration"].AsFloat = state.myDefaultEaseOutDuration;
 				st["DefaultProbability"].AsFloat = state.myDefaultProbability;
@@ -654,6 +655,7 @@ namespace HaremLife
 					myWaitForSync = st["WaitForSync"].AsBool,
 					myWaitDurationMin = st["WaitDurationMin"].AsFloat,
 					myWaitDurationMax = st["WaitDurationMax"].AsFloat,
+					myDefaultDuration = st.HasKey("DefaultDuration") ? st["DefaultDuration"].AsFloat : DEFAULT_TRANSITION_DURATION,
 					myDefaultEaseInDuration = st.HasKey("DefaultEaseInDuration") ? st["DefaultEaseInDuration"].AsFloat : DEFAULT_EASEIN_DURATION,
 					myDefaultEaseOutDuration = st.HasKey("DefaultEaseOutDuration") ? st["DefaultEaseOutDuration"].AsFloat : DEFAULT_EASEOUT_DURATION,
 					myDefaultProbability = st["DefaultProbability"].AsFloat,
@@ -1158,6 +1160,8 @@ namespace HaremLife
 
 				int i;
 				float sum = 0.0f;
+				// for (i=0; i<states.Count; ++i)
+				// 	sum += states[i].myDefaultProbability;
 				for (i=0; i<myCurrentState.myTransitions.Count; ++i)
 					sum += myCurrentState.myTransitions[i].myProbability;
 				if (sum == 0.0f)
@@ -1169,7 +1173,7 @@ namespace HaremLife
 				{
 					float threshold = UnityEngine.Random.Range(0.0f, sum);
 					sum = 0.0f;
-					for (i=0; i<states.Count-1; ++i)
+					for (i=0; i<myCurrentState.myTransitions.Count-1; ++i)
 					{
 						sum += myCurrentState.myTransitions[i].myProbability;
 						if (threshold <= sum)
@@ -1326,6 +1330,7 @@ namespace HaremLife
 				myLayer = myCurrentLayer;
 				myWaitDurationMin = source.myWaitDurationMin;
 				myWaitDurationMax = source.myWaitDurationMax;
+				myDefaultDuration = source.myDefaultDuration;
 				myDefaultEaseInDuration = source.myDefaultEaseInDuration;
 				myDefaultEaseOutDuration = source.myDefaultEaseOutDuration;
 				myDefaultProbability = source.myDefaultProbability;
@@ -1833,7 +1838,7 @@ namespace HaremLife
 				{
 					identical &= (myTransition[1] == morphValue);
 				}
-	
+
 				if (identical)
 					myEntryCount = 0; // nothing to do, save some performance
 			}
