@@ -45,7 +45,6 @@ namespace HaremLife
 		private static Animation myCurrentAnimation;
 		private static Layer myCurrentLayer;
 		private static State myCurrentState;
-		private State myNextState;
 
 		private float myClock = 0.0f;
 		private static bool myNoValidTransition = false;
@@ -87,8 +86,6 @@ namespace HaremLife
 			myLoadAnimation = new JSONStorableString("LoadAnimation", "", LoadAnimationsAction);
 			myLoadAnimation.isStorable = myLoadAnimation.isRestorable = false;
 			RegisterString(myLoadAnimation);
-
-			Utils.SetupAction(this, "TriggerSync", TriggerSyncAction);
 
 			SuperController.singleton.onAtomUIDRenameHandlers += OnAtomRename;
 			SimpleTriggerHandler.LoadAssets();
@@ -133,7 +130,7 @@ namespace HaremLife
 			return s;
 		}
 
-		private void SetAnimation(Animation animation)
+		private static void SetAnimation(Animation animation)
 		{
 			myCurrentAnimation = animation;
 
@@ -148,13 +145,15 @@ namespace HaremLife
 			}
 		}
 
-		private void SetLayer(Layer layer)
+		private static void SetLayer(Layer layer)
 		{
 			myCurrentLayer = layer;
 			List<string> states = layer.myStates.Keys.ToList();
 			states.Sort();
-			if(layer.myCurrentState != null) {
-				layer.SetBlendTransition(layer.myCurrentState);
+			if(layer.myStates.Count > 0) {
+				State state;
+				layer.myStates.TryGetValue(states[0], out state);
+				layer.SetBlendTransition(state);
 			}
 		}
 
@@ -230,12 +229,6 @@ namespace HaremLife
 		{
 			myPlayPaused.val = b;
 			myPaused = (myMenuItem != MENU_PLAY || myPlayPaused.val);
-		}
-
-		private void TriggerSyncAction()
-		{
-			foreach (var layer in myCurrentAnimation.myLayers)
-				layer.Value.TriggerSyncAction();
 		}
 
 		private void Update()
@@ -480,7 +473,6 @@ namespace HaremLife
 				JSONClass st = new JSONClass();
 				st["Name"] = state.myName;
 				st["WaitInfiniteDuration"].AsBool = state.myWaitInfiniteDuration;
-				st["WaitForSync"].AsBool = state.myWaitForSync;
 				st["WaitDurationMin"].AsFloat = state.myWaitDurationMin;
 				st["WaitDurationMax"].AsFloat = state.myWaitDurationMax;
 				st["DefaultEaseInDuration"].AsFloat = state.myDefaultEaseInDuration;
@@ -593,7 +585,6 @@ namespace HaremLife
 				myCurrentLayer.myMorphCaptures.Clear();
 				myCurrentLayer.myStates.Clear();
 				myCurrentState = null;
-				myNextState = null;
 				myClock = 0.0f;
 			}
 
@@ -651,7 +642,6 @@ namespace HaremLife
 				JSONClass st = slist[i].AsObject;
 				State state = new State(this, st["Name"]) {
 					myWaitInfiniteDuration = st["WaitInfiniteDuration"].AsBool,
-					myWaitForSync = st["WaitForSync"].AsBool,
 					myWaitDurationMin = st["WaitDurationMin"].AsFloat,
 					myWaitDurationMax = st["WaitDurationMax"].AsFloat,
 					myDefaultEaseInDuration = st.HasKey("DefaultEaseInDuration") ? st["DefaultEaseInDuration"].AsFloat : DEFAULT_EASEIN_DURATION,
@@ -952,7 +942,6 @@ namespace HaremLife
 			public Dictionary<string, State> myStates = new Dictionary<string, State>();
 			public bool myNoValidTransition = false;
 			public State myCurrentState;
-			public State myNextState;
 			public List<ControlCapture> myControlCaptures = new List<ControlCapture>();
 			public List<MorphCapture> myMorphCaptures = new List<MorphCapture>();
 			private Transition myTransition;
@@ -980,7 +969,6 @@ namespace HaremLife
 				// SuperController.LogError(state.myName);
 				myNoValidTransition = false;
 				myCurrentState = state;
-				myNextState = null;
 
 				myClock = 0.0f;
 				if (state.myWaitInfiniteDuration){
@@ -1036,69 +1024,46 @@ namespace HaremLife
 					myTriggerActionsNeedingUpdate[i].Update();
 				myTriggerActionsNeedingUpdate.RemoveAll(a => !a.timerActive);
 
-				if (myCurrentState == null){
-					return;
-				}
-
-				bool paused = myPaused && myNextState == null && myTransition == null;
+				bool paused = myPaused && myTransition == null;
 				if (!paused)
 					myClock = Mathf.Min(myClock + Time.deltaTime, 100000.0f);
 
-				if (myNextState != null)
-				{
-					float t;
-					if(myTransition != null) {
-						t = Smooth(myTransition.myEaseOutDuration, myTransition.myEaseInDuration, myDuration, myClock);
-					} else {
-						t = Smooth(0, 0, myDuration, myClock);
-					}
-					// SuperController.LogError(myClock.ToString());
-					// SuperController.LogError(myDuration.ToString());
+				float t;
+				if(myTransition != null) {
+					t = Smooth(myTransition.myEaseOutDuration, myTransition.myEaseInDuration, myDuration, myClock);
+
 					for (int i=0; i<myControlCaptures.Count; ++i)
 						myControlCaptures[i].UpdateTransition(t);
 					for (int i=0; i<myMorphCaptures.Count; ++i)
 						myMorphCaptures[i].UpdateTransition(t);
-				}
-				else if (!paused || myPlayMode)
-				{
-					for (int i=0; i<myControlCaptures.Count; ++i)
-						myControlCaptures[i].UpdateState(myCurrentState);
-				}
 
-				if (myClock >= myDuration)
-				{
-					if (myNextState != null)
+					if (myClock >= myDuration)
 					{
-						State previousState = myCurrentState;
-						SetState(myNextState);
-						if (myTransition == null && myMainLayer.val == myName)
-							myMainState.valNoCallback = myCurrentState.myName;
+						if (myTransition.myTargetState != null)
+						{
+							State previousState = myCurrentState;
+							SetState(myTransition.myTargetState);
+							if (myMainLayer.val == myName)
+								myMainState.val = myCurrentState.myName;
 
-						if (previousState.ExitEndTrigger != null)
-							previousState.ExitEndTrigger.Trigger(myTriggerActionsNeedingUpdate);
-						if (myCurrentState.EnterEndTrigger != null)
-							myCurrentState.EnterEndTrigger.Trigger(myTriggerActionsNeedingUpdate);
+							if (previousState.ExitEndTrigger != null)
+								previousState.ExitEndTrigger.Trigger(myTriggerActionsNeedingUpdate);
+							if (myCurrentState.EnterEndTrigger != null)
+								myCurrentState.EnterEndTrigger.Trigger(myTriggerActionsNeedingUpdate);
+						}
+						myTransition = null;
 					}
-					else if (!paused && !myCurrentState.myWaitForSync && !myNoValidTransition)
-					{
-						if (myTransition == null)
-							SetRandomTransition();
-						else
-							SetTransition();
-					}
+				}
+				else if (!paused && !myNoValidTransition)
+				{
+					SetRandomTransition();
 				}
 			}
 
 			public void ArriveFromAnotherAnimation(Transition transition, State targetState) {
-				CaptureState(myBlendState);
-				SetState(myBlendState);
+				targetState.myLayer.SetBlendTransition(targetState);
 
-				myTransition = new Transition(transition);
-				myTransition.mySourceState = myBlendState;
-				myTransition.myTargetState = targetState;
-				myNextState = targetState;
-
-				SetTransition();
+				myMainAnimation.val = myCurrentAnimation.myName;
 			}
 
 			private void TransitionToAnotherAnimation(Transition transition)
@@ -1107,6 +1072,7 @@ namespace HaremLife
 				Animation animation = targetState.myAnimation;
 				Layer targetLayer = targetState.myLayer;
 				myCurrentAnimation = animation;
+				SetAnimation(animation);
 				targetLayer.ArriveFromAnotherAnimation(transition, targetState);
 				foreach(var sc in transition.mySyncTargets) {
 					Layer syncLayer = sc.Key;
@@ -1114,12 +1080,12 @@ namespace HaremLife
 					syncLayer.ArriveFromAnotherAnimation(transition, syncState);
 				}
 
-				myMainAnimation.valNoCallback = myCurrentAnimation.myName;
-				myMainLayer.valNoCallback = myCurrentLayer.myName;
-				myMainState.valNoCallback = myCurrentState.myName;
+				// myMainAnimation.valNoCallback = myCurrentAnimation.myName;
+				// myMainLayer.valNoCallback = myCurrentLayer.myName;
+				// myMainState.valNoCallback = myCurrentState.myName;
 			}
 
-			public void SetTransition()
+			public void SetTransition(Transition transition)
 			{
 				// SuperController.LogError("Set transition");
 				// SuperController.LogError(myTransition.myDuration.ToString());
@@ -1130,26 +1096,25 @@ namespace HaremLife
 				myNoValidTransition = false;
 
 				myClock = 0.0f;
-				myDuration = myTransition.myDuration;
+				myDuration = transition.myDuration;
 				myDuration = Mathf.Max(myDuration, 0.001f);
 
-				if(myTransition.myTargetState.myAnimation != myCurrentAnimation) {
-					TransitionToAnotherAnimation(myTransition);
+				if(transition.myTargetState.myAnimation != myCurrentAnimation) {
+					TransitionToAnotherAnimation(transition);
 					return;
 				}
 
-				myNextState = myTransition.myTargetState;
 				for (int i=0; i<myControlCaptures.Count; ++i)
-					myControlCaptures[i].SetTransition(myTransition);
+					myControlCaptures[i].SetTransition(transition);
 				for (int i=0; i<myMorphCaptures.Count; ++i)
-					myMorphCaptures[i].SetTransition(myTransition);
+					myMorphCaptures[i].SetTransition(transition);
 
-				myTransition = null;
+				myTransition = transition;
 
-				if (myCurrentState.ExitBeginTrigger != null)
-					myCurrentState.ExitBeginTrigger.Trigger(myTriggerActionsNeedingUpdate);
-				if (myNextState.EnterBeginTrigger != null)
-					myNextState.EnterBeginTrigger.Trigger(myTriggerActionsNeedingUpdate);
+				if (transition.mySourceState.ExitBeginTrigger != null)
+					transition.mySourceState.ExitBeginTrigger.Trigger(myTriggerActionsNeedingUpdate);
+				if (transition.myTargetState.EnterBeginTrigger != null)
+					transition.myTargetState.EnterBeginTrigger.Trigger(myTriggerActionsNeedingUpdate);
 			}
 
 			public void SetRandomTransition()
@@ -1162,6 +1127,7 @@ namespace HaremLife
 					sum += states[i].myDefaultProbability;
 				if (sum == 0.0f)
 				{
+					SuperController.LogError("Setting transition null? R");
 					myTransition = null;
 					myNoValidTransition = true;
 				}
@@ -1175,8 +1141,7 @@ namespace HaremLife
 						if (threshold <= sum)
 							break;
 					}
-					myTransition = myCurrentState.getIncomingTransition(states[i]);
-					SetTransition();
+					SetTransition(myCurrentState.getIncomingTransition(states[i]));
 				}
 			}
 
@@ -1187,7 +1152,6 @@ namespace HaremLife
 				// SuperController.LogError(state.myName);
 				// if (myCurrentState != null)
 				// {
-				// 	myNextState = null;
 				// 	List<State> states = new List<State>(16);
 				// 	for (int i=0; i< myCurrentState.myTransitions.Count; i++) {
 				// 		states.Add(myCurrentState.myTransitions[i]);
@@ -1201,7 +1165,6 @@ namespace HaremLife
 				// 	if (indices.Count == 0)
 				// 	{
 				// 		states.Clear();
-				// 		myNextState = state;
 				// 		for (int i=0; i< myCurrentState.myTransitions.Count; i++) {
 				// 			states.Add(myCurrentState.myTransitions[i]);
 				// 		}
@@ -1223,25 +1186,9 @@ namespace HaremLife
 				{
 					CaptureState(myBlendState);
 					myBlendState.AssignOutTriggers(myCurrentState);
-					SetState(myBlendState);
-				}
-
-				myTransition = new Transition(myCurrentState, state);
-				myNextState = state;
-
-				SetTransition();
-			}
-
-			public void TriggerSyncAction()
-			{
-				if (myCurrentState != null && myNextState == null
-				&& myClock >= myDuration && !myCurrentState.myWaitInfiniteDuration
-				&& myCurrentState.myWaitForSync && !myPaused)
-				{
-					if (myTransition == null)
-						SetRandomTransition();
-					else
-						SetTransition();
+					SetTransition(new Transition(myBlendState, state));
+				} else {
+					SetTransition(new Transition(myCurrentState, state));
 				}
 			}
 		}
@@ -1290,7 +1237,6 @@ namespace HaremLife
 			public float myDefaultEaseOutDuration = DEFAULT_EASEOUT_DURATION;
 			public float myDefaultProbability = DEFAULT_PROBABILITY;
 			public bool myWaitInfiniteDuration = false;
-			public bool myWaitForSync = false;
 			public uint myDebugIndex = 0;
 			public Dictionary<ControlCapture, ControlEntryAnchored> myControlEntries = new Dictionary<ControlCapture, ControlEntryAnchored>();
 			public Dictionary<MorphCapture, float> myMorphEntries = new Dictionary<MorphCapture, float>();
@@ -1330,7 +1276,6 @@ namespace HaremLife
 				myDefaultEaseOutDuration = source.myDefaultEaseOutDuration;
 				myDefaultProbability = source.myDefaultProbability;
 				myWaitInfiniteDuration = source.myWaitInfiniteDuration;
-				myWaitForSync = source.myWaitForSync;
 				EnterBeginTrigger = new EventTrigger(source.EnterBeginTrigger);
 				EnterEndTrigger = new EventTrigger(source.EnterEndTrigger);
 				ExitBeginTrigger = new EventTrigger(source.ExitBeginTrigger);
@@ -1437,7 +1382,6 @@ namespace HaremLife
 					CaptureEntry(transition.myTargetState);
 					myTransition[1] = transition.myTargetState.myControlEntries[this];
 				}
-
 			}
 
 			public void UpdateTransition(float t)

@@ -894,14 +894,6 @@ namespace HaremLife
 
 			if (!state.myWaitInfiniteDuration)
 			{
-				JSONStorableBool waitForSync = new JSONStorableBool("Wait for TriggerSync", state.myWaitForSync);
-				waitForSync.setCallbackFunction = (bool v) => {
-					State s = UIGetState();
-					if (s != null)
-						s.myWaitForSync = v;
-				};
-				CreateMenuToggle(waitForSync, true);
-
 				JSONStorableFloat waitDurationMin = new JSONStorableFloat("Wait Duration Min", DEFAULT_WAIT_DURATION_MIN, 0.0f, 300.0f, true, true);
 				JSONStorableFloat waitDurationMax = new JSONStorableFloat("Wait Duration Max", DEFAULT_WAIT_DURATION_MAX, 0.0f, 300.0f, true, true);
 				waitDurationMin.valNoCallback = state.myWaitDurationMin;
