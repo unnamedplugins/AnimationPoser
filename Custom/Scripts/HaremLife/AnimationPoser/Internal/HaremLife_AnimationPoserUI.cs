@@ -569,51 +569,32 @@ namespace HaremLife
 
 		private void UISelectAnimationAndRefresh(string name)
 		{
-			Animation animation;
 			bool initPlayPaused = myPlayPaused.val;
-			myPlayPaused.val = true;
+			myCurrentAnimation = null;
+			myCurrentLayer = null;
+			myCurrentState = null;
+			Animation animation;
 			myAnimations.TryGetValue(myMainAnimation.val, out animation);
 			SetAnimation(animation);
-
-			List<string> layers = myCurrentAnimation.myLayers.Keys.ToList();
-			layers.Sort();
-			if(layers.Count > 0) {
-				Layer layer;
-				foreach (var layerKey in layers) {
-					myCurrentAnimation.myLayers.TryGetValue(layerKey, out layer);
-					SetLayer(layer);
-					List<string> states = layer.myStates.Keys.ToList();
-					states.Sort();
-					if(states.Count > 0) {
-						State state;
-						layer.myStates.TryGetValue(states[0], out state);
-						layer.SetBlendTransition(state);
-					}
-				}
-			}
-			UIRefreshMenu();
 			myPlayPaused.val = initPlayPaused;
+
+			UIRefreshMenu();
 		}
 		private void UISelectLayerAndRefresh(string name)
 		{
-			Layer layer;
-			myCurrentAnimation.myLayers.TryGetValue(myMainLayer.val, out layer);
-			SetLayer(layer);
-
-			List<string> states = layer.myStates.Keys.ToList();
-			states.Sort();
-			if(states.Count > 0) {
-				State state;
-				layer.myStates.TryGetValue(states[0], out state);
-				layer.SetBlendTransition(state);
+			if(name.Length > 0) {
+				Layer layer;
+				myCurrentAnimation.myLayers.TryGetValue(myMainLayer.val, out layer);
+				SetLayer(layer);
 			}
-
 			UIRefreshMenu();
 		}
 
 		private void UISelectStateAndRefresh(string name)
 		{
-			UIBlendToState();
+			if(name.Length > 0) {
+				UIBlendToState();
+			}
 			UIRefreshMenu();
 		}
 
@@ -1702,9 +1683,10 @@ namespace HaremLife
 				return;
 
 			CreateAnimation(name);
+			myMainAnimation.choices = myAnimations.Keys.ToList();
 			myMainAnimation.val = name;
-			myMainLayer.val = "";
-			myMainState.val = "";
+			myMainLayer.valNoCallback = "";
+			myMainState.valNoCallback = "";
 		}
 
 		private void UIAddLayer()
@@ -1714,6 +1696,7 @@ namespace HaremLife
 				return;
 
 			CreateLayer(name);
+			myMainLayer.choices = myCurrentAnimation.myLayers.Keys.ToList();
 			myMainLayer.val = name;
 			myMainState.val = "";
 			UIRefreshMenu();
@@ -1727,6 +1710,7 @@ namespace HaremLife
 				return;
 
 			CreateState(name);
+			myMainState.choices = myCurrentLayer.myStates.Keys.ToList();
 			myIsAddingNewState = true;  // prevent state blend
 			myMainState.val = name;
 			myIsAddingNewState = false;

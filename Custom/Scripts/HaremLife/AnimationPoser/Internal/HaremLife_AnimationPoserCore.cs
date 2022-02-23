@@ -136,11 +136,26 @@ namespace HaremLife
 		private void SetAnimation(Animation animation)
 		{
 			myCurrentAnimation = animation;
+
+			List<string> layers = animation.myLayers.Keys.ToList();
+			layers.Sort();
+			if(layers.Count > 0) {
+				Layer layer;
+				foreach (var layerKey in layers) {
+					myCurrentAnimation.myLayers.TryGetValue(layerKey, out layer);
+					SetLayer(layer);
+				}
+			}
 		}
 
 		private void SetLayer(Layer layer)
 		{
 			myCurrentLayer = layer;
+			List<string> states = layer.myStates.Keys.ToList();
+			states.Sort();
+			if(layer.myCurrentState != null) {
+				layer.SetBlendTransition(layer.myCurrentState);
+			}
 		}
 
 		private void CaptureState(State state)
@@ -185,13 +200,6 @@ namespace HaremLife
 				foreach (var layerKey in layers) {
 					myCurrentAnimation.myLayers.TryGetValue(layerKey, out layer);
 					SetLayer(layer);
-					List<string> states = layer.myStates.Keys.ToList();
-					states.Sort();
-					if(states.Count > 0) {
-						State state;
-						layer.myStates.TryGetValue(states[0], out state);
-						layer.SetState(state);
-					}
 				}
 			}
 			myPlayPaused.val = initPlayPaused;
@@ -205,14 +213,6 @@ namespace HaremLife
 
 			myCurrentAnimation.myLayers.TryGetValue(v, out layer);
 			SetLayer(layer);
-
-			List<string> states = layer.myStates.Keys.ToList();
-			states.Sort();
-			if(states.Count > 0) {
-				State state;
-				layer.myStates.TryGetValue(states[0], out state);
-				layer.SetState(state);
-			}
 		}
 
 		private void SwitchStateAction(string v)
@@ -400,20 +400,20 @@ namespace HaremLife
 			myPlayPaused.valNoCallback = jc.HasKey("Paused") && jc["Paused"].AsBool;
 			myPlayPaused.setCallbackFunction(myPlayPaused.val);
 
-			if (myCurrentState != null)
+			if (myCurrentAnimation != null)
 			{
-				myMainState.valNoCallback = myCurrentState.myName;
-				myMainState.setCallbackFunction(myCurrentState.myName);
+				myMainAnimation.valNoCallback = myCurrentAnimation.myName;
+				myMainAnimation.setCallbackFunction(myCurrentAnimation.myName);
 			}
 			if (myCurrentLayer != null)
 			{
 				myMainLayer.valNoCallback = myCurrentLayer.myName;
 				myMainLayer.setCallbackFunction(myCurrentLayer.myName);
 			}
-			if (myCurrentAnimation != null)
+			if (myCurrentState != null)
 			{
-				myMainAnimation.valNoCallback = myCurrentAnimation.myName;
-				myMainAnimation.setCallbackFunction(myCurrentAnimation.myName);
+				myMainState.valNoCallback = myCurrentState.myName;
+				myMainState.setCallbackFunction(myCurrentState.myName);
 			}
 
 			myOptionsDefaultToWorldAnchor.val = jc.HasKey("DefaultToWorldAnchor") && jc["DefaultToWorldAnchor"].AsBool;
