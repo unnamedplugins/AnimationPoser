@@ -1030,28 +1030,31 @@ namespace HaremLife
 
 				float t;
 				if(myTransition != null) {
-					t = Smooth(myTransition.myEaseOutDuration, myTransition.myEaseInDuration, myDuration, myClock);
+					if(myClock >= myDuration) {
+						t = Smooth(myTransition.myEaseOutDuration, myTransition.myEaseInDuration, myTransition.myDuration, myClock-myDuration);
 
-					for (int i=0; i<myControlCaptures.Count; ++i)
-						myControlCaptures[i].UpdateTransition(t);
-					for (int i=0; i<myMorphCaptures.Count; ++i)
-						myMorphCaptures[i].UpdateTransition(t);
+						for (int i=0; i<myControlCaptures.Count; ++i)
+							myControlCaptures[i].UpdateTransition(t);
+						for (int i=0; i<myMorphCaptures.Count; ++i)
+							myMorphCaptures[i].UpdateTransition(t);
 
-					if (myClock >= myDuration)
-					{
-						if (myTransition.myTargetState != null)
+						if (myClock >= myDuration + myTransition.myDuration)
 						{
-							State previousState = myCurrentState;
-							SetState(myTransition.myTargetState);
-							if (myMainLayer.val == myName)
-								myMainState.val = myCurrentState.myName;
+							if (myTransition.myTargetState != null)
+							{
+								State previousState = myCurrentState;
+								SetState(myTransition.myTargetState);
+								if (myMainLayer.val == myName)
+									myMainState.valNoCallback = myCurrentState.myName;
+									myMainAnimation.valNoCallback = myCurrentState.myAnimation.myName;
 
-							if (previousState.ExitEndTrigger != null)
-								previousState.ExitEndTrigger.Trigger(myTriggerActionsNeedingUpdate);
-							if (myCurrentState.EnterEndTrigger != null)
-								myCurrentState.EnterEndTrigger.Trigger(myTriggerActionsNeedingUpdate);
+								if (previousState.ExitEndTrigger != null)
+									previousState.ExitEndTrigger.Trigger(myTriggerActionsNeedingUpdate);
+								if (myCurrentState.EnterEndTrigger != null)
+									myCurrentState.EnterEndTrigger.Trigger(myTriggerActionsNeedingUpdate);
+							}
+							myTransition = null;
 						}
-						myTransition = null;
 					}
 				}
 				else if (!paused && !myNoValidTransition)
@@ -1063,7 +1066,7 @@ namespace HaremLife
 			public void ArriveFromAnotherAnimation(Transition transition, State targetState) {
 				targetState.myLayer.SetBlendTransition(targetState);
 
-				myMainAnimation.val = myCurrentAnimation.myName;
+				myMainAnimation.valNoCallback = myCurrentAnimation.myName;
 			}
 
 			private void TransitionToAnotherAnimation(Transition transition)
@@ -1096,8 +1099,6 @@ namespace HaremLife
 				myNoValidTransition = false;
 
 				myClock = 0.0f;
-				myDuration = transition.myDuration;
-				myDuration = Mathf.Max(myDuration, 0.001f);
 
 				if(transition.myTargetState.myAnimation != myCurrentAnimation) {
 					TransitionToAnotherAnimation(transition);
