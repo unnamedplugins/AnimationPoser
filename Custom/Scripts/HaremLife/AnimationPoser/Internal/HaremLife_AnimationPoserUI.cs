@@ -562,6 +562,7 @@ namespace HaremLife
 					myCurrentLayer.SetState(state);
 				}
 				else {
+					myCurrentLayer.myDuration = 0.1f;
 					myCurrentLayer.SetBlendTransition(state, true);
 				}
 			}
@@ -880,43 +881,46 @@ namespace HaremLife
 			};
 			CreateMenuSlider(easeOutDuration, false);
 
-			JSONStorableBool waitInfiniteDuration = new JSONStorableBool("Wait Infinite Duration", state.myWaitInfiniteDuration);
-			waitInfiniteDuration.setCallbackFunction = (bool v) => {
-				State s = UIGetState();
-				if (s != null)
+			JSONStorableBool isRootState = new JSONStorableBool("Is Root State", state.myIsRootState);
+			isRootState.setCallbackFunction = (bool v) => {
+				State st = UIGetState();
+				if (st != null)
 				{
-					s.myWaitInfiniteDuration = v;
-					myCurrentLayer.myDuration = v ? float.MaxValue : UnityEngine.Random.Range(s.myWaitDurationMin, s.myWaitDurationMax);
+					if(v) {
+						foreach (var s in st.myLayer.myStates) {
+							s.Value.myIsRootState = false;
+						}
+						st.myIsRootState = true;
+					} else {
+						st.myIsRootState = false;
+					}
 				}
 				UIRefreshMenu();
 			};
-			CreateMenuToggle(waitInfiniteDuration, true);
+			CreateMenuToggle(isRootState, true);
 
-			if (!state.myWaitInfiniteDuration)
-			{
-				JSONStorableFloat waitDurationMin = new JSONStorableFloat("Wait Duration Min", DEFAULT_WAIT_DURATION_MIN, 0.0f, 300.0f, true, true);
-				JSONStorableFloat waitDurationMax = new JSONStorableFloat("Wait Duration Max", DEFAULT_WAIT_DURATION_MAX, 0.0f, 300.0f, true, true);
-				waitDurationMin.valNoCallback = state.myWaitDurationMin;
-				waitDurationMax.valNoCallback = state.myWaitDurationMax;
+			JSONStorableFloat waitDurationMin = new JSONStorableFloat("Wait Duration Min", DEFAULT_WAIT_DURATION_MIN, 0.0f, 300.0f, true, true);
+			JSONStorableFloat waitDurationMax = new JSONStorableFloat("Wait Duration Max", DEFAULT_WAIT_DURATION_MAX, 0.0f, 300.0f, true, true);
+			waitDurationMin.valNoCallback = state.myWaitDurationMin;
+			waitDurationMax.valNoCallback = state.myWaitDurationMax;
 
-				waitDurationMin.setCallbackFunction = (float v) => {
-					State s = UIGetState();
-					if (s != null)
-						s.myWaitDurationMin = v;
-					if (waitDurationMax.val < v)
-						waitDurationMax.val = v;
-				};
-				waitDurationMax.setCallbackFunction = (float v) => {
-					State s = UIGetState();
-					if (s != null)
-						s.myWaitDurationMax = v;
-					if (waitDurationMin.val > v)
-						waitDurationMin.val = v;
-				};
+			waitDurationMin.setCallbackFunction = (float v) => {
+				State s = UIGetState();
+				if (s != null)
+					s.myWaitDurationMin = v;
+				if (waitDurationMax.val < v)
+					waitDurationMax.val = v;
+			};
+			waitDurationMax.setCallbackFunction = (float v) => {
+				State s = UIGetState();
+				if (s != null)
+					s.myWaitDurationMax = v;
+				if (waitDurationMin.val > v)
+					waitDurationMin.val = v;
+			};
 
-				CreateMenuSlider(waitDurationMin, true);
-				CreateMenuSlider(waitDurationMax, true);
-			}
+			CreateMenuSlider(waitDurationMin, true);
+			CreateMenuSlider(waitDurationMax, true);
 		}
 
 		private void CreateAnchorsMenu()

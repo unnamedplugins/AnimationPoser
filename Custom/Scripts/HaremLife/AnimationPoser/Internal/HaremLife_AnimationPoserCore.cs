@@ -472,7 +472,7 @@ namespace HaremLife
 				State state = s.Value;
 				JSONClass st = new JSONClass();
 				st["Name"] = state.myName;
-				st["WaitInfiniteDuration"].AsBool = state.myWaitInfiniteDuration;
+				st["IsRootState"].AsBool = state.myIsRootState;
 				st["WaitDurationMin"].AsFloat = state.myWaitDurationMin;
 				st["WaitDurationMax"].AsFloat = state.myWaitDurationMax;
 				st["DefaultDuration"].AsFloat = state.myDefaultDuration;
@@ -642,7 +642,7 @@ namespace HaremLife
 				// load state
 				JSONClass st = slist[i].AsObject;
 				State state = new State(this, st["Name"]) {
-					myWaitInfiniteDuration = st["WaitInfiniteDuration"].AsBool,
+					myIsRootState = st["IsRootState"].AsBool,
 					myWaitDurationMin = st["WaitDurationMin"].AsFloat,
 					myWaitDurationMax = st["WaitDurationMax"].AsFloat,
 					myDefaultDuration = st.HasKey("DefaultDuration") ? st["DefaultDuration"].AsFloat : DEFAULT_TRANSITION_DURATION,
@@ -672,7 +672,7 @@ namespace HaremLife
 							continue;
 
 						JSONClass ceclass = celist[ccname].AsObject;
-						ControlEntryAnchored ce = new ControlEntryAnchored(this, ccname);
+						ControlEntryAnchored ce = new ControlEntryAnchored(this, ccname, state, cc);
 						ce.myAnchorOffset.myPosition.x = ceclass["PX"].AsFloat;
 						ce.myAnchorOffset.myPosition.y = ceclass["PY"].AsFloat;
 						ce.myAnchorOffset.myPosition.z = ceclass["PZ"].AsFloat;
@@ -973,12 +973,7 @@ namespace HaremLife
 				myCurrentState = state;
 
 				myClock = 0.0f;
-				if (state.myWaitInfiniteDuration){
-					myDuration = float.MaxValue;
-				}
-				else {
-					myDuration = UnityEngine.Random.Range(state.myWaitDurationMin, state.myWaitDurationMax);
-				}
+				myDuration = UnityEngine.Random.Range(state.myWaitDurationMin, state.myWaitDurationMax);
 			}
 
 			public void Clear()
@@ -1132,7 +1127,6 @@ namespace HaremLife
 					sum += myCurrentState.myTransitions[i].myProbability;
 				if (sum == 0.0f)
 				{
-					SuperController.LogError("Setting transition null? R");
 					myTransition = null;
 					myNoValidTransition = true;
 				}
@@ -1241,7 +1235,7 @@ namespace HaremLife
 			public float myDefaultEaseInDuration = DEFAULT_EASEIN_DURATION;
 			public float myDefaultEaseOutDuration = DEFAULT_EASEOUT_DURATION;
 			public float myDefaultProbability = DEFAULT_PROBABILITY;
-			public bool myWaitInfiniteDuration = false;
+			public bool myIsRootState = false;
 			public uint myDebugIndex = 0;
 			public Dictionary<ControlCapture, ControlEntryAnchored> myControlEntries = new Dictionary<ControlCapture, ControlEntryAnchored>();
 			public Dictionary<MorphCapture, float> myMorphEntries = new Dictionary<MorphCapture, float>();
@@ -1281,7 +1275,7 @@ namespace HaremLife
 				myDefaultEaseInDuration = source.myDefaultEaseInDuration;
 				myDefaultEaseOutDuration = source.myDefaultEaseOutDuration;
 				myDefaultProbability = source.myDefaultProbability;
-				myWaitInfiniteDuration = source.myWaitInfiniteDuration;
+				myIsRootState = source.myIsRootState;
 				EnterBeginTrigger = new EventTrigger(source.EnterBeginTrigger);
 				EnterEndTrigger = new EventTrigger(source.EnterEndTrigger);
 				ExitBeginTrigger = new EventTrigger(source.ExitBeginTrigger);
@@ -1354,7 +1348,7 @@ namespace HaremLife
 				ControlEntryAnchored entry;
 				if (!state.myControlEntries.TryGetValue(this, out entry))
 				{
-					entry = new ControlEntryAnchored(myPlugin, myName);
+					entry = new ControlEntryAnchored(myPlugin, myName, state, this);
 					entry.Initialize();
 					state.myControlEntries[this] = entry;
 				}
@@ -1568,12 +1562,20 @@ namespace HaremLife
 			public string myAnchorBAtom;
 			public string myAnchorAControl = "control";
 			public string myAnchorBControl = "control";
+			public ControlCapture myControlCapture;
+			public State myState;
 
-			public ControlEntryAnchored(AnimationPoser plugin, string control)
+			public ControlEntryAnchored(AnimationPoser plugin, string control, State state, ControlCapture controlCapture)
 			{
+				myState = state;
 				Atom containingAtom = plugin.GetContainingAtom();
-				if (plugin.myOptionsDefaultToWorldAnchor.val || containingAtom.type != "Person" || control == "control")
+				if (plugin.myOptionsDefaultToWorldAnchor.val || containingAtom.type != "Person")
 					myAnchorMode = ANCHORMODE_WORLD;
+				if(control == "control" && containingAtom.parentAtom != null)
+					myAnchorAAtom = myAnchorBAtom = containingAtom.parentAtom.uid;
+				else
+					myAnchorAAtom = myAnchorBAtom = containingAtom.uid;
+				myControlCapture = controlCapture;
 				myAnchorAAtom = myAnchorBAtom = containingAtom.uid;
 			}
 
@@ -1640,9 +1642,7 @@ namespace HaremLife
 							return;
 						anchor.myPosition = myAnchorATransform.position;
 						anchor.myRotation = myAnchorATransform.rotation;
-					}
-					else
-					{
+					} else {
 						if (myAnchorATransform == null || myAnchorBTransform == null)
 							return;
 						anchor.myPosition = Vector3.LerpUnclamped(myAnchorATransform.position, myAnchorBTransform.position, myBlendRatio);
@@ -1666,9 +1666,23 @@ namespace HaremLife
 
 			public void Capture(Vector3 position, Quaternion rotation)
 			{
-				myEntry.myPosition = position;
-				myEntry.myRotation = rotation;
+				// myEntry.myPosition = position;
+				// myEntry.myRotation = rotation;
 
+				State rootState = myCurrentLayer.myStates.Values.ToList().Find(s => s.myIsRootState);
+				if(rootState != null && myState == rootState) {
+					ControlCapture rootcc = rootState.myControlEntries.Keys.ToList().Find(ccx => ccx.myName == myControlCapture.myName);
+					ControlEntryAnchored rootce = rootState.myControlEntries[rootcc];
+					foreach(var s in myCurrentLayer.myStates) {
+						State st = s.Value;
+						if(st != rootState) {
+							ControlCapture cc = st.myControlEntries.Keys.ToList().Find(ccx => ccx.myName == myControlCapture.myName);
+							ControlEntryAnchored ce = st.myControlEntries[cc];
+							ce.myAnchorOffset.myPosition = ce.myAnchorOffset.myPosition + (position - rootce.myAnchorOffset.myPosition);
+							ce.myAnchorOffset.myRotation = Quaternion.Inverse(Quaternion.Inverse(rotation) * rootce.myAnchorOffset.myRotation) * ce.myAnchorOffset.myRotation;
+						}
+					}
+				}
 				if (myAnchorMode == ANCHORMODE_WORLD)
 				{
 					myAnchorOffset.myPosition = position;
@@ -1684,9 +1698,7 @@ namespace HaremLife
 						}
 						root.myPosition = myAnchorATransform.position;
 						root.myRotation = myAnchorATransform.rotation;
-					}
-					else
-					{
+					} else {
 						if (myAnchorATransform == null || myAnchorBTransform == null){
 							return;
 						}
