@@ -41,6 +41,7 @@ namespace HaremLife
 		private JSONStorableStringChooser myTargetStateList;
 		private JSONStorableStringChooser mySyncLayerList;
 		private JSONStorableStringChooser mySyncStateList;
+		private JSONStorableStringChooser myRoleList;
 		private JSONStorableBool myOptionsDefaultToWorldAnchor;
 		private JSONStorableBool myDebugShowInfo;
 		private JSONStorableBool myDebugShowPaths;
@@ -71,7 +72,8 @@ namespace HaremLife
 		private const int MENU_TRANSITIONS = 4;
 		private const int MENU_TRIGGERS    = 5;
 		private const int MENU_ANCHORS     = 6;
-		private const int MENU_OPTIONS     = 7;
+		private const int MENU_ROLES	   = 7;
+		private const int MENU_OPTIONS     = 8;
 
 		private GameObject myLabelWith2BXButtonPrefab;
 		private GameObject myLabelWithMXButtonPrefab;
@@ -544,6 +546,7 @@ namespace HaremLife
 				case MENU_TRANSITIONS: CreateTransitionsMenu(); break;
 				case MENU_TRIGGERS:    CreateTriggers();        break;
 				case MENU_ANCHORS:     CreateAnchorsMenu();     break;
+				case MENU_ROLES:       CreateRolesMenu();       break;
 				case MENU_OPTIONS:     CreateOptionsMenu();     break;
 				default:               CreatePlayMenu();        break;
 			}
@@ -611,7 +614,7 @@ namespace HaremLife
 			CreateMenuPopup(myMainState, true);
 			CreateMenuSpacer(172, true);
 
-			CreateTabs(new string[] { "Play", "Animations", "Layers", "States", "Transitions", "Triggers", "Anchors", "Actors", "Options" });
+			CreateTabs(new string[] { "Play", "Animations", "Layers", "States", "Transitions", "Triggers", "Anchors", "Roles", "Options" });
 
 			// myMenuElements.Clear();
 		}
@@ -1364,6 +1367,74 @@ namespace HaremLife
 				800, true
 			);
 		}
+		private void CreateRolesMenu()
+		{
+			CreateMenuInfo("The Roles tab allows you to define roles for a layer. Each role can be assigned to a person, and used in the transitions tab to sync the layers of that person. Like in a play, the roles can be assigned and switched between different persons with minimal work to the script writer :)", 230, false);
+
+			CreateMenuSpacer(132, true);
+			List<string> roles = new List<string>();
+			foreach (var r in myCurrentLayer.myRoles)
+			{
+				roles.Add(r.Value.myName);
+			}
+			roles.Sort();
+
+			String selectedRoleName;
+			if (myRoleList == null || !roles.Contains(myRoleList.val))
+				if(roles.Count > 0) {
+					selectedRoleName = roles[0];
+				} else {
+					selectedRoleName = "";
+				}
+			else
+				selectedRoleName = myRoleList.val;
+			myRoleList = new JSONStorableStringChooser("Role", roles, selectedRoleName, "Role");
+			myRoleList.setCallbackFunction += (string v) => UIRefreshMenu();
+
+			CreateMenuPopup(myRoleList, true);
+
+			Role selectedRole;
+			myCurrentLayer.myRoles.TryGetValue(myRoleList.val, out selectedRole);
+
+			String roleName = "";
+			if(selectedRole != null)
+				roleName = selectedRole.myName;
+			JSONStorableString role = new JSONStorableString("Role Name",
+				roleName, (String name) => {
+					selectedRole.myName = name;
+					myRoleList.val = name;
+					Role roleToRename = myCurrentLayer.myRoles[roleName];
+					myCurrentLayer.myRoles.Remove(roleName);
+					myCurrentLayer.myRoles.Add(name, roleToRename);
+					UIRefreshMenu();
+				}
+			);
+
+			CreateMenuTextInput("Role Name", role, false);
+
+			CreateMenuButton("Add Role", UIAddRole, false);
+
+			CreateMenuButton("Remove Role", UIRemoveAnimation, false);
+		}
+
+		private void UIAddRole() {
+			String name = FindNewRoleName();
+			Role role = new Role(name);
+			myCurrentLayer.myRoles[name] = role;
+			myRoleList.val = name;
+			UIRefreshMenu();
+		}
+		private string FindNewRoleName()
+		{
+			for (int i=1; i<1000; ++i)
+			{
+				string name = "Role#" + i;
+				if (!myCurrentLayer.myRoles.ContainsKey(name))
+					return name;
+			}
+			SuperController.LogError("AnimationPoser: Too many roles!");
+			return null;
+		}
 
 		private void CreateOptionsMenu()
 		{
@@ -2056,7 +2127,7 @@ namespace HaremLife
 			Animation animation;
 			if (!myAnimations.TryGetValue(myMainAnimation.val, out animation))
 			{
-				SuperController.LogError("IdlePoser: Invalid animation selected!");
+				SuperController.LogError("AnimationPoser: Invalid animation selected!");
 				return null;
 			}
 			else
@@ -2070,7 +2141,7 @@ namespace HaremLife
 			Layer layer;
 			if (!myCurrentAnimation.myLayers.TryGetValue(myMainLayer.val, out layer))
 			{
-				SuperController.LogError("IdlePoser: Invalid layer selected!");
+				SuperController.LogError("AnimationPoser: Invalid layer selected!");
 				return null;
 			}
 			else
@@ -2098,7 +2169,7 @@ namespace HaremLife
 
 			if (!myCurrentLayer.myStates.TryGetValue(myMainState.val, out sourceState))
 			{
-				SuperController.LogError("AnimationPoser: Invalid state selected!");
+				SuperController.LogError("AnimationPoser: Invalid transition selected!");
 				return null;
 			}
 			else

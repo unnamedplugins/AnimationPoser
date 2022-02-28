@@ -942,6 +942,7 @@ namespace HaremLife
 			public string myName;
 			public Animation myAnimation;
 			public Dictionary<string, State> myStates = new Dictionary<string, State>();
+			public Dictionary<string, Role> myRoles = new Dictionary<string, Role>();
 			public bool myNoValidTransition = false;
 			public State myCurrentState;
 			public List<ControlCapture> myControlCaptures = new List<ControlCapture>();
@@ -1189,6 +1190,14 @@ namespace HaremLife
 				} else {
 					SetTransition(new Transition(myCurrentState, state));
 				}
+			}
+		}
+		private class Role
+		{
+			public String myName;
+
+			public Role(string name){
+				myName = name;
 			}
 		}
 
