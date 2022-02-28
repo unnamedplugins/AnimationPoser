@@ -435,6 +435,27 @@ namespace HaremLife
 			JSONClass layer = new JSONClass();
 			layer["Name"] = layerToSave.myName;
 
+			// save roles
+			if (layerToSave.myRoles.Keys.Count > 0)
+			{
+				JSONArray rlist = new JSONArray();
+				foreach (var r in layerToSave.myRoles)
+				{
+					Role role = r.Value;
+					JSONClass rclass = new JSONClass();
+					rclass["Name"] = role.myName;
+					if(role.myPerson != null) {
+						rclass["Person"] = role.myPerson.name;
+					} else {
+						rclass["Person"] = "";
+					}
+					SuperController.LogError(rclass["Person"]);
+					// ccclass["Person"] = r.myPerson;
+					rlist.Add("", rclass);
+				}
+				layer["Roles"] = rlist;
+			}
+
 			// save captures
 			if (layerToSave.myControlCaptures.Count > 0)
 			{
@@ -599,6 +620,27 @@ namespace HaremLife
 				myCurrentLayer = CreateLayer(myCurrentLayer.myName);
 			else
 				myCurrentLayer = CreateLayer(layer["Name"]);
+
+			// load roles
+			if (layer.HasKey("Roles"))
+			{
+				JSONArray rlist = layer["Roles"].AsArray;
+				for (int i=0; i<rlist.Count; ++i)
+				{
+					Role r;
+					JSONClass rclass = rlist[i].AsObject;
+					r = new Role(rclass["Name"]);
+					if(rclass["Person"] != "") {
+						Atom person = SuperController.singleton.GetAtoms().Find(a => String.Equals(a.name, rclass["Person"]));
+						if(person != null) {
+							r.myPerson = person;
+							SuperController.LogError(r.myPerson.name);
+						}
+					}
+					myCurrentLayer.myRoles[r.myName] = r;
+				}
+			}
+
 			// load captures
 			if (layer.HasKey("ControlCaptures"))
 			{
