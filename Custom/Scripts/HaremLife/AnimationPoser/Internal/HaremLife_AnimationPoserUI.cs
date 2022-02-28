@@ -65,12 +65,13 @@ namespace HaremLife
 		private const string DEFAULT_MORPH_UID = "Left Thumb Bend";
 
 		private const int MENU_PLAY        = 0;
-		private const int MENU_CAPTURES    = 1;
-		private const int MENU_STATES      = 2;
-		private const int MENU_TRANSITIONS = 3;
-		private const int MENU_TRIGGERS    = 4;
-		private const int MENU_ANCHORS     = 5;
-		private const int MENU_OPTIONS     = 6;
+		private const int MENU_ANIMATIONS  = 1;
+		private const int MENU_LAYERS	   = 2;
+		private const int MENU_STATES      = 3;
+		private const int MENU_TRANSITIONS = 4;
+		private const int MENU_TRIGGERS    = 5;
+		private const int MENU_ANCHORS     = 6;
+		private const int MENU_OPTIONS     = 7;
 
 		private GameObject myLabelWith2BXButtonPrefab;
 		private GameObject myLabelWithMXButtonPrefab;
@@ -105,7 +106,7 @@ namespace HaremLife
 				if (!string.IsNullOrEmpty(label))
 					label = ": " + label;
 				myGeneralInfo.val = "<color=#606060><size=40><b>AnimationPoser"+label+"</b></size>\n" +
-					"State-based character idle animation system.</color>";
+					"The most powerful random animation system.</color>";
 			};
 			pluginLabelJSON.setCallbackFunction(pluginLabelJSON.val);
 
@@ -537,7 +538,8 @@ namespace HaremLife
 			Utils.OnInitUI(CreateUIElement);
 			switch (myMenuItem)
 			{
-				case MENU_CAPTURES:    CreateCapturesMenu();    break;
+				case MENU_LAYERS:      CreateLayersMenu();    break;
+				case MENU_ANIMATIONS:  CreateAnimationsMenu();  break;
 				case MENU_STATES:      CreateStateMenu();       break;
 				case MENU_TRANSITIONS: CreateTransitionsMenu(); break;
 				case MENU_TRIGGERS:    CreateTriggers();        break;
@@ -602,104 +604,78 @@ namespace HaremLife
 		private void CreateMainUI()
 		{
 			Utils.OnInitUI(CreateUIElement);
-			CreateMenuInfo(myGeneralInfo, 229, true);
-
-			// save/load animation and layer
-			{
-				UIDynamicButton button = CreateButton("Load", false);
-				myDataFile.setCallbackFunction -= UILoadAnimationsJSON;
-				myDataFile.allowFullComputerBrowse = false;
-				myDataFile.allowBrowseAboveSuggestedPath = true;
-				myDataFile.SetFilePath(BASE_DIRECTORY+"/");
-				myDataFile.RegisterFileBrowseButton(button.button);
-				myDataFile.setCallbackFunction += UILoadAnimationsJSON;
-				myMenuElements.Add(button);
-
-				CreateMenuButton("Save As", UISaveAnimationsJSONDialog, false);
-			}
-
-			{
-				UIDynamicButton button = CreateButton("Load Layer", false);
-				myLayerFile.setCallbackFunction -= UILoadJSON;
-				myLayerFile.allowFullComputerBrowse = false;
-				myLayerFile.allowBrowseAboveSuggestedPath = true;
-				myLayerFile.SetFilePath(BASE_DIRECTORY+"/");
-				myLayerFile.RegisterFileBrowseButton(button.button);
-				myLayerFile.setCallbackFunction += UILoadJSON;
-				myMenuElements.Add(button);
-
-				CreateMenuButton("Save Layer As", UISaveJSONDialog, false);
-			}
+			CreateMenuInfo(myGeneralInfo, 108, false);
 
 			CreateMenuPopup(myMainAnimation, false);
-			CreateMenuPopup(myMainLayer, false);
-			CreateMenuPopup(myMainState, false);
-			CreateAnimationsMenu();
-			CreateLayersMenu();
+			CreateMenuPopup(myMainLayer, true);
+			CreateMenuPopup(myMainState, true);
+			CreateMenuSpacer(172, true);
 
-			{
-				GameObject tabbarPrefab = new GameObject("TabBar");
-				RectTransform rt = tabbarPrefab.AddComponent<RectTransform>();
-				rt.anchorMax = new Vector2(0, 1);
-				rt.anchorMin = new Vector2(0, 1);
-				rt.offsetMax = new Vector2(1064, -500);
-				rt.offsetMin = new Vector2(10, -600);
-				LayoutElement le = tabbarPrefab.AddComponent<LayoutElement>();
-				le.flexibleWidth = 1;
-				le.minHeight = 90;
-				le.minWidth = 1064;
-				le.preferredHeight = 90;
-				le.preferredWidth = 1064;
-
-				RectTransform backgroundTransform = manager.configurableScrollablePopupPrefab.transform.Find("Background") as RectTransform;
-				backgroundTransform = Instantiate(backgroundTransform, tabbarPrefab.transform);
-				backgroundTransform.name = "Background";
-				backgroundTransform.anchorMax = new Vector2(1, 1);
-				backgroundTransform.anchorMin = new Vector2(0, 0);
-				backgroundTransform.offsetMax = new Vector2(0, 0);
-				backgroundTransform.offsetMin = new Vector2(0, 0);
-
-				UIDynamicTabBar uid = tabbarPrefab.AddComponent<UIDynamicTabBar>();
-
-				string[] menuItems = new string[] { "Play", "Captures", "States", "Transitions", "Triggers", "Anchors", "Options" };
-				float width = 142.0f;
-				float padding = 5.0f;
-				float x = 15;
-				for (int i=0; i<menuItems.Length; ++i)
-				{
-					float extraWidth = i == MENU_TRANSITIONS ? 11.0f : 0.0f;
-
-					RectTransform buttonTransform = manager.configurableScrollablePopupPrefab.transform.Find("Button") as RectTransform;
-					buttonTransform = Instantiate(buttonTransform, tabbarPrefab.transform);
-					buttonTransform.name = "Button";
-					buttonTransform.anchorMax = new Vector2(0, 1);
-					buttonTransform.anchorMin = new Vector2(0, 0);
-					buttonTransform.offsetMax = new Vector2(x+width+extraWidth, -15);
-					buttonTransform.offsetMin = new Vector2(x, 15);
-					Button buttonButton = buttonTransform.GetComponent<Button>();
-					uid.buttons.Add(buttonButton);
-					Text buttonText = buttonTransform.Find("Text").GetComponent<Text>();
-					buttonText.text = menuItems[i];
-					x += width + extraWidth + padding;
-				}
-
-				Transform t = CreateUIElement(tabbarPrefab.transform, false);
-				myMenuTabBar = t.gameObject.GetComponent<UIDynamicTabBar>();
-				myMenuElements.Add(myMenuTabBar);
-				for (int i=0; i<myMenuTabBar.buttons.Count; ++i)
-				{
-					int menuItem = i;
-					myMenuTabBar.buttons[i].onClick.AddListener(
-						() => {myMenuItem = menuItem; UIRefreshMenu();} //UISelectMenu(menuItem)
-					);
-				}
-
-				Destroy(tabbarPrefab);
-			}
-
-			CreateMenuSpacer(780, true);
+			CreateTabs(new string[] { "Play", "Animations", "Layers", "States", "Transitions", "Triggers", "Anchors", "Actors", "Options" });
 
 			// myMenuElements.Clear();
+		}
+
+		private void CreateTabs(string[] menuItems) {
+			GameObject tabbarPrefab = new GameObject("TabBar");
+			LayoutElement le = tabbarPrefab.AddComponent<LayoutElement>();
+			le.flexibleWidth = 1;
+			le.minHeight = 90;
+			le.minWidth = 1064;
+			le.preferredHeight = 90;
+			le.preferredWidth = 1064;
+
+			// RectTransform backgroundTransform = manager.configurableScrollablePopupPrefab.transform.Find("Background") as RectTransform;
+			// backgroundTransform = Instantiate(backgroundTransform, tabbarPrefab.transform);
+			// backgroundTransform.name = "Background";
+			// backgroundTransform.anchorMax = new Vector2(1, 1);
+			// backgroundTransform.anchorMin = new Vector2(0, 0);
+			// backgroundTransform.offsetMax = new Vector2(0, 0);
+			// backgroundTransform.offsetMin = new Vector2(0, 0);
+
+			UIDynamicTabBar uid = tabbarPrefab.AddComponent<UIDynamicTabBar>();
+
+			float width = 142.0f;
+			float padding = 5.0f;
+			float x = 15;
+			for (int i=0; i<menuItems.Length; ++i)
+			{
+				int secondRow = 0;
+				if(i>=7) {
+					secondRow = 70;
+				}
+				if(i==7) {
+					x = 15;
+				}
+				float extraWidth = (i == MENU_TRANSITIONS || i == MENU_ANIMATIONS) ? 11.0f : 0.0f;
+
+				RectTransform buttonTransform = manager.configurableScrollablePopupPrefab.transform.Find("Button") as RectTransform;
+				buttonTransform = Instantiate(buttonTransform, tabbarPrefab.transform);
+				buttonTransform.name = "Button";
+				buttonTransform.anchorMax = new Vector2(0, 1);
+				buttonTransform.anchorMin = new Vector2(0, 0);
+				buttonTransform.offsetMax = new Vector2(x+width+extraWidth, -15-secondRow);
+				buttonTransform.offsetMin = new Vector2(x, 15-secondRow);
+				Button buttonButton = buttonTransform.GetComponent<Button>();
+				uid.buttons.Add(buttonButton);
+				Text buttonText = buttonTransform.Find("Text").GetComponent<Text>();
+				buttonText.text = menuItems[i];
+				x += width + extraWidth + padding;
+			}
+
+			Transform t = CreateUIElement(tabbarPrefab.transform, false);
+			myMenuTabBar = t.gameObject.GetComponent<UIDynamicTabBar>();
+			myMenuElements.Add(myMenuTabBar);
+			for (int i=0; i<myMenuTabBar.buttons.Count; ++i)
+			{
+				int menuItem = i;
+				myMenuTabBar.buttons[i].onClick.AddListener(
+					() => {myMenuItem = menuItem; UIRefreshMenu();} //UISelectMenu(menuItem)
+				);
+			}
+
+			Destroy(tabbarPrefab);
+			CreateMenuSpacer(60, false);
 		}
 
 		private void CreatePlayMenu()
@@ -717,10 +693,62 @@ namespace HaremLife
 			CreateMenuInfo(myPlayInfo, 300, false);
 			CreateMenuToggle(myPlayPaused, false);
 		}
+		private void CreateAnimationsMenu()
+		{
+			CreateMenuInfoOneLine("<size=30><b>Manage Animations</b></size>", false);
 
-		private void CreateCapturesMenu()
+			UIDynamicButton button = CreateButton("Load All Animations", false);
+			myDataFile.setCallbackFunction -= UILoadAnimationsJSON;
+			myDataFile.allowFullComputerBrowse = false;
+			myDataFile.allowBrowseAboveSuggestedPath = true;
+			myDataFile.SetFilePath(BASE_DIRECTORY+"/");
+			myDataFile.RegisterFileBrowseButton(button.button);
+			myDataFile.setCallbackFunction += UILoadAnimationsJSON;
+			myMenuElements.Add(button);
+
+			CreateMenuButton("Save All Animations", UISaveAnimationsJSONDialog, false);
+
+			CreateMenuSpacer(132, true);
+			String animationName = "";
+			if(myCurrentAnimation != null)
+				animationName = myCurrentAnimation.myName;
+			JSONStorableString name = new JSONStorableString("Animation Name",
+				animationName, UIRenameAnimation);
+			CreateMenuTextInput("Animation Name", name, false);
+
+			CreateMenuButton("Add Animation", UIAddAnimation, false);
+
+			CreateMenuButton("Remove Animation", UIRemoveAnimation, false);
+
+		}
+
+		private void CreateLayersMenu()
 		{
 			// control captures
+			CreateMenuInfoOneLine("<size=30><b>Manage Layers</b></size>", false);
+
+			UIDynamicButton button = CreateButton("Load Layer", false);
+			myLayerFile.setCallbackFunction -= UILoadJSON;
+			myLayerFile.allowFullComputerBrowse = false;
+			myLayerFile.allowBrowseAboveSuggestedPath = true;
+			myLayerFile.SetFilePath(BASE_DIRECTORY+"/");
+			myLayerFile.RegisterFileBrowseButton(button.button);
+			myLayerFile.setCallbackFunction += UILoadJSON;
+			myMenuElements.Add(button);
+
+			CreateMenuButton("Save Layer As", UISaveJSONDialog, false);
+
+			String layerName = "";
+			if(myCurrentLayer != null)
+				layerName = myCurrentLayer.myName;
+			JSONStorableString name = new JSONStorableString("Layer Name",
+				layerName, UIRenameLayer);
+
+			CreateMenuTextInput("Layer Name", name, false);
+
+			CreateMenuButton("Add Layer", UIAddLayer, false);
+			CreateMenuButton("Remove Layer", UIRemoveLayer, false);
+
 			CreateMenuInfoOneLine("<size=30><b>Control Captures</b></size>", false);
 
 			FreeControllerV3[] atomControls = GetAllControllers();
@@ -1199,6 +1227,26 @@ namespace HaremLife
 
 				CreateMenuInfo("Use the following to sync other layers on target state arrival.", 80, true);
 
+				List<string> syncInstances = new List<string>();
+				foreach (var atom in SuperController.singleton.GetAtoms())
+				{
+					if (atom == null) continue;
+					var storableId = atom.GetStorableIDs().FirstOrDefault(id => id.EndsWith("HaremLife.AnimationPoser"));
+					if (storableId == null) continue;
+					MVRScript storable = atom.GetStorableByID(storableId) as MVRScript;
+					if (storable == null) continue;
+					// if (ReferenceEquals(storable, _plugin)) continue;
+					if (!storable.enabled) continue;
+					syncInstances.Add(storable.name);
+					storable.SendMessage(nameof(AnimationPoser.GetCalled), "");
+				}
+				syncInstances.Sort();
+
+				mySyncInstanceList = new JSONStorableStringChooser("Sync Instance", syncInstances, "", "Sync Instance");
+				mySyncInstanceList.setCallbackFunction += (string v) => UIRefreshMenu();
+
+				CreateMenuPopup(mySyncInstanceList, true);
+
 				List<string> syncLayers = new List<string>();
 				foreach (var l in transition.myTargetState.myAnimation.myLayers)
 				{
@@ -1359,40 +1407,6 @@ namespace HaremLife
 				650, true
 			);
 		}
-
-		private void CreateAnimationsMenu()
-		{
-			CreateMenuInfoOneLine("<size=30><b>Manage Animations</b></size>", false);
-
-			CreateMenuSpacer(132, true);
-			String animationName = "";
-			if(myCurrentAnimation != null)
-				animationName = myCurrentAnimation.myName;
-			JSONStorableString name = new JSONStorableString("Animation Name",
-				animationName, UIRenameAnimation);
-			CreateMenuTextInput("Animation Name", name, false);
-
-			CreateMenuButton("Add Animation", UIAddAnimation, false);
-
-			CreateMenuButton("Remove Animation", UIRemoveAnimation, false);
-		}
-		private void CreateLayersMenu()
-		{
-			CreateMenuInfoOneLine("<size=30><b>Manage Layers</b></size>", false);
-
-			String layerName = "";
-			if(myCurrentLayer != null)
-				layerName = myCurrentLayer.myName;
-			JSONStorableString name = new JSONStorableString("Layer Name",
-				layerName, UIRenameLayer);
-
-			CreateMenuTextInput("Layer Name", name, false);
-
-
-			CreateMenuButton("Add Layer", UIAddLayer, false);
-			CreateMenuButton("Remove Layer", UIRemoveLayer, false);
-		}
-
 
 		// =======================================================================================
 
