@@ -42,6 +42,7 @@ namespace HaremLife
 		private JSONStorableStringChooser mySyncLayerList;
 		private JSONStorableStringChooser mySyncStateList;
 		private JSONStorableStringChooser myRoleList;
+		private JSONStorableStringChooser myPersonList;
 		private JSONStorableBool myOptionsDefaultToWorldAnchor;
 		private JSONStorableBool myDebugShowInfo;
 		private JSONStorableBool myDebugShowPaths;
@@ -1393,8 +1394,43 @@ namespace HaremLife
 
 			CreateMenuPopup(myRoleList, true);
 
+			List<string> people = new List<string>();
+
+			foreach (var atom in SuperController.singleton.GetAtoms())
+			{
+				if (atom == null) continue;
+				var storableId = atom.GetStorableIDs().FirstOrDefault(id => id.EndsWith("HaremLife.AnimationPoser"));
+				if (storableId == null) continue;
+				MVRScript storable = atom.GetStorableByID(storableId) as MVRScript;
+				if (storable == null) continue;
+				// if (ReferenceEquals(storable, _plugin)) continue;
+				if (!storable.enabled) continue;
+				// syncRoles.Add(storable.name);
+				people.Add(atom.name);
+				// storable.SendMessage(nameof(AnimationPoser.GetCalled), "");
+			}
+			people.Sort();
+
 			Role selectedRole;
 			myCurrentLayer.myRoles.TryGetValue(myRoleList.val, out selectedRole);
+
+			if(selectedRole != null) {
+				String selectedPersonName;
+				if(selectedRole.myPerson != null) {
+					selectedPersonName = selectedRole.myPerson.name;
+				}
+				else {
+					selectedPersonName = "";
+				}
+				myPersonList = new JSONStorableStringChooser("Person", people, selectedPersonName, "Person");
+				myPersonList.setCallbackFunction += (string v) => {
+					Atom person = SuperController.singleton.GetAtoms().Find(a => String.Equals(a.name, v));
+					selectedRole.myPerson = person;
+					UIRefreshMenu();
+				};
+
+				CreateMenuPopup(myPersonList, true);
+			}
 
 			String roleName = "";
 			if(selectedRole != null)

@@ -1195,6 +1195,7 @@ namespace HaremLife
 		private class Role
 		{
 			public String myName;
+			public Atom myPerson;
 
 			public Role(string name){
 				myName = name;
