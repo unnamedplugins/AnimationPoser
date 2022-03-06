@@ -247,8 +247,9 @@ namespace HaremLife
 			}
 			DebugUpdateUI();
 
-			foreach (var layer in myCurrentAnimation.myLayers)
+			foreach (var layer in myCurrentAnimation.myLayers){
 				layer.Value.UpdateLayer();
+			}
 		}
 
 		private void OnAtomRename(string oldid, string newid)
@@ -435,27 +436,6 @@ namespace HaremLife
 			JSONClass layer = new JSONClass();
 			layer["Name"] = layerToSave.myName;
 
-			// save roles
-			if (layerToSave.myRoles.Keys.Count > 0)
-			{
-				JSONArray rlist = new JSONArray();
-				foreach (var r in layerToSave.myRoles)
-				{
-					Role role = r.Value;
-					JSONClass rclass = new JSONClass();
-					rclass["Name"] = role.myName;
-					if(role.myPerson != null) {
-						rclass["Person"] = role.myPerson.name;
-					} else {
-						rclass["Person"] = "";
-					}
-					SuperController.LogError(rclass["Person"]);
-					// ccclass["Person"] = r.myPerson;
-					rlist.Add("", rclass);
-				}
-				layer["Roles"] = rlist;
-			}
-
 			// save captures
 			if (layerToSave.myControlCaptures.Count > 0)
 			{
@@ -620,27 +600,6 @@ namespace HaremLife
 				myCurrentLayer = CreateLayer(myCurrentLayer.myName);
 			else
 				myCurrentLayer = CreateLayer(layer["Name"]);
-
-			// load roles
-			if (layer.HasKey("Roles"))
-			{
-				JSONArray rlist = layer["Roles"].AsArray;
-				for (int i=0; i<rlist.Count; ++i)
-				{
-					Role r;
-					JSONClass rclass = rlist[i].AsObject;
-					r = new Role(rclass["Name"]);
-					if(rclass["Person"] != "") {
-						Atom person = SuperController.singleton.GetAtoms().Find(a => String.Equals(a.name, rclass["Person"]));
-						if(person != null) {
-							r.myPerson = person;
-							SuperController.LogError(r.myPerson.name);
-						}
-					}
-					myCurrentLayer.myRoles[r.myName] = r;
-				}
-			}
-
 			// load captures
 			if (layer.HasKey("ControlCaptures"))
 			{
@@ -984,7 +943,6 @@ namespace HaremLife
 			public string myName;
 			public Animation myAnimation;
 			public Dictionary<string, State> myStates = new Dictionary<string, State>();
-			public Dictionary<string, Role> myRoles = new Dictionary<string, Role>();
 			public bool myNoValidTransition = false;
 			public State myCurrentState;
 			public List<ControlCapture> myControlCaptures = new List<ControlCapture>();
@@ -1065,7 +1023,7 @@ namespace HaremLife
 				myTriggerActionsNeedingUpdate.RemoveAll(a => !a.timerActive);
 
 				bool paused = myPaused && myTransition == null;
-				if (!paused)
+				if (!myPaused || myClock >= myDuration)
 					myClock = Mathf.Min(myClock + Time.deltaTime, 100000.0f);
 
 				float t;
@@ -1095,11 +1053,20 @@ namespace HaremLife
 							}
 							myTransition = null;
 						}
+					} else {
+						for (int i=0; i<myControlCaptures.Count; ++i)
+							myControlCaptures[i].UpdateTransition(0);
+						for (int i=0; i<myMorphCaptures.Count; ++i)
+							myMorphCaptures[i].UpdateTransition(0);
 					}
 				}
-				else if (!paused && !myNoValidTransition)
-				{
+				else if (!paused && !myNoValidTransition) {
 					SetRandomTransition();
+				}
+				else if (!paused) {
+					for(int i=0; i<myControlCaptures.Count; ++i){
+						myControlCaptures[i].UpdateTransition(0);
+					}
 				}
 			}
 
@@ -1232,15 +1199,6 @@ namespace HaremLife
 				} else {
 					SetTransition(new Transition(myCurrentState, state));
 				}
-			}
-		}
-		private class Role
-		{
-			public String myName;
-			public Atom myPerson;
-
-			public Role(string name){
-				myName = name;
 			}
 		}
 
