@@ -91,6 +91,38 @@ namespace HaremLife
 			SimpleTriggerHandler.LoadAssets();
 		}
 
+		public void GetAnimations(JSONStorableStringChooser mySyncAnimationList) {
+			List<string> animations = new List<string>();
+			foreach(var a in myAnimations) {
+				animations.Add(a.Value.myName);
+			}
+			animations.Sort();
+			mySyncAnimationList.choices = animations;
+		}
+
+		public void GetLayers(object [] methodParams) {
+			String animationName = methodParams[0] as String;
+			JSONStorableStringChooser mySyncLayerList = methodParams[1] as JSONStorableStringChooser;
+			List<string> layers = new List<string>();
+			foreach(var l in myAnimations[animationName].myLayers) {
+				layers.Add(l.Value.myName);
+			}
+			layers.Sort();
+			mySyncLayerList.choices = layers;
+		}
+
+		public void GetStates(object [] methodParams) {
+			String animationName = methodParams[0] as String;
+			String layerName = methodParams[1] as String;
+			JSONStorableStringChooser mySyncStateList = methodParams[2] as JSONStorableStringChooser;
+			List<string> states = new List<string>();
+			foreach(var s in myAnimations[animationName].myLayers[layerName].myStates) {
+				states.Add(s.Value.myName);
+			}
+			states.Sort();
+			mySyncStateList.choices = states;
+		}
+
 		private void OnDestroy()
 		{
 			SuperController.singleton.onAtomUIDRenameHandlers -= OnAtomRename;
@@ -634,7 +666,6 @@ namespace HaremLife
 						Atom person = SuperController.singleton.GetAtoms().Find(a => String.Equals(a.name, rclass["Person"]));
 						if(person != null) {
 							r.myPerson = person;
-							SuperController.LogError(r.myPerson.name);
 						}
 					}
 					myCurrentLayer.myRoles[r.myName] = r;

@@ -39,6 +39,7 @@ namespace HaremLife
 		private JSONStorableStringChooser myTargetAnimationList;
 		private JSONStorableStringChooser myTargetLayerList;
 		private JSONStorableStringChooser myTargetStateList;
+		private JSONStorableStringChooser mySyncRoleList;
 		private JSONStorableStringChooser mySyncLayerList;
 		private JSONStorableStringChooser mySyncStateList;
 		private JSONStorableStringChooser myRoleList;
@@ -1193,7 +1194,7 @@ namespace HaremLife
 			Transition transition = state.getIncomingTransition(targetState);
 
 			if(transition != null) {
-				JSONStorableFloat transitionProbability = new JSONStorableFloat("Relative Transition Probability", transition.myProbability, 0.01f, 1.0f, true, true);
+				JSONStorableFloat transitionProbability = new JSONStorableFloat("Relative Transition Probability", transition.myProbability, 0.00f, 1.0f, true, true);
 				transitionProbability.valNoCallback = transition.myProbability;
 				transitionProbability.setCallbackFunction = (float v) => {
 					Transition t = UIGetTransition();
