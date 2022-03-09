@@ -1491,12 +1491,15 @@ namespace HaremLife
 			messages.Sort();
 
 			string selectedMessageName;
-			if(myMessageList != null && messages.Contains(myMessageList.val))
+			if (messages.Count == 0)
+				selectedMessageName = "";
+			else if(myMessageList != null && messages.Contains(myMessageList.val))
 				selectedMessageName = myMessageList.val;
 			else
-				selectedMessageName = "";
+				selectedMessageName = messages[0];
 
 			myMessageList = new JSONStorableStringChooser("Message", messages, selectedMessageName, "Message");
+			myMessageList.setCallbackFunction += (string v) => UIRefreshMenu();
 
 			CreateMenuPopup(myMessageList, false);
 
@@ -1509,10 +1512,24 @@ namespace HaremLife
 				return;
 			}
 
-			JSONStorableString name = new JSONStorableString("Animation Name",
-				selectedMessageName, (String newName) => {
+			JSONStorableString messageName = new JSONStorableString("Message Name",
+				selectedMessage.myName, (String newName) => {
+					myCurrentLayer.myMessages.Remove(selectedMessage.myName);
 					selectedMessage.myName = newName;
-				});
+					myCurrentLayer.myMessages[newName] = selectedMessage;
+					UIRefreshMenu();
+				}
+			);
+
+			JSONStorableString messageString = new JSONStorableString("Message String",
+				selectedMessage.myMessageString, (String newString) => {
+					selectedMessage.myMessageString = newString;
+					UIRefreshMenu();
+				}
+			);
+
+			CreateMenuTextInput("Name", messageName, false);
+			CreateMenuTextInput("String", messageString, false);
 
 			List<string> availableAnimations = new List<string>();
 			foreach (var a in myAnimations)
@@ -1635,8 +1652,6 @@ namespace HaremLife
 
 			myTargetStateList = new JSONStorableStringChooser("Target State", availableTargetStates, selectedTargetState, "Target State");
 			myTargetStateList.setCallbackFunction += (string v) => UIRefreshMenu();
-
-			CreateMenuTextInput("Message Name", name, false);
 
 			if (availableSourceStates.Count > 0)
 			{
