@@ -1379,7 +1379,7 @@ namespace HaremLife
 
 			CreateMenuSpacer(132, true);
 			List<string> roles = new List<string>();
-			foreach (var r in myCurrentLayer.myRoles)
+			foreach (var r in myCurrentAnimation.myRoles)
 			{
 				roles.Add(r.Value.myName);
 			}
@@ -1417,7 +1417,7 @@ namespace HaremLife
 			people.Sort();
 
 			Role selectedRole;
-			myCurrentLayer.myRoles.TryGetValue(myRoleList.val, out selectedRole);
+			myCurrentAnimation.myRoles.TryGetValue(myRoleList.val, out selectedRole);
 
 			if(selectedRole != null) {
 				String selectedPersonName;
@@ -1444,9 +1444,9 @@ namespace HaremLife
 				roleName, (String name) => {
 					selectedRole.myName = name;
 					myRoleList.val = name;
-					Role roleToRename = myCurrentLayer.myRoles[roleName];
-					myCurrentLayer.myRoles.Remove(roleName);
-					myCurrentLayer.myRoles.Add(name, roleToRename);
+					Role roleToRename = myCurrentAnimation.myRoles[roleName];
+					myCurrentAnimation.myRoles.Remove(roleName);
+					myCurrentAnimation.myRoles.Add(name, roleToRename);
 					UIRefreshMenu();
 				}
 			);
@@ -1461,7 +1461,7 @@ namespace HaremLife
 		private void UIAddRole() {
 			String name = FindNewRoleName();
 			Role role = new Role(name);
-			myCurrentLayer.myRoles[name] = role;
+			myCurrentAnimation.myRoles[name] = role;
 			myRoleList.val = name;
 			UIRefreshMenu();
 		}
@@ -1470,7 +1470,7 @@ namespace HaremLife
 			for (int i=1; i<1000; ++i)
 			{
 				string name = "Role#" + i;
-				if (!myCurrentLayer.myRoles.ContainsKey(name))
+				if (!myCurrentAnimation.myRoles.ContainsKey(name))
 					return name;
 			}
 			SuperController.LogError("AnimationPoser: Too many roles!");

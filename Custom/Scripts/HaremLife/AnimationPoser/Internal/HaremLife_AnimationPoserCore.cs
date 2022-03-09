@@ -360,6 +360,26 @@ namespace HaremLife
 					llist.Add("", SaveLayer(l.Value));
 				}
 				anim["Layers"] = llist;
+
+				// save roles
+				if (animation.myRoles.Keys.Count > 0)
+				{
+					JSONArray rlist = new JSONArray();
+					foreach (var r in animation.myRoles)
+					{
+						Role role = r.Value;
+						JSONClass rclass = new JSONClass();
+						rclass["Name"] = role.myName;
+						if(role.myPerson != null) {
+							rclass["Person"] = role.myPerson.name;
+						} else {
+							rclass["Person"] = "";
+						}
+						// ccclass["Person"] = r.myPerson;
+						rlist.Add("", rclass);
+					}
+					anim["Roles"] = rlist;
+				}
 				anims.Add("", anim);
 			}
 
@@ -421,6 +441,30 @@ namespace HaremLife
 				}
 			}
 
+			for (int l=0; l<anims.Count; ++l)
+			{
+				JSONClass anim = anims[l].AsObject;
+
+				// load roles
+				if (anim.HasKey("Roles"))
+				{
+					JSONArray rlist = anim["Roles"].AsArray;
+					for (int i=0; i<rlist.Count; ++i)
+					{
+						Role r;
+						JSONClass rclass = rlist[i].AsObject;
+						r = new Role(rclass["Name"]);
+						if(rclass["Person"] != "") {
+							Atom person = SuperController.singleton.GetAtoms().Find(a => String.Equals(a.name, rclass["Person"]));
+							if(person != null) {
+								r.myPerson = person;
+							}
+						}
+						myCurrentAnimation.myRoles[r.myName] = r;
+					}
+				}
+			}
+
 			// load settings
 			myPlayPaused.valNoCallback = jc.HasKey("Paused") && jc["Paused"].AsBool;
 			myPlayPaused.setCallbackFunction(myPlayPaused.val);
@@ -466,27 +510,6 @@ namespace HaremLife
 
 			JSONClass layer = new JSONClass();
 			layer["Name"] = layerToSave.myName;
-
-			// save roles
-			if (layerToSave.myRoles.Keys.Count > 0)
-			{
-				JSONArray rlist = new JSONArray();
-				foreach (var r in layerToSave.myRoles)
-				{
-					Role role = r.Value;
-					JSONClass rclass = new JSONClass();
-					rclass["Name"] = role.myName;
-					if(role.myPerson != null) {
-						rclass["Person"] = role.myPerson.name;
-					} else {
-						rclass["Person"] = "";
-					}
-					SuperController.LogError(rclass["Person"]);
-					// ccclass["Person"] = r.myPerson;
-					rlist.Add("", rclass);
-				}
-				layer["Roles"] = rlist;
-			}
 
 			// save captures
 			if (layerToSave.myControlCaptures.Count > 0)
@@ -652,25 +675,6 @@ namespace HaremLife
 				myCurrentLayer = CreateLayer(myCurrentLayer.myName);
 			else
 				myCurrentLayer = CreateLayer(layer["Name"]);
-
-			// load roles
-			if (layer.HasKey("Roles"))
-			{
-				JSONArray rlist = layer["Roles"].AsArray;
-				for (int i=0; i<rlist.Count; ++i)
-				{
-					Role r;
-					JSONClass rclass = rlist[i].AsObject;
-					r = new Role(rclass["Name"]);
-					if(rclass["Person"] != "") {
-						Atom person = SuperController.singleton.GetAtoms().Find(a => String.Equals(a.name, rclass["Person"]));
-						if(person != null) {
-							r.myPerson = person;
-						}
-					}
-					myCurrentLayer.myRoles[r.myName] = r;
-				}
-			}
 
 			// load captures
 			if (layer.HasKey("ControlCaptures"))
@@ -992,6 +996,7 @@ namespace HaremLife
 		{
 			public string myName;
 			public Dictionary<string, Layer> myLayers = new Dictionary<string, Layer>();
+			public Dictionary<string, Role> myRoles = new Dictionary<string, Role>();
 
 			public Animation(string name)
 			{
@@ -1015,7 +1020,6 @@ namespace HaremLife
 			public string myName;
 			public Animation myAnimation;
 			public Dictionary<string, State> myStates = new Dictionary<string, State>();
-			public Dictionary<string, Role> myRoles = new Dictionary<string, Role>();
 			public Dictionary<string, Message> myMessages = new Dictionary<string, Message>();
 			public bool myNoValidTransition = false;
 			public State myCurrentState;
