@@ -1016,6 +1016,7 @@ namespace HaremLife
 			public Animation myAnimation;
 			public Dictionary<string, State> myStates = new Dictionary<string, State>();
 			public Dictionary<string, Role> myRoles = new Dictionary<string, Role>();
+			public Dictionary<string, Message> myMessages = new Dictionary<string, Message>();
 			public bool myNoValidTransition = false;
 			public State myCurrentState;
 			public List<ControlCapture> myControlCaptures = new List<ControlCapture>();
@@ -1304,6 +1305,23 @@ namespace HaremLife
 				myEaseOutDuration = transition.myEaseOutDuration;
 				myDuration = transition.myDuration;
 				mySyncTargets = transition.mySyncTargets;
+			}
+		}
+
+		private class Message
+		{
+			public String myMessageString;
+			public String myName;
+			public Dictionary<Layer, State> mySyncTargets = new Dictionary<Layer, State>();
+			public Dictionary<string, State> mySourceStates = new Dictionary<string, State>();
+			public State myTargetState;
+			public float myProbability;
+			public float myEaseInDuration;
+			public float myEaseOutDuration;
+			public float myDuration;
+
+			public Message(string name) {
+				myName = name;
 			}
 		}
 
