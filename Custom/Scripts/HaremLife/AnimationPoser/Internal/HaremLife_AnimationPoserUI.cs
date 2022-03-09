@@ -1192,13 +1192,56 @@ namespace HaremLife
 				);
 			}
 
-			CreateMenuInfoOneLine("<size=30><b>Transition Settings</b></size>", true);
-
 			State targetState;
 			targetLayer.myStates.TryGetValue(myTargetStateList.val, out targetState);
 			Transition transition = state.getIncomingTransition(targetState);
 
 			if(transition != null) {
+				List<string> syncRoles = new List<string>();
+				foreach (var r in targetAnimation.myRoles)
+				{
+					syncRoles.Add(r.Value.myName);
+				}
+				syncRoles.Sort();
+
+				string selectedRoleName;
+				if (syncRoles.Count == 0)
+					selectedRoleName = "";
+				else if(syncRoles != null && syncRoles.Contains(mySyncRoleList.val))
+					selectedRoleName = mySyncRoleList.val;
+				else
+					selectedRoleName = syncRoles[0];
+
+				mySyncRoleList = new JSONStorableStringChooser("Sync Role", syncRoles, selectedRoleName, "Sync Role");
+				mySyncRoleList.setCallbackFunction += (string v) => UIRefreshMenu();
+
+				CreateMenuSpacer(10, false);
+				CreateMenuInfoOneLine("<size=30><b>Messages</b></size>", false);
+				CreateMenuInfo(@"Use this to send messages to plugin instances in other person atoms when the transition finishes.", 100, false);
+
+				CreateMenuPopup(mySyncRoleList, false);
+
+				Role selectedRole;
+				targetAnimation.myRoles.TryGetValue(mySyncRoleList.val, out selectedRole);
+
+				if(mySyncRoleList.val != "") {
+					String messageString;
+					transition.myMessages.TryGetValue(selectedRole, out messageString);
+					if(messageString == null) {
+						messageString = "";
+					}
+					JSONStorableString message = new JSONStorableString("Message String",
+						messageString, (String mString) => {
+							transition.myMessages[selectedRole] = mString;
+							UIRefreshMenu();
+						}
+					);
+
+					CreateMenuTextInput("Message string", message, false);
+				}
+
+				CreateMenuInfoOneLine("<size=30><b>Transition Settings</b></size>", true);
+
 				JSONStorableFloat transitionProbability = new JSONStorableFloat("Relative Transition Probability", transition.myProbability, 0.00f, 1.0f, true, true);
 				transitionProbability.valNoCallback = transition.myProbability;
 				transitionProbability.setCallbackFunction = (float v) => {
@@ -1236,25 +1279,6 @@ namespace HaremLife
 				CreateMenuSlider(easeOutDuration, true);
 
 				CreateMenuInfo("Use the following to sync other layers on target state arrival.", 80, true);
-
-				List<string> syncRoles = new List<string>();
-				foreach (var atom in SuperController.singleton.GetAtoms())
-				{
-					if (atom == null) continue;
-					var storableId = atom.GetStorableIDs().FirstOrDefault(id => id.EndsWith("HaremLife.AnimationPoser"));
-					if (storableId == null) continue;
-					MVRScript storable = atom.GetStorableByID(storableId) as MVRScript;
-					if (storable == null) continue;
-					// if (ReferenceEquals(storable, _plugin)) continue;
-					if (!storable.enabled) continue;
-					syncRoles.Add(storable.name);
-				}
-				syncRoles.Sort();
-
-				mySyncRoleList = new JSONStorableStringChooser("Sync Role", syncRoles, "", "Sync Role");
-				mySyncRoleList.setCallbackFunction += (string v) => UIRefreshMenu();
-
-				CreateMenuPopup(mySyncRoleList, true);
 
 				List<string> syncLayers = new List<string>();
 				foreach (var l in transition.myTargetState.myAnimation.myLayers)

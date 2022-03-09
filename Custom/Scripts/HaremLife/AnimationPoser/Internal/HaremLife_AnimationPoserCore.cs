@@ -1283,6 +1283,7 @@ namespace HaremLife
 		private class Transition
 		{
 			public Dictionary<Layer, State> mySyncTargets = new Dictionary<Layer, State>();
+			public Dictionary<Role, String> myMessages = new Dictionary<Role, String>();
 			public State mySourceState;
 			public State myTargetState;
 			public float myProbability;
@@ -1309,6 +1310,7 @@ namespace HaremLife
 				myEaseOutDuration = transition.myEaseOutDuration;
 				myDuration = transition.myDuration;
 				mySyncTargets = transition.mySyncTargets;
+				myMessages = transition.myMessages;
 			}
 		}
 
