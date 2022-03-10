@@ -1860,27 +1860,6 @@ namespace HaremLife
 				CreateMenuButton("Log Path Stats", DebugLogStats, false);
 
 
-			CreateMenuInfoOneLine("<size=30><b>Debug Color Legend</b></size>", true);
-			CreateMenuInfoWhiteBackground(
-				"<b>Regular States + Paths:\n" +
-				"<color=#4363d8>    Group None\n</color>" +
-				"<color=#e6194B>    Group A\n</color>" +
-				"<color=#3cb44b>    Group B\n</color>" +
-				"<color=#ffe119>    Group C\n</color>" +
-				"<color=#f032e6>    Group D\n</color>" +
-				"<color=#42d4f4>    Group E\n</color>" +
-				"<color=#f58231>    Group F\n</color>" +
-				"<color=#469990>    Group G\n</color>" +
-				"<color=#9A6324>    Group H\n</color>" +
-				"<color=#bfef45>    Group I\n</color>" +
-				"<color=#911eb4>    Group J\n</color>" +
-				"<color=#000075>    Group K\n</color>" +
-				"<color=#808000>    Group L\n</color>" +
-				"Control Points:\n<color=#a9a9a9>    grey + smaller size\n</color>" +
-				"Intermediate Points:\n<color=#a9a9a9>    grey + normal size\n</color>" +
-				"Transitions:\n<color=#a9a9a9>    grey lines\n</color></b>",
-				650, true
-			);
 		}
 
 		// =======================================================================================
