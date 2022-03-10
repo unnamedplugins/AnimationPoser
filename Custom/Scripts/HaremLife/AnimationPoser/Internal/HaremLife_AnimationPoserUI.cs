@@ -865,6 +865,14 @@ namespace HaremLife
 				else
 					label = "<color=#606060>"+gender+": " + m.resolvedRegionName + "</color>\n" + m.resolvedDisplayName;
 				CreateMenuLabelMXButton(label, mc.myApply, (bool v) => { mc.myApply = v; },	() => UIRemoveMorphCapture(mc), true);
+
+				JSONStorableFloat morphValue = new JSONStorableFloat(m.resolvedDisplayName, m.morphValue, -1.0f, 1.0f, true, true);
+				morphValue.constrained = false;
+
+				morphValue.setCallbackFunction = (float v) => {
+					m.morphValue = v;
+				};
+				CreateMenuSlider(morphValue, true);
 			}
 		}
 
@@ -2712,7 +2720,8 @@ namespace HaremLife
 
 		private void CreateMenuSlider(JSONStorableFloat storable, bool rightSide)
 		{
-			CreateSlider(storable, rightSide);
+			UIDynamicSlider slider = CreateSlider(storable, rightSide);
+			slider.rangeAdjustEnabled = true;
 			myMenuElements.Add(storable);
 		}
 
