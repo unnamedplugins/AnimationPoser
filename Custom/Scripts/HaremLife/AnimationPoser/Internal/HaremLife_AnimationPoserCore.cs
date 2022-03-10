@@ -361,17 +361,25 @@ namespace HaremLife
 
 			public void UpdateLayer()
 			{
-				for (int i=0; i<myTriggerActionsNeedingUpdate.Count; ++i)
+				for (int i=0; i<myTriggerActionsNeedingUpdate.Count; ++i){
 					myTriggerActionsNeedingUpdate[i].Update();
+					SuperController.LogError(myTriggerActionsNeedingUpdate[i].name);
+				}
 				myTriggerActionsNeedingUpdate.RemoveAll(a => !a.timerActive);
 
 				bool paused = myPaused && myTransition == null;
+				// if there is a transition selected or animation is unpaused
 				if (!paused)
 					myClock = Mathf.Min(myClock + Time.deltaTime*myCurrentAnimation.mySpeed, 100000.0f);
 
 				float t;
-				if(myTransition != null) {
-					if(myClock >= myDuration) {
+				// if not paused
+				if(!paused) {
+					// if a transition is possible but not yet chosen and the state duration is up
+					if(myClock >= myDuration && myTransition == null && !myNoValidTransition) {
+						SetRandomTransition();
+					// if transition is selected
+					} else if (myTransition != null) {
 						t = Smooth(myTransition.myEaseOutDuration, myTransition.myEaseInDuration, myTransition.myDuration, myClock-myDuration);
 
 						for (int i=0; i<myControlCaptures.Count; ++i)
@@ -409,11 +417,19 @@ namespace HaremLife
 							}
 							myTransition = null;
 						}
+					// if clock is less than duration
+					} else if (myClock < myDuration) {
+						for (int i=0; i<myControlCaptures.Count; ++i)
+							myControlCaptures[i].UpdateState(myCurrentState);
+					// if not paused but no transition possible (updates position relative to anchor)
+					} else if (myNoValidTransition) {
+						for (int i=0; i<myControlCaptures.Count; ++i)
+							myControlCaptures[i].UpdateState(myCurrentState);
 					}
-				}
-				else if (!paused && !myNoValidTransition)
-				{
-					SetRandomTransition();
+				// if paused and no transition (updates position relative to anchor)
+				} else if (myNoValidTransition) {
+					for (int i=0; i<myControlCaptures.Count; ++i)
+						myControlCaptures[i].UpdateState(myCurrentState);
 				}
 			}
 
