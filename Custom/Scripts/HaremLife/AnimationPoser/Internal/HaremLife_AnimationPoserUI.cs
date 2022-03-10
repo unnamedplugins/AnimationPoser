@@ -1292,6 +1292,14 @@ namespace HaremLife
 				};
 				CreateMenuSlider(transitionDuration, true);
 
+				JSONStorableFloat transitionDurationNoise = new JSONStorableFloat("Transition Duration Noise", transition.myDurationNoise, 0.00f, 5.0f, true, true);
+				transitionDurationNoise.setCallbackFunction = (float v) => {
+					Transition t = UIGetTransition();
+					if (t != null)
+						t.myDurationNoise = v;
+				};
+				CreateMenuSlider(transitionDurationNoise, true);
+
 				JSONStorableFloat easeInDuration = new JSONStorableFloat("EaseIn Duration", transition.myEaseInDuration, 0.0f, 5.0f, true, true);
 				easeInDuration.valNoCallback = transition.myEaseInDuration;
 				easeInDuration.setCallbackFunction = (float v) => {
@@ -1770,6 +1778,14 @@ namespace HaremLife
 				selectedMessage.myDuration = v;
 			};
 			CreateMenuSlider(transitionDuration, true);
+
+			JSONStorableFloat transitionDurationNoise = new JSONStorableFloat("Transition Duration Noise", selectedMessage.myDurationNoise, 0.00f, 5.0f, true, true);
+			transitionDurationNoise.setCallbackFunction = (float v) => {
+				Transition t = UIGetTransition();
+				if (t != null)
+					t.myDurationNoise = v;
+			};
+			CreateMenuSlider(transitionDurationNoise, true);
 
 			JSONStorableFloat easeInDuration = new JSONStorableFloat("EaseIn Duration", selectedMessage.myEaseInDuration, 0.0f, 5.0f, true, true);
 			easeInDuration.valNoCallback = selectedMessage.myEaseInDuration;

@@ -511,6 +511,7 @@ namespace HaremLife
 					else
 						t["TargetAnimation"] = transition.myTargetState.myAnimation.myName;
 					t["Duration"].AsFloat = transition.myDuration;
+					t["DurationNoise"].AsFloat = transition.myDurationNoise;
 					t["EaseInDuration"].AsFloat = transition.myEaseInDuration;
 					t["EaseOutDuration"].AsFloat = transition.myEaseOutDuration;
 					t["Probability"].AsFloat = transition.myProbability;
@@ -615,6 +616,7 @@ namespace HaremLife
 				else
 					m["TargetAnimation"] = message.myTargetState.myAnimation.myName;
 				m["Duration"].AsFloat = message.myDuration;
+				m["DurationNoise"].AsFloat = message.myDurationNoise;
 				m["EaseInDuration"].AsFloat = message.myEaseInDuration;
 				m["EaseOutDuration"].AsFloat = message.myEaseOutDuration;
 				m["Probability"].AsFloat = message.myProbability;
@@ -856,6 +858,7 @@ namespace HaremLife
 					Transition transition = new Transition(source, target);
 					transition.myProbability = tclass["Probability"].AsFloat;
 					transition.myDuration = tclass["Duration"].AsFloat;
+					transition.myDurationNoise = tclass["DurationNoise"].AsFloat;
 					transition.myEaseInDuration = tclass["EaseInDuration"].AsFloat;
 					transition.myEaseOutDuration = tclass["EaseOutDuration"].AsFloat;
 					transition.mySourceState = source;
@@ -917,6 +920,7 @@ namespace HaremLife
 				message.myMessageString = mclass["MessageString"];
 				message.myProbability = mclass["Probability"].AsFloat;
 				message.myDuration = mclass["Duration"].AsFloat;
+				message.myDurationNoise = mclass["DurationNoise"].AsFloat;
 				message.myEaseInDuration = mclass["EaseInDuration"].AsFloat;
 				message.myEaseOutDuration = mclass["EaseOutDuration"].AsFloat;
 
@@ -982,6 +986,7 @@ namespace HaremLife
 			public List<ControlCapture> myControlCaptures = new List<ControlCapture>();
 			public List<MorphCapture> myMorphCaptures = new List<MorphCapture>();
 			private Transition myTransition;
+			private float myTransitionNoise = 0.0f;
 			public float myClock = 0.0f;
 			public float myDuration = 1.0f;
 			private List<TriggerActionDiscrete> myTriggerActionsNeedingUpdate = new List<TriggerActionDiscrete>();
@@ -1070,7 +1075,7 @@ namespace HaremLife
 						for (int i=0; i<myMorphCaptures.Count; ++i)
 							myMorphCaptures[i].UpdateTransition(t);
 
-						if (myClock >= myDuration + myTransition.myDuration)
+						if (myClock >= myDuration + myTransition.myDuration + myTransitionNoise)
 						{
 							if (myTransition.myTargetState != null)
 							{
@@ -1156,6 +1161,8 @@ namespace HaremLife
 					myMorphCaptures[i].SetTransition(transition);
 
 				myTransition = transition;
+
+				myTransitionNoise = UnityEngine.Random.Range(-transition.myDurationNoise, transition.myDurationNoise);
 
 				if (transition.mySourceState.ExitBeginTrigger != null)
 					transition.mySourceState.ExitBeginTrigger.Trigger(myTriggerActionsNeedingUpdate);
@@ -1258,6 +1265,7 @@ namespace HaremLife
 			public float myEaseInDuration;
 			public float myEaseOutDuration;
 			public float myDuration;
+			public float myDurationNoise = 0.0f;
 		}
 
 		private class Transition : BaseTransition
@@ -1282,6 +1290,7 @@ namespace HaremLife
 				myEaseInDuration = transition.myEaseInDuration;
 				myEaseOutDuration = transition.myEaseOutDuration;
 				myDuration = transition.myDuration;
+				myDurationNoise = transition.myDurationNoise;
 				mySyncTargets = transition.mySyncTargets;
 				myMessages = transition.myMessages;
 			}
@@ -1294,6 +1303,7 @@ namespace HaremLife
 				myEaseInDuration = message.myEaseInDuration;
 				myEaseOutDuration = message.myEaseOutDuration;
 				myDuration = message.myDuration;
+				myDurationNoise = message.myDurationNoise;
 				mySyncTargets = message.mySyncTargets;
 			}
 		}
