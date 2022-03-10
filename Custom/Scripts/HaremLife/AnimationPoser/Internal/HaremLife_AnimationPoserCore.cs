@@ -159,8 +159,8 @@ namespace HaremLife
 		private State CreateState(string name)
 		{
 			State s = new State(this, name) {
-				myWaitDurationMin = DEFAULT_WAIT_DURATION_MIN,
-				myWaitDurationMax = DEFAULT_WAIT_DURATION_MAX,
+				myWaitDurationMin = myDefaultWaitDurationMin.val,
+				myWaitDurationMax = myDefaultWaitDurationMax.val,
 			};
 			CaptureState(s);
 			if(myCurrentLayer.myCurrentState != null) {
@@ -311,7 +311,6 @@ namespace HaremLife
 			if (myCurrentState != null)
 				jc["InitialState"] = myCurrentState.myName;
 			jc["Paused"].AsBool = myPlayPaused.val;
-			jc["DefaultToWorldAnchor"].AsBool = myOptionsDefaultToWorldAnchor.val;
 
 			JSONArray anims = new JSONArray();
 
@@ -320,6 +319,7 @@ namespace HaremLife
 				Animation animation = an.Value;
 				JSONClass anim = new JSONClass();
 				anim["Name"] = animation.myName;
+				anim["Speed"].AsFloat = animation.mySpeed;
 				JSONArray llist = new JSONArray();
 				foreach(var l in animation.myLayers){
 					llist.Add("", SaveLayer(l.Value));
@@ -365,6 +365,7 @@ namespace HaremLife
 			{
 				JSONClass anim = anims[l].AsObject;
 				myCurrentAnimation = CreateAnimation(anim["Name"]);
+				myCurrentAnimation.mySpeed = anim["Speed"].AsFloat;
 			}
 
 			for (int l=0; l<anims.Count; ++l)
@@ -437,29 +438,15 @@ namespace HaremLife
 				myMainState.valNoCallback = myCurrentState.myName;
 				myMainState.setCallbackFunction(myCurrentState.myName);
 			}
-
-			myOptionsDefaultToWorldAnchor.val = jc.HasKey("DefaultToWorldAnchor") && jc["DefaultToWorldAnchor"].AsBool;
 		}
 
 		private JSONClass SaveLayer(Layer layerToSave)
 		{
 			JSONClass jc = new JSONClass();
-
-			// save info
-			JSONClass info = new JSONClass();
-			info["Format"] = "HaremLife.AnimationPoser";
-			info["Version"] = "3.2";
-			string creatorName = UserPreferences.singleton.creatorName;
-			if (string.IsNullOrEmpty(creatorName))
-				creatorName = "Unknown";
-			info["Author"] = creatorName;
-			jc["Info"] = info;
-
 			// save settings
 			if (myCurrentState != null)
 				jc["InitialState"] = myCurrentState.myName;
 			jc["Paused"].AsBool = myPlayPaused.val;
-			jc["DefaultToWorldAnchor"].AsBool = myOptionsDefaultToWorldAnchor.val;
 
 			JSONClass layer = new JSONClass();
 			layer["Name"] = layerToSave.myName;
@@ -668,9 +655,6 @@ namespace HaremLife
 				myClock = 0.0f;
 			}
 
-			// load info
-			int version = jc["Info"].AsObject["Version"].AsInt;
-
 			// load captures
 			JSONClass layer = jc["Layer"].AsObject;
 
@@ -725,9 +709,9 @@ namespace HaremLife
 					myIsRootState = st["IsRootState"].AsBool,
 					myWaitDurationMin = st["WaitDurationMin"].AsFloat,
 					myWaitDurationMax = st["WaitDurationMax"].AsFloat,
-					myDefaultDuration = st.HasKey("DefaultDuration") ? st["DefaultDuration"].AsFloat : DEFAULT_TRANSITION_DURATION,
-					myDefaultEaseInDuration = st.HasKey("DefaultEaseInDuration") ? st["DefaultEaseInDuration"].AsFloat : DEFAULT_EASEIN_DURATION,
-					myDefaultEaseOutDuration = st.HasKey("DefaultEaseOutDuration") ? st["DefaultEaseOutDuration"].AsFloat : DEFAULT_EASEOUT_DURATION,
+					myDefaultDuration = st["DefaultDuration"].AsFloat,
+					myDefaultEaseInDuration = st["DefaultEaseInDuration"].AsFloat,
+					myDefaultEaseOutDuration = st["DefaultEaseOutDuration"].AsFloat,
 					myDefaultProbability = st["DefaultProbability"].AsFloat,
 				};
 
@@ -817,8 +801,6 @@ namespace HaremLife
 			// load settings
 			myPlayPaused.valNoCallback = jc.HasKey("Paused") && jc["Paused"].AsBool;
 			myPlayPaused.setCallbackFunction(myPlayPaused.val);
-
-			myOptionsDefaultToWorldAnchor.val = jc.HasKey("DefaultToWorldAnchor") && jc["DefaultToWorldAnchor"].AsBool;
 
 			SetLayer(myCurrentLayer);
 
@@ -1334,10 +1316,10 @@ namespace HaremLife
 			public Layer myLayer;
 			public float myWaitDurationMin;
 			public float myWaitDurationMax;
-			public float myDefaultDuration = DEFAULT_TRANSITION_DURATION;
-			public float myDefaultEaseInDuration = DEFAULT_EASEIN_DURATION;
-			public float myDefaultEaseOutDuration = DEFAULT_EASEOUT_DURATION;
-			public float myDefaultProbability = DEFAULT_PROBABILITY;
+			public float myDefaultDuration;
+			public float myDefaultEaseInDuration;
+			public float myDefaultEaseOutDuration;
+			public float myDefaultProbability;
 			public bool myIsRootState = false;
 			public uint myDebugIndex = 0;
 			public Dictionary<ControlCapture, ControlEntryAnchored> myControlEntries = new Dictionary<ControlCapture, ControlEntryAnchored>();
@@ -1672,7 +1654,7 @@ namespace HaremLife
 			{
 				myState = state;
 				Atom containingAtom = plugin.GetContainingAtom();
-				if (plugin.myOptionsDefaultToWorldAnchor.val || containingAtom.type != "Person" || control == "control")
+				if (containingAtom.type != "Person" || control == "control")
 					myAnchorMode = ANCHORMODE_WORLD;
 				myAnchorAAtom = myAnchorBAtom = containingAtom.uid;
 				myControlCapture = controlCapture;

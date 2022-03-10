@@ -53,6 +53,12 @@ namespace HaremLife
 		private JSONStorableBool myDebugShowSelectedOnly;
 		private JSONStorableBool myDebugShowTransitions;
 
+		private JSONStorableFloat myDefaultTransitionDuration;
+		private JSONStorableFloat myDefaultEaseInDuration;
+		private JSONStorableFloat myDefaultEaseOutDuration;
+		private JSONStorableFloat myDefaultWaitDurationMin;
+		private JSONStorableFloat myDefaultWaitDurationMax;
+
 		private bool myIsAddingNewState = false;
 		private bool myIsAddingNewLayer = false;
 		private bool myIsFullRefresh = true;
@@ -146,14 +152,20 @@ namespace HaremLife
 			myAnchorDampingTime = new JSONStorableFloat("Anchor Damping Time", DEFAULT_ANCHOR_DAMPING_TIME, 0.0f, 5.0f, true, true);
 			myAnchorDampingTime.setCallbackFunction += (float v) => UISetAnchorsBlendDamp();
 
-			myOptionsDefaultToWorldAnchor = new JSONStorableBool("Default to World Anchor", false);
-			myDebugShowInfo = new JSONStorableBool("Show Debug Info", false);
-			myDebugShowInfo.setCallbackFunction += (bool v) => UIRefreshMenu();
-			myDebugShowPaths = new JSONStorableBool("Draw Paths", false);
-			myDebugShowPaths.setCallbackFunction += DebugSwitchShowCurves;
-			myDebugShowTransitions = new JSONStorableBool("Draw Transitions", false);
-			myDebugShowTransitions.setCallbackFunction += DebugSwitchShowCurves;
-			myDebugShowSelectedOnly = new JSONStorableBool("Draw Selected Only", false);
+			myDefaultTransitionDuration = new JSONStorableFloat("Default Transition Duration", DEFAULT_TRANSITION_DURATION, 0.0f, 5.0f, true, true);
+			myDefaultEaseInDuration = new JSONStorableFloat("Default Ease In Duration", DEFAULT_EASEIN_DURATION, 0.0f, 5.0f, true, true);
+			myDefaultEaseOutDuration = new JSONStorableFloat("Default Ease Out Duration", DEFAULT_EASEOUT_DURATION, 0.0f, 5.0f, true, true);
+			myDefaultWaitDurationMin = new JSONStorableFloat("Default Wait Duration Min", DEFAULT_WAIT_DURATION_MIN, 0.0f, 300.0f, true, true);
+			myDefaultWaitDurationMax = new JSONStorableFloat("Default Wait Duration Max", DEFAULT_WAIT_DURATION_MAX, 0.0f, 300.0f, true, true);
+
+			// myOptionsDefaultToWorldAnchor = new JSONStorableBool("Default to World Anchor", false);
+			// myDebugShowInfo = new JSONStorableBool("Show Debug Info", false);
+			// myDebugShowInfo.setCallbackFunction += (bool v) => UIRefreshMenu();
+			// myDebugShowPaths = new JSONStorableBool("Draw Paths", false);
+			// myDebugShowPaths.setCallbackFunction += DebugSwitchShowCurves;
+			// myDebugShowTransitions = new JSONStorableBool("Draw Transitions", false);
+			// myDebugShowTransitions.setCallbackFunction += DebugSwitchShowCurves;
+			// myDebugShowSelectedOnly = new JSONStorableBool("Draw Selected Only", false);
 
 			UIRefreshMenu();
 
@@ -196,10 +208,10 @@ namespace HaremLife
 				OpenTab(2);
 			}));
 
-			bindings.Add(new JSONStorableAction("Toggle Debug Info",          () => myDebugShowInfo.val = !myDebugShowInfo.val));
-			bindings.Add(new JSONStorableAction("Toggle Debug Paths",         () => myDebugShowPaths.val = !myDebugShowPaths.val));
-			bindings.Add(new JSONStorableAction("Toggle Debug Transitions",   () => myDebugShowTransitions.val = !myDebugShowTransitions.val));
-			bindings.Add(new JSONStorableAction("Toggle Debug Selected Only", () => myDebugShowSelectedOnly.val = !myDebugShowSelectedOnly.val));
+			// bindings.Add(new JSONStorableAction("Toggle Debug Info",          () => myDebugShowInfo.val = !myDebugShowInfo.val));
+			// bindings.Add(new JSONStorableAction("Toggle Debug Paths",         () => myDebugShowPaths.val = !myDebugShowPaths.val));
+			// bindings.Add(new JSONStorableAction("Toggle Debug Transitions",   () => myDebugShowTransitions.val = !myDebugShowTransitions.val));
+			// bindings.Add(new JSONStorableAction("Toggle Debug Selected Only", () => myDebugShowSelectedOnly.val = !myDebugShowSelectedOnly.val));
 		}
 
 		private void OpenTab(int tabIdx)
@@ -692,13 +704,13 @@ namespace HaremLife
 		{
 			CreateMenuInfoOneLine("<size=30><b>Play Idle</b></size>", false);
 
-			if (!myDebugShowInfo.val)
-			{
+			// if (!myDebugShowInfo.val)
+			// {
 				if (myCurrentLayer != null && myCurrentLayer.myStates.Count > 0)
 					myPlayInfo.val = "AnimationPoser is playing animations.";
 				else
 					myPlayInfo.val = "You need to add some states and transitions before you can play animations.";
-			}
+			// }
 
 			CreateMenuInfo(myPlayInfo, 300, false);
 			CreateMenuToggle(myPlayPaused, false);
@@ -908,7 +920,7 @@ namespace HaremLife
 			};
 			CreateMenuSlider(probability, false);
 
-			JSONStorableFloat duration = new JSONStorableFloat("Default Transition Duration", DEFAULT_TRANSITION_DURATION, 0.0f, 5.0f, true, true);
+			JSONStorableFloat duration = new JSONStorableFloat("Default Transition Duration", myDefaultTransitionDuration.val, 0.0f, 5.0f, true, true);
 			duration.valNoCallback = state.myDefaultDuration;
 			duration.setCallbackFunction = (float v) => {
 				State s = UIGetState();
@@ -917,7 +929,7 @@ namespace HaremLife
 			};
 			CreateMenuSlider(duration, false);
 
-			JSONStorableFloat easeInDuration = new JSONStorableFloat("Default Ease In Duration", DEFAULT_EASEIN_DURATION, 0.0f, 5.0f, true, true);
+			JSONStorableFloat easeInDuration = new JSONStorableFloat("Default Ease In Duration", myDefaultEaseInDuration.val, 0.0f, 5.0f, true, true);
 			easeInDuration.valNoCallback = state.myDefaultEaseInDuration;
 			easeInDuration.setCallbackFunction = (float v) => {
 				State s = UIGetState();
@@ -926,7 +938,7 @@ namespace HaremLife
 			};
 			CreateMenuSlider(easeInDuration, false);
 
-			JSONStorableFloat easeOutDuration = new JSONStorableFloat("Default Ease Out Duration", DEFAULT_EASEOUT_DURATION, 0.0f, 5.0f, true, true);
+			JSONStorableFloat easeOutDuration = new JSONStorableFloat("Default Ease Out Duration", myDefaultEaseOutDuration.val, 0.0f, 5.0f, true, true);
 			easeOutDuration.valNoCallback = state.myDefaultEaseOutDuration;
 			easeOutDuration.setCallbackFunction = (float v) => {
 				State s = UIGetState();
@@ -953,8 +965,8 @@ namespace HaremLife
 			};
 			CreateMenuToggle(isRootState, true);
 
-			JSONStorableFloat waitDurationMin = new JSONStorableFloat("Wait Duration Min", DEFAULT_WAIT_DURATION_MIN, 0.0f, 300.0f, true, true);
-			JSONStorableFloat waitDurationMax = new JSONStorableFloat("Wait Duration Max", DEFAULT_WAIT_DURATION_MAX, 0.0f, 300.0f, true, true);
+			JSONStorableFloat waitDurationMin = new JSONStorableFloat("Wait Duration Min", myDefaultWaitDurationMin.val, 0.0f, 300.0f, true, true);
+			JSONStorableFloat waitDurationMax = new JSONStorableFloat("Wait Duration Max", myDefaultWaitDurationMax.val, 0.0f, 300.0f, true, true);
 			waitDurationMin.valNoCallback = state.myWaitDurationMin;
 			waitDurationMax.valNoCallback = state.myWaitDurationMax;
 
@@ -1859,21 +1871,27 @@ namespace HaremLife
 		private void CreateOptionsMenu()
 		{
 			CreateMenuInfoOneLine("<size=30><b>General Options</b></size>", false);
-			CreateMenuToggle(myOptionsDefaultToWorldAnchor, false);
+			// CreateMenuToggle(myOptionsDefaultToWorldAnchor, false);
 
-			CreateMenuInfoOneLine("<size=30><b>Debug Options</b></size>", false);
-			CreateMenuInfoOneLine("<color=#ff0000><b>Can cause performance issues!</b></color>", false);
+			CreateMenuSlider(myDefaultTransitionDuration, false);
+			CreateMenuSlider(myDefaultEaseInDuration, false);
+			CreateMenuSlider(myDefaultEaseOutDuration, false);
+			CreateMenuSlider(myDefaultWaitDurationMin, false);
+			CreateMenuSlider(myDefaultWaitDurationMax, false);
 
-			CreateMenuToggle(myDebugShowInfo, false);
-			if (myDebugShowInfo.val)
-				CreateMenuInfo(myPlayInfo, 300, false);
+			// CreateMenuInfoOneLine("<size=30><b>Debug Options</b></size>", false);
+			// CreateMenuInfoOneLine("<color=#ff0000><b>Can cause performance issues!</b></color>", false);
 
-			CreateMenuToggle(myDebugShowPaths, false);
-			CreateMenuToggle(myDebugShowTransitions, false);
-			CreateMenuToggle(myDebugShowSelectedOnly, false);
+			// CreateMenuToggle(myDebugShowInfo, false);
+			// if (myDebugShowInfo.val)
+				// CreateMenuInfo(myPlayInfo, 300, false);
 
-			if (myDebugShowPaths.val)
-				CreateMenuButton("Log Path Stats", DebugLogStats, false);
+			// CreateMenuToggle(myDebugShowPaths, false);
+			// CreateMenuToggle(myDebugShowTransitions, false);
+			// CreateMenuToggle(myDebugShowSelectedOnly, false);
+
+			// if (myDebugShowPaths.val)
+			// 	CreateMenuButton("Log Path Stats", DebugLogStats, false);
 		}
 
 		// =======================================================================================
