@@ -702,6 +702,15 @@ namespace HaremLife
 
 			CreateMenuInfo(myPlayInfo, 300, false);
 			CreateMenuToggle(myPlayPaused, false);
+
+			if(myCurrentAnimation != null) {
+				JSONStorableFloat animationSpeed = new JSONStorableFloat("AnimationSpeed", myCurrentAnimation.mySpeed, 0.0f, 10.0f, true, true);
+				animationSpeed.setCallbackFunction = (float v) => {
+					myCurrentAnimation.mySpeed = v;
+				};
+
+				CreateMenuSlider(animationSpeed, true);
+			}
 		}
 		private void CreateAnimationsMenu()
 		{
@@ -729,7 +738,6 @@ namespace HaremLife
 			CreateMenuButton("Add Animation", UIAddAnimation, false);
 
 			CreateMenuButton("Remove Animation", UIRemoveAnimation, false);
-
 		}
 
 		private void CreateLayersMenu()

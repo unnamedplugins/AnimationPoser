@@ -970,6 +970,7 @@ namespace HaremLife
 			public string myName;
 			public Dictionary<string, Layer> myLayers = new Dictionary<string, Layer>();
 			public Dictionary<string, Role> myRoles = new Dictionary<string, Role>();
+			public float mySpeed = 1.0f;
 
 			public Animation(string name)
 			{
@@ -1075,7 +1076,7 @@ namespace HaremLife
 
 				bool paused = myPaused && myTransition == null;
 				if (!paused)
-					myClock = Mathf.Min(myClock + Time.deltaTime, 100000.0f);
+					myClock = Mathf.Min(myClock + Time.deltaTime*myCurrentAnimation.mySpeed, 100000.0f);
 
 				float t;
 				if(myTransition != null) {
