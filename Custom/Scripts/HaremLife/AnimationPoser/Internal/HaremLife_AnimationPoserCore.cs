@@ -54,9 +54,7 @@ namespace HaremLife
 		private static bool myNeedRefresh = false;
 		private bool myWasLoading = true;
 
-		private static JSONStorableString mySwitchAnimation;
-		private static JSONStorableString mySwitchLayer;
-		private static JSONStorableString mySwitchState;
+		private static JSONStorableString mySendMessage;
 		private static JSONStorableString myLoadAnimation;
 		private static JSONStorableBool myPlayPaused;
 
@@ -68,17 +66,9 @@ namespace HaremLife
 			InitUI();
 
 			// trigger values
-			mySwitchAnimation = new JSONStorableString("SwitchAnimation", "", SwitchAnimationAction);
-			mySwitchAnimation.isStorable = mySwitchAnimation.isRestorable = false;
-			RegisterString(mySwitchAnimation);
-
-			mySwitchLayer = new JSONStorableString("SwitchLayer", "", SwitchLayerAction);
-			mySwitchLayer.isStorable = mySwitchLayer.isRestorable = false;
-			RegisterString(mySwitchLayer);
-
-			mySwitchState = new JSONStorableString("SwitchState", "", SwitchStateAction);
-			mySwitchState.isStorable = mySwitchState.isRestorable = false;
-			RegisterString(mySwitchState);
+			mySendMessage = new JSONStorableString("SendMessage", "", ReceiveMessage);
+			mySendMessage.isStorable = mySendMessage.isRestorable = false;
+			RegisterString(mySendMessage);
 
 			myPlayPaused = new JSONStorableBool("PlayPause", false, PlayPauseAction);
 			myPlayPaused.isStorable = myPlayPaused.isRestorable = false;
@@ -93,6 +83,7 @@ namespace HaremLife
 		}
 
 		public void ReceiveMessage(String messageString) {
+			mySendMessage.valNoCallback = "";
 			foreach(var l in myCurrentAnimation.myLayers) {
 				Layer layer = l.Value;
 				foreach(var m in layer.myMessages) {
@@ -229,49 +220,6 @@ namespace HaremLife
 			if (jc != null)
 				LoadAnimations(jc);
 				UIRefreshMenu();
-		}
-
-		private void SwitchAnimationAction(string v)
-		{
-			bool initPlayPaused = myPlayPaused.val;
-			myPlayPaused.val = true;
-			mySwitchAnimation.valNoCallback = string.Empty;
-
-			Animation animation;
-			myAnimations.TryGetValue(v, out animation);
-			SetAnimation(animation);
-
-			List<string> layers = myCurrentAnimation.myLayers.Keys.ToList();
-			layers.Sort();
-			if(layers.Count > 0) {
-				Layer layer;
-				foreach (var layerKey in layers) {
-					myCurrentAnimation.myLayers.TryGetValue(layerKey, out layer);
-					SetLayer(layer);
-				}
-			}
-			myPlayPaused.val = initPlayPaused;
-		}
-
-		private void SwitchLayerAction(string v)
-		{
-			mySwitchLayer.valNoCallback = string.Empty;
-
-			Layer layer;
-
-			myCurrentAnimation.myLayers.TryGetValue(v, out layer);
-			SetLayer(layer);
-		}
-
-		private void SwitchStateAction(string v)
-		{
-			mySwitchState.valNoCallback = string.Empty;
-
-			State state;
-			if (myCurrentLayer.myStates.TryGetValue(v, out state))
-				myCurrentLayer.SetState(state);
-			else
-				SuperController.LogError("AnimationPoser: Can't switch to unknown state '"+v+"'!");
 		}
 
 		private void PlayPauseAction(bool b)
@@ -872,7 +820,7 @@ namespace HaremLife
 
 			myOptionsDefaultToWorldAnchor.val = jc.HasKey("DefaultToWorldAnchor") && jc["DefaultToWorldAnchor"].AsBool;
 
-			SwitchLayerAction(myCurrentLayer.myName);
+			SetLayer(myCurrentLayer);
 
 			// blend to initial state
 			if (jc.HasKey("InitialState"))

@@ -1858,8 +1858,6 @@ namespace HaremLife
 
 			if (myDebugShowPaths.val)
 				CreateMenuButton("Log Path Stats", DebugLogStats, false);
-
-
 		}
 
 		// =======================================================================================
