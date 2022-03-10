@@ -1671,12 +1671,9 @@ namespace HaremLife
 			{
 				myState = state;
 				Atom containingAtom = plugin.GetContainingAtom();
-				if (plugin.myOptionsDefaultToWorldAnchor.val || containingAtom.type != "Person")
+				if (plugin.myOptionsDefaultToWorldAnchor.val || containingAtom.type != "Person" || control == "control")
 					myAnchorMode = ANCHORMODE_WORLD;
-				if(control == "control" && containingAtom.parentAtom != null)
-					myAnchorAAtom = myAnchorBAtom = containingAtom.parentAtom.uid;
-				else
-					myAnchorAAtom = myAnchorBAtom = containingAtom.uid;
+				myAnchorAAtom = myAnchorBAtom = containingAtom.uid;
 				myControlCapture = controlCapture;
 				myAnchorAAtom = myAnchorBAtom = containingAtom.uid;
 			}
