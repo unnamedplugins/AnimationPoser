@@ -804,7 +804,7 @@ namespace HaremLife
 				CreateMenuButton("Add Controller", UIAddControlCapture, false);
 			}
 
-			if (myControlCaptures.Count > 0)
+			if (myCurrentLayer.myControlCaptures.Count > 0)
 			{
 				CreateMenuTwinButton(
 					"Toggle Positions", UIToggleControlCapturePosition,
