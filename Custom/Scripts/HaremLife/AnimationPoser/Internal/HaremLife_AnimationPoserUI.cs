@@ -2651,6 +2651,7 @@ namespace HaremLife
 		private void UIRemoveTransition(State source, State target)
 		{
 			source.removeTransition(target);
+			target.removeTransition(source);
 			UIRefreshMenu();
 		}
 
