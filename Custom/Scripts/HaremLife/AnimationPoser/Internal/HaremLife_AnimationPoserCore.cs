@@ -1240,10 +1240,11 @@ namespace HaremLife
 				{
 					CaptureState(myBlendState);
 					myBlendState.AssignOutTriggers(myCurrentState);
-					SetTransition(new Transition(myBlendState, state));
+					SetTransition(new Transition(myBlendState, state, 0.1f*myCurrentAnimation.mySpeed));
 				} else {
-					SetTransition(new Transition(myCurrentState, state));
+					SetTransition(new Transition(myCurrentState, state, 0.1f*myCurrentAnimation.mySpeed));
 				}
+				myClock = myDuration;
 			}
 		}
 		private class Role
@@ -1280,6 +1281,16 @@ namespace HaremLife
 				myEaseInDuration = targetState.myDefaultEaseInDuration;
 				myEaseOutDuration = targetState.myDefaultEaseOutDuration;
 				myDuration = targetState.myDefaultDuration;
+			}
+
+			public Transition(State sourceState, State targetState, float duration)
+			{
+				mySourceState = sourceState;
+				myTargetState = targetState;
+				myProbability = targetState.myDefaultProbability;
+				myEaseInDuration = 0.0f;
+				myEaseOutDuration = 0.0f;
+				myDuration = duration;
 			}
 
 			public Transition(Transition transition)
