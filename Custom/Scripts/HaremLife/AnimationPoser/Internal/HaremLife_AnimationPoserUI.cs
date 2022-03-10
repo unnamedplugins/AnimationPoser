@@ -779,6 +779,74 @@ namespace HaremLife
 			CreateMenuButton("Add Layer", UIAddLayer, false);
 			CreateMenuButton("Remove Layer", UIRemoveLayer, false);
 
+			CreateMenuInfoOneLine("<size=30><b>Merge Layers</b></size>", true);
+
+			List<string> layers = new List<string>();
+			if(myCurrentAnimation != null)
+			{
+				foreach (var layer in myCurrentAnimation.myLayers)
+					if(layer.Value != myCurrentLayer)
+						layers.Add(layer.Key);
+			}
+
+			layers.Sort();
+
+			JSONStorableStringChooser layerToMerge;
+			layerToMerge = new JSONStorableStringChooser("Layer", layers, "", "Layer");
+
+			CreateMenuPopup(layerToMerge, true);
+
+			CreateMenuButton("Merge Layer", () => {
+				if(layerToMerge.val == "") {
+					return;
+				}
+				Layer layer = myCurrentAnimation.myLayers[layerToMerge.val];
+				foreach(var s in layer.myStates) {
+					State state = s.Value;
+					state.myName = layer.myName + "#" + state.myName;
+					myCurrentLayer.myStates[state.myName] = state;
+					state.myLayer = myCurrentLayer;
+
+					List<ControlCapture> entries = state.myControlEntries.Keys.ToList();
+					for(int i=0; i<entries.Count; i++){
+						ControlCapture oldControlCapture = entries[i];
+						ControlCapture newControlCapture;
+						int j = myCurrentLayer.myControlCaptures.FindIndex(cc => cc.myName == oldControlCapture.myName);
+						if (j >= 0) {
+							newControlCapture = myCurrentLayer.myControlCaptures[j];
+						} else {
+							newControlCapture = new ControlCapture(this, oldControlCapture.myName);
+							myCurrentLayer.myControlCaptures.Add(newControlCapture);
+						}
+
+						ControlEntryAnchored entry = state.myControlEntries[oldControlCapture];
+						entry.myControlCapture = newControlCapture;
+						state.myControlEntries.Remove(oldControlCapture);
+						state.myControlEntries[newControlCapture] = entry;
+					}
+
+					List<MorphCapture> mEntries = state.myMorphEntries.Keys.ToList();
+					for(int i=0; i<mEntries.Count; i++){
+						MorphCapture oldMorphCapture = mEntries[i];
+						MorphCapture newMorphCapture;
+						int j = myCurrentLayer.myMorphCaptures.FindIndex(cc => cc.myMorph == oldMorphCapture.myMorph);
+						if (j >= 0) {
+							newMorphCapture = myCurrentLayer.myMorphCaptures[j];
+						} else {
+							newMorphCapture = new MorphCapture(this, oldMorphCapture.myGender, oldMorphCapture.myMorph);
+							myCurrentLayer.myMorphCaptures.Add(newMorphCapture);
+						}
+
+						float entry = state.myMorphEntries[oldMorphCapture];
+						state.myMorphEntries.Remove(oldMorphCapture);
+						state.myMorphEntries[newMorphCapture] = entry;
+					}
+				}
+				myCurrentAnimation.myLayers.Remove(layer.myName);
+
+				UIRefreshMenu();
+			}, true);
+
 			CreateMenuInfoOneLine("<size=30><b>Control Captures</b></size>", false);
 
 			FreeControllerV3[] atomControls = GetAllControllers();
@@ -1926,45 +1994,41 @@ namespace HaremLife
 		{
 			JSONClass jc = LoadJSON(url).AsObject;
 			if (jc != null)
-				UIRefreshMenu();
 				LoadAnimations(jc);
 
 			if (myCurrentState != null)
 			{
 				myMainState.valNoCallback = myCurrentState.myName;
-				myMainState.setCallbackFunction(myCurrentState.myName);
+				// myMainState.setCallbackFunction(myCurrentState.myName);
 			}
 			if (myCurrentLayer != null)
 			{
 				myMainLayer.valNoCallback = myCurrentLayer.myName;
-				myMainLayer.setCallbackFunction(myCurrentLayer.myName);
+				// myMainLayer.setCallbackFunction(myCurrentLayer.myName);
 			}
 			if (myCurrentAnimation != null)
 			{
 				myMainAnimation.valNoCallback = myCurrentAnimation.myName;
-				myMainAnimation.setCallbackFunction(myCurrentAnimation.myName);
+				// myMainAnimation.setCallbackFunction(myCurrentAnimation.myName);
 			}
-			else{
-				UIRefreshMenu();
-			}
+			UIRefreshMenu();
 		}
 
 		private void UILoadJSON(string url)
 		{
 			JSONClass jc = LoadJSON(url).AsObject;
-			if (jc != null)
-				UIRefreshMenu();
-				LoadLayer(jc, false, true);
+			if (jc != null) {
+				LoadLayer(jc, true);
+				LoadTransitions(jc);
+				LoadMessages(jc);
+			}
 
 			if (myCurrentState != null)
 			{
 				myMainState.valNoCallback = myCurrentState.myName;
-				myMainState.setCallbackFunction(myCurrentState.myName);
+				// myMainState.setCallbackFunction(myCurrentState.myName);
 			}
-			else
-			{
-				UIRefreshMenu();
-			}
+			UIRefreshMenu();
 		}
 
 		private void UISaveAnimationsJSONDialog()
@@ -2367,6 +2431,8 @@ namespace HaremLife
 			animations.Sort();
 			if(animations.Count > 0) {
 				myMainAnimation.val = animations[0];
+			} else {
+				myMainAnimation.val = "";
 			}
 
 			UIRefreshMenu();

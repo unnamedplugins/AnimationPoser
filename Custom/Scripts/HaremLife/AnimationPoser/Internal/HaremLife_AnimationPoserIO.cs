@@ -127,7 +127,7 @@ namespace HaremLife
 				for(int m=0; m<layers.Count; m++)
 				{
 					JSONClass layer = layers[m].AsObject;
-					LoadLayer(layer, false, false);
+					LoadLayer(layer, false);
 				}
 			}
 
@@ -362,10 +362,11 @@ namespace HaremLife
 			return jc;
 		}
 
-		private Layer LoadLayer(JSONClass jc, bool keepName, bool clearStates)
+		private Layer LoadLayer(JSONClass jc, bool newName)
 		{
 			// reset
-			if(myCurrentLayer != null & clearStates){
+            bool overwrite = false;
+			if(myCurrentLayer != null & overwrite){
 				if(myCurrentLayer.myStates.Count > 0){
 					foreach (var s in myCurrentLayer.myStates)
 					{
@@ -386,10 +387,11 @@ namespace HaremLife
 			// load captures
 			JSONClass layer = jc["Layer"].AsObject;
 
-			if(keepName)
-				myCurrentLayer = CreateLayer(myCurrentLayer.myName);
-			else
-				myCurrentLayer = CreateLayer(layer["Name"]);
+			if(!overwrite)
+                if(newName)
+                    myCurrentLayer = CreateLayer(FindNewLayerName());
+                else
+                    myCurrentLayer = CreateLayer(layer["Name"]);
 
 			// load captures
 			if (layer.HasKey("ControlCaptures"))
@@ -532,9 +534,6 @@ namespace HaremLife
 
 			SetLayer(myCurrentLayer);
 
-			LoadTransitions(jc);
-			LoadMessages(jc);
-
 			// blend to initial state
 			if (jc.HasKey("InitialState"))
 			{
@@ -551,10 +550,6 @@ namespace HaremLife
 		private void LoadTransitions(JSONClass jc)
 		{
 			JSONClass layer = jc["Layer"].AsObject;
-
-			if (!myCurrentAnimation.myLayers.TryGetValue(layer["Name"], out myCurrentLayer))
-				return;
-
 			JSONArray slist = layer["States"].AsArray;
 			for (int i=0; i<slist.Count; ++i)
 			{
