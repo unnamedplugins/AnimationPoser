@@ -53,11 +53,11 @@ namespace HaremLife
 		private JSONStorableBool myDebugShowSelectedOnly;
 		private JSONStorableBool myDebugShowTransitions;
 
-		private JSONStorableFloat myDefaultTransitionDuration;
-		private JSONStorableFloat myDefaultEaseInDuration;
-		private JSONStorableFloat myDefaultEaseOutDuration;
-		private JSONStorableFloat myDefaultWaitDurationMin;
-		private JSONStorableFloat myDefaultWaitDurationMax;
+		private static JSONStorableFloat myGlobalDefaultTransitionDuration;
+		private JSONStorableFloat myGlobalDefaultEaseInDuration;
+		private JSONStorableFloat myGlobalDefaultEaseOutDuration;
+		private JSONStorableFloat myGlobalDefaultWaitDurationMin;
+		private JSONStorableFloat myGlobalDefaultWaitDurationMax;
 
 		private bool myIsAddingNewState = false;
 		private bool myIsAddingNewLayer = false;
@@ -152,11 +152,11 @@ namespace HaremLife
 			myAnchorDampingTime = new JSONStorableFloat("Anchor Damping Time", DEFAULT_ANCHOR_DAMPING_TIME, 0.0f, 5.0f, true, true);
 			myAnchorDampingTime.setCallbackFunction += (float v) => UISetAnchorsBlendDamp();
 
-			myDefaultTransitionDuration = new JSONStorableFloat("Default Transition Duration", DEFAULT_TRANSITION_DURATION, 0.0f, 5.0f, true, true);
-			myDefaultEaseInDuration = new JSONStorableFloat("Default Ease In Duration", DEFAULT_EASEIN_DURATION, 0.0f, 5.0f, true, true);
-			myDefaultEaseOutDuration = new JSONStorableFloat("Default Ease Out Duration", DEFAULT_EASEOUT_DURATION, 0.0f, 5.0f, true, true);
-			myDefaultWaitDurationMin = new JSONStorableFloat("Default Wait Duration Min", DEFAULT_WAIT_DURATION_MIN, 0.0f, 300.0f, true, true);
-			myDefaultWaitDurationMax = new JSONStorableFloat("Default Wait Duration Max", DEFAULT_WAIT_DURATION_MAX, 0.0f, 300.0f, true, true);
+			myGlobalDefaultTransitionDuration = new JSONStorableFloat("Default Transition Duration", DEFAULT_TRANSITION_DURATION, 0.0f, 5.0f, true, true);
+			myGlobalDefaultEaseInDuration = new JSONStorableFloat("Default Ease In Duration", DEFAULT_EASEIN_DURATION, 0.0f, 5.0f, true, true);
+			myGlobalDefaultEaseOutDuration = new JSONStorableFloat("Default Ease Out Duration", DEFAULT_EASEOUT_DURATION, 0.0f, 5.0f, true, true);
+			myGlobalDefaultWaitDurationMin = new JSONStorableFloat("Default Wait Duration Min", DEFAULT_WAIT_DURATION_MIN, 0.0f, 300.0f, true, true);
+			myGlobalDefaultWaitDurationMax = new JSONStorableFloat("Default Wait Duration Max", DEFAULT_WAIT_DURATION_MAX, 0.0f, 300.0f, true, true);
 
 			// myOptionsDefaultToWorldAnchor = new JSONStorableBool("Default to World Anchor", false);
 			// myDebugShowInfo = new JSONStorableBool("Show Debug Info", false);
@@ -988,7 +988,7 @@ namespace HaremLife
 			};
 			CreateMenuSlider(probability, false);
 
-			JSONStorableFloat duration = new JSONStorableFloat("Default Transition Duration", myDefaultTransitionDuration.val, 0.0f, 5.0f, true, true);
+			JSONStorableFloat duration = new JSONStorableFloat("Default Transition Duration", myGlobalDefaultTransitionDuration.val, 0.0f, 5.0f, true, true);
 			duration.valNoCallback = state.myDefaultDuration;
 			duration.setCallbackFunction = (float v) => {
 				State s = UIGetState();
@@ -997,7 +997,7 @@ namespace HaremLife
 			};
 			CreateMenuSlider(duration, false);
 
-			JSONStorableFloat easeInDuration = new JSONStorableFloat("Default Ease In Duration", myDefaultEaseInDuration.val, 0.0f, 5.0f, true, true);
+			JSONStorableFloat easeInDuration = new JSONStorableFloat("Default Ease In Duration", myGlobalDefaultEaseInDuration.val, 0.0f, 5.0f, true, true);
 			easeInDuration.valNoCallback = state.myDefaultEaseInDuration;
 			easeInDuration.setCallbackFunction = (float v) => {
 				State s = UIGetState();
@@ -1006,7 +1006,7 @@ namespace HaremLife
 			};
 			CreateMenuSlider(easeInDuration, false);
 
-			JSONStorableFloat easeOutDuration = new JSONStorableFloat("Default Ease Out Duration", myDefaultEaseOutDuration.val, 0.0f, 5.0f, true, true);
+			JSONStorableFloat easeOutDuration = new JSONStorableFloat("Default Ease Out Duration", myGlobalDefaultEaseOutDuration.val, 0.0f, 5.0f, true, true);
 			easeOutDuration.valNoCallback = state.myDefaultEaseOutDuration;
 			easeOutDuration.setCallbackFunction = (float v) => {
 				State s = UIGetState();
@@ -1033,8 +1033,8 @@ namespace HaremLife
 			};
 			CreateMenuToggle(isRootState, true);
 
-			JSONStorableFloat waitDurationMin = new JSONStorableFloat("Wait Duration Min", myDefaultWaitDurationMin.val, 0.0f, 300.0f, true, true);
-			JSONStorableFloat waitDurationMax = new JSONStorableFloat("Wait Duration Max", myDefaultWaitDurationMax.val, 0.0f, 300.0f, true, true);
+			JSONStorableFloat waitDurationMin = new JSONStorableFloat("Wait Duration Min", myGlobalDefaultWaitDurationMin.val, 0.0f, 300.0f, true, true);
+			JSONStorableFloat waitDurationMax = new JSONStorableFloat("Wait Duration Max", myGlobalDefaultWaitDurationMax.val, 0.0f, 300.0f, true, true);
 			waitDurationMin.valNoCallback = state.myWaitDurationMin;
 			waitDurationMax.valNoCallback = state.myWaitDurationMax;
 
@@ -1957,11 +1957,11 @@ namespace HaremLife
 			CreateMenuInfoOneLine("<size=30><b>General Options</b></size>", false);
 			// CreateMenuToggle(myOptionsDefaultToWorldAnchor, false);
 
-			CreateMenuSlider(myDefaultTransitionDuration, false);
-			CreateMenuSlider(myDefaultEaseInDuration, false);
-			CreateMenuSlider(myDefaultEaseOutDuration, false);
-			CreateMenuSlider(myDefaultWaitDurationMin, false);
-			CreateMenuSlider(myDefaultWaitDurationMax, false);
+			CreateMenuSlider(myGlobalDefaultTransitionDuration, false);
+			CreateMenuSlider(myGlobalDefaultEaseInDuration, false);
+			CreateMenuSlider(myGlobalDefaultEaseOutDuration, false);
+			CreateMenuSlider(myGlobalDefaultWaitDurationMin, false);
+			CreateMenuSlider(myGlobalDefaultWaitDurationMax, false);
 
 			// CreateMenuInfoOneLine("<size=30><b>Debug Options</b></size>", false);
 			// CreateMenuInfoOneLine("<color=#ff0000><b>Can cause performance issues!</b></color>", false);

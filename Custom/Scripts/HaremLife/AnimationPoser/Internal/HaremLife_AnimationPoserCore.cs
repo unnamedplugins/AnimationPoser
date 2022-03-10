@@ -27,7 +27,7 @@ namespace HaremLife
 		private const int MAX_STATES = 4;
 		private static readonly int[] DISTANCE_SAMPLES = new int[] { 0, 0, 0, 11, 20};
 
-		private const float DEFAULT_TRANSITION_DURATION = 0.1f;
+		private const float DEFAULT_TRANSITION_DURATION = 0.5f;
 		private const float DEFAULT_BLEND_DURATION = 0.2f;
 		private const float DEFAULT_EASEIN_DURATION = 0.0f;
 		private const float DEFAULT_EASEOUT_DURATION = 0.0f;
@@ -156,8 +156,11 @@ namespace HaremLife
 		private State CreateState(string name)
 		{
 			State s = new State(this, name) {
-				myWaitDurationMin = myDefaultWaitDurationMin.val,
-				myWaitDurationMax = myDefaultWaitDurationMax.val,
+				myWaitDurationMin = myGlobalDefaultWaitDurationMin.val,
+				myWaitDurationMax = myGlobalDefaultWaitDurationMax.val,
+				myDefaultDuration = myGlobalDefaultTransitionDuration.val,
+				myDefaultEaseInDuration = myGlobalDefaultEaseInDuration.val,
+				myDefaultEaseOutDuration = myGlobalDefaultEaseOutDuration.val
 			};
 			CaptureState(s);
 			if(myCurrentLayer.myCurrentState != null) {
@@ -363,7 +366,6 @@ namespace HaremLife
 			{
 				for (int i=0; i<myTriggerActionsNeedingUpdate.Count; ++i){
 					myTriggerActionsNeedingUpdate[i].Update();
-					SuperController.LogError(myTriggerActionsNeedingUpdate[i].name);
 				}
 				myTriggerActionsNeedingUpdate.RemoveAll(a => !a.timerActive);
 
@@ -658,7 +660,7 @@ namespace HaremLife
 			public float myDefaultDuration;
 			public float myDefaultEaseInDuration;
 			public float myDefaultEaseOutDuration;
-			public float myDefaultProbability;
+			public float myDefaultProbability = DEFAULT_PROBABILITY;
 			public bool myIsRootState = false;
 			public uint myDebugIndex = 0;
 			public Dictionary<ControlCapture, ControlEntryAnchored> myControlEntries = new Dictionary<ControlCapture, ControlEntryAnchored>();
@@ -735,6 +737,7 @@ namespace HaremLife
 				return new State("BlendState") {
 					myWaitDurationMin = 0.0f,
 					myWaitDurationMax = 0.0f,
+					myDefaultDuration = myGlobalDefaultTransitionDuration.val,
 				};
 			}
 
