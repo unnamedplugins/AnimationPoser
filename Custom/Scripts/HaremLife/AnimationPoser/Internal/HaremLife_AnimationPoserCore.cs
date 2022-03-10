@@ -16,6 +16,7 @@ Licensed under CC BY-SA after EarlyAccess ended. (see https://creativecommons.or
 using UnityEngine;
 using UnityEngine.Events;
 using System;
+using System.Linq;
 using System.Collections.Generic;
 using SimpleJSON;
 
@@ -89,6 +90,22 @@ namespace HaremLife
 
 			SuperController.singleton.onAtomUIDRenameHandlers += OnAtomRename;
 			SimpleTriggerHandler.LoadAssets();
+		}
+
+		public void ReceiveMessage(String messageString) {
+			foreach(var l in myCurrentAnimation.myLayers) {
+				Layer layer = l.Value;
+				foreach(var m in layer.myMessages) {
+					Message message = m.Value;
+					if(message.myMessageString == messageString) {
+						State currentState = layer.myCurrentState;
+						if(message.mySourceStates.Values.ToList().Contains(currentState)) {
+							Transition transition = new Transition(currentState, message);
+							layer.SetTransition(transition);
+						}
+					}
+				}
+			}
 		}
 
 		public void GetAnimations(JSONStorableStringChooser mySyncAnimationList) {
@@ -1136,6 +1153,19 @@ namespace HaremLife
 									previousState.ExitEndTrigger.Trigger(myTriggerActionsNeedingUpdate);
 								if (myCurrentState.EnterEndTrigger != null)
 									myCurrentState.EnterEndTrigger.Trigger(myTriggerActionsNeedingUpdate);
+								foreach(var m in myTransition.myMessages) {
+									Role role = m.Key;
+									String message = m.Value;
+									Atom person = role.myPerson;
+									if (person == null) continue;
+									var storableId = person.GetStorableIDs().FirstOrDefault(id => id.EndsWith("HaremLife.AnimationPoser"));
+									if (storableId == null) continue;
+									MVRScript storable = person.GetStorableByID(storableId) as MVRScript;
+									if (storable == null) continue;
+									// if (ReferenceEquals(storable, _plugin)) continue;
+									if (!storable.enabled) continue;
+									storable.SendMessage(nameof(AnimationPoser.ReceiveMessage), message);
+								}
 							}
 							myTransition = null;
 						}
@@ -1288,16 +1318,20 @@ namespace HaremLife
 			}
 		}
 
-		private class Transition
+		private class BaseTransition
 		{
 			public Dictionary<Layer, State> mySyncTargets = new Dictionary<Layer, State>();
 			public Dictionary<Role, String> myMessages = new Dictionary<Role, String>();
-			public State mySourceState;
 			public State myTargetState;
 			public float myProbability;
 			public float myEaseInDuration;
 			public float myEaseOutDuration;
 			public float myDuration;
+		}
+
+		private class Transition : BaseTransition
+		{
+			public State mySourceState;
 
 			public Transition(State sourceState, State targetState)
 			{
@@ -1320,19 +1354,24 @@ namespace HaremLife
 				mySyncTargets = transition.mySyncTargets;
 				myMessages = transition.myMessages;
 			}
+
+			public Transition(State sourceState, Message message)
+			{
+				mySourceState = sourceState;
+				myTargetState = message.myTargetState;
+				myProbability = message.myProbability;
+				myEaseInDuration = message.myEaseInDuration;
+				myEaseOutDuration = message.myEaseOutDuration;
+				myDuration = message.myDuration;
+				mySyncTargets = message.mySyncTargets;
+			}
 		}
 
-		private class Message
+		private class Message : BaseTransition
 		{
 			public String myMessageString;
 			public String myName;
-			public Dictionary<Layer, State> mySyncTargets = new Dictionary<Layer, State>();
 			public Dictionary<string, State> mySourceStates = new Dictionary<string, State>();
-			public State myTargetState;
-			public float myProbability;
-			public float myEaseInDuration;
-			public float myEaseOutDuration;
-			public float myDuration;
 
 			public Message(string name) {
 				myName = name;

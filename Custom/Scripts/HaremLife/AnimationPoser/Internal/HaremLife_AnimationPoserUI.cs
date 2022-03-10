@@ -1207,7 +1207,7 @@ namespace HaremLife
 				string selectedRoleName;
 				if (syncRoles.Count == 0)
 					selectedRoleName = "";
-				else if(syncRoles != null && syncRoles.Contains(mySyncRoleList.val))
+				else if(mySyncRoleList != null && syncRoles.Contains(mySyncRoleList.val))
 					selectedRoleName = mySyncRoleList.val;
 				else
 					selectedRoleName = syncRoles[0];
@@ -1217,7 +1217,7 @@ namespace HaremLife
 
 				CreateMenuSpacer(10, false);
 				CreateMenuInfoOneLine("<size=30><b>Messages</b></size>", false);
-				CreateMenuInfo(@"Use this to send messages to plugin instances in other person atoms when the transition finishes.", 100, false);
+				CreateMenuInfo("Use this to send messages to plugin instances in other person atoms when the transition finishes.", 100, false);
 
 				CreateMenuPopup(mySyncRoleList, false);
 
@@ -1232,7 +1232,11 @@ namespace HaremLife
 					}
 					JSONStorableString message = new JSONStorableString("Message String",
 						messageString, (String mString) => {
-							transition.myMessages[selectedRole] = mString;
+							if(mString == "") {
+								transition.myMessages.Remove(selectedRole);
+							} else {
+								transition.myMessages[selectedRole] = mString;
+							}
 							UIRefreshMenu();
 						}
 					);
