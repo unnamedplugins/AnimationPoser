@@ -148,14 +148,12 @@ namespace HaremLife
 
 		private Layer CreateLayer(string name)
 		{
-			Layer l = new Layer(name);
-			myCurrentAnimation.myLayers[name] = l;
-			return l;
+			return new Layer(name);
 		}
 
 		private State CreateState(string name)
 		{
-			State s = new State(this, name) {
+			State s = new State(this, name, myCurrentLayer) {
 				myWaitDurationMin = myGlobalDefaultWaitDurationMin.val,
 				myWaitDurationMax = myGlobalDefaultWaitDurationMax.val,
 				myDefaultDuration = myGlobalDefaultTransitionDuration.val,
@@ -193,6 +191,7 @@ namespace HaremLife
 			if(layer.myStates.Count > 0) {
 				State state;
 				layer.myStates.TryGetValue(states[0], out state);
+				layer.myCurrentState = state;
 				layer.SetBlendTransition(state);
 			}
 		}
@@ -397,7 +396,7 @@ namespace HaremLife
 								SetState(myTransition.myTargetState);
 								if (myMainLayer.val == myName)
 									myMainState.valNoCallback = myCurrentState.myName;
-									myMainAnimation.valNoCallback = myCurrentState.myAnimation.myName;
+									myMainAnimation.valNoCallback = myCurrentState.myAnimation().myName;
 
 								if (previousState.ExitEndTrigger != null)
 									previousState.ExitEndTrigger.Trigger(myTriggerActionsNeedingUpdate);
@@ -444,7 +443,7 @@ namespace HaremLife
 			private void TransitionToAnotherAnimation(Transition transition)
 			{
 				State targetState = transition.myTargetState;
-				Animation animation = targetState.myAnimation;
+				Animation animation = targetState.myAnimation();
 				Layer targetLayer = targetState.myLayer;
 				myCurrentAnimation = animation;
 				SetAnimation(animation);
@@ -472,7 +471,7 @@ namespace HaremLife
 
 				myClock = 0.0f;
 
-				if(transition.myTargetState.myAnimation != myCurrentAnimation) {
+				if(transition.myTargetState.myAnimation() != transition.mySourceState.myAnimation()) {
 					TransitionToAnotherAnimation(transition);
 					return;
 				}
@@ -564,7 +563,8 @@ namespace HaremLife
 					myBlendState.AssignOutTriggers(myCurrentState);
 					SetTransition(new Transition(myBlendState, state, 0.1f*myCurrentAnimation.mySpeed));
 				} else {
-					SetTransition(new Transition(myCurrentState, state, 0.1f*myCurrentAnimation.mySpeed));
+					Transition t = new Transition(myCurrentState, state, 0.1f*myAnimation.mySpeed);
+					SetTransition(new Transition(myCurrentState, state, 0.1f*myAnimation.mySpeed));
 				}
 				myClock = myDuration;
 			}
@@ -653,7 +653,6 @@ namespace HaremLife
 		private class State
 		{
 			public string myName;
-			public Animation myAnimation;
 			public Layer myLayer;
 			public float myWaitDurationMin;
 			public float myWaitDurationMax;
@@ -671,29 +670,25 @@ namespace HaremLife
 			public EventTrigger ExitBeginTrigger;
 			public EventTrigger ExitEndTrigger;
 
-			private State(string name)
+			public State(MVRScript script, string name, Layer layer)
 			{
 				myName = name;
-				myAnimation = myCurrentAnimation;
-				myLayer = myCurrentLayer;
-				// do NOT init event triggers
-			}
-
-			public State(MVRScript script, string name)
-			{
-				myName = name;
-				myAnimation = myCurrentAnimation;
-				myLayer = myCurrentLayer;
+				myLayer = layer;
 				EnterBeginTrigger = new EventTrigger(script, "OnEnterBegin", name);
 				EnterEndTrigger = new EventTrigger(script, "OnEnterEnd", name);
 				ExitBeginTrigger = new EventTrigger(script, "OnExitBegin", name);
 				ExitEndTrigger = new EventTrigger(script, "OnExitEnd", name);
 			}
 
+			public State(string name, Layer layer)
+			{
+				myName = name;
+				myLayer = layer;
+			}
+
 			public State(string name, State source)
 			{
 				myName = name;
-				myAnimation = myCurrentAnimation;
 				myLayer = myCurrentLayer;
 				myWaitDurationMin = source.myWaitDurationMin;
 				myWaitDurationMax = source.myWaitDurationMax;
@@ -706,6 +701,10 @@ namespace HaremLife
 				EnterEndTrigger = new EventTrigger(source.EnterEndTrigger);
 				ExitBeginTrigger = new EventTrigger(source.ExitBeginTrigger);
 				ExitEndTrigger = new EventTrigger(source.ExitEndTrigger);
+			}
+
+			public Animation myAnimation() {
+				return myLayer.myAnimation;
 			}
 
 			public List<State> getReachableStates() {
@@ -734,7 +733,7 @@ namespace HaremLife
 
 			public static State CreateBlendState()
 			{
-				return new State("BlendState") {
+				return new State("BlendState", myCurrentLayer) {
 					myWaitDurationMin = 0.0f,
 					myWaitDurationMax = 0.0f,
 					myDefaultDuration = myGlobalDefaultTransitionDuration.val,

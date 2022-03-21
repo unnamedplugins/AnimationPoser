@@ -34,8 +34,6 @@ namespace HaremLife
 			jc["Info"] = info;
 
 			// save settings
-			if (myCurrentState != null)
-				jc["InitialState"] = myCurrentState.myName;
 			jc["Paused"].AsBool = myPlayPaused.val;
 
 			JSONArray anims = new JSONArray();
@@ -90,13 +88,8 @@ namespace HaremLife
 			for (int l=0; l<anims.Count; ++l)
 			{
 				JSONClass anim = anims[l].AsObject;
-				myCurrentAnimation = CreateAnimation(anim["Name"]);
-				myCurrentAnimation.mySpeed = anim["Speed"].AsFloat;
-			}
-
-			for (int l=0; l<anims.Count; ++l)
-			{
-				JSONClass anim = anims[l].AsObject;
+				Animation animation = CreateAnimation(anim["Name"]);
+				animation.mySpeed = anim["Speed"].AsFloat;
 
 				// load roles
 				if (anim.HasKey("Roles"))
@@ -113,37 +106,45 @@ namespace HaremLife
 								r.myPerson = person;
 							}
 						}
-						myCurrentAnimation.myRoles[r.myName] = r;
+						animation.myRoles[r.myName] = r;
 					}
 				}
+
+				JSONArray layers = anim["Layers"].AsArray;
+				for(int m=0; m<layers.Count; m++)
+				{
+					JSONClass layerObj = layers[m].AsObject;
+					Layer layer = LoadLayer(layerObj, false);
+					animation.myLayers[layer.myName] = layer;
+					layer.myAnimation = animation;
+				}
+
+				myAnimations[animation.myName] = animation;
 			}
 
 			for (int l=0; l<anims.Count; ++l)
 			{
 				JSONClass anim = anims[l].AsObject;
-				if (!myAnimations.TryGetValue(anim["Name"], out myCurrentAnimation))
+				Animation animation;
+				if (!myAnimations.TryGetValue(anim["Name"], out animation))
 					continue;
 				JSONArray layers = anim["Layers"].AsArray;
 				for(int m=0; m<layers.Count; m++)
 				{
-					JSONClass layer = layers[m].AsObject;
-					LoadLayer(layer, false);
+					JSONClass layerObj = layers[m].AsObject["Layer"].AsObject;
+
+					Layer layer;
+					if (!animation.myLayers.TryGetValue(layerObj["Name"], out layer))
+						continue;
+
+					LoadTransitions(layer, layerObj);
+					LoadMessages(layer, layerObj);
 				}
 			}
 
-			for (int l=0; l<anims.Count; ++l)
-			{
-				JSONClass anim = anims[l].AsObject;
-				if (!myAnimations.TryGetValue(anim["Name"], out myCurrentAnimation))
-					continue;
-				JSONArray layers = anim["Layers"].AsArray;
-				for(int m=0; m<layers.Count; m++)
-				{
-					JSONClass layer = layers[m].AsObject;
-					LoadTransitions(layer);
-					LoadMessages(layer);
-				}
-			}
+			if(myAnimations.Count == 0)
+				return;
+			SetAnimation(myAnimations.Values.ToList()[0]);
 
 			// load settings
 			myPlayPaused.valNoCallback = jc.HasKey("Paused") && jc["Paused"].AsBool;
@@ -170,9 +171,8 @@ namespace HaremLife
 		{
 			JSONClass jc = new JSONClass();
 			// save settings
-			if (myCurrentState != null)
-				jc["InitialState"] = myCurrentState.myName;
-			jc["Paused"].AsBool = myPlayPaused.val;
+			if (layerToSave.myCurrentState != null)
+				jc["InitialState"] = layerToSave.myCurrentState.myName;
 
 			JSONClass layer = new JSONClass();
 			layer["Name"] = layerToSave.myName;
@@ -232,10 +232,10 @@ namespace HaremLife
 						t["TargetLayer"] = "[Self]";
 					else
 						t["TargetLayer"] = transition.myTargetState.myLayer.myName;
-					if(transition.myTargetState.myAnimation == transition.mySourceState.myAnimation)
+					if(transition.myTargetState.myAnimation() == transition.mySourceState.myAnimation())
 						t["TargetAnimation"] = "[Self]";
 					else
-						t["TargetAnimation"] = transition.myTargetState.myAnimation.myName;
+						t["TargetAnimation"] = transition.myTargetState.myAnimation().myName;
 					t["Duration"].AsFloat = transition.myDuration;
 					t["DurationNoise"].AsFloat = transition.myDurationNoise;
 					t["EaseInDuration"].AsFloat = transition.myEaseInDuration;
@@ -337,10 +337,10 @@ namespace HaremLife
 					m["TargetLayer"] = "[Self]";
 				else
 					m["TargetLayer"] = message.myTargetState.myLayer.myName;
-				if(message.myTargetState.myAnimation == message.mySourceStates[firstSrcState].myAnimation)
+				if(message.myTargetState.myAnimation() == message.mySourceStates[firstSrcState].myAnimation())
 					m["TargetAnimation"] = "[Self]";
 				else
-					m["TargetAnimation"] = message.myTargetState.myAnimation.myName;
+					m["TargetAnimation"] = message.myTargetState.myAnimation().myName;
 				m["Duration"].AsFloat = message.myDuration;
 				m["DurationNoise"].AsFloat = message.myDurationNoise;
 				m["EaseInDuration"].AsFloat = message.myEaseInDuration;
@@ -364,39 +364,18 @@ namespace HaremLife
 
 		private Layer LoadLayer(JSONClass jc, bool newName)
 		{
-			// reset
-            bool overwrite = false;
-			if(myCurrentLayer != null & overwrite){
-				if(myCurrentLayer.myStates.Count > 0){
-					foreach (var s in myCurrentLayer.myStates)
-					{
-						State state = s.Value;
-						state.EnterBeginTrigger.Remove();
-						state.EnterEndTrigger.Remove();
-						state.ExitBeginTrigger.Remove();
-						state.ExitEndTrigger.Remove();
-					}
-				}
-				myCurrentLayer.myControlCaptures.Clear();
-				myCurrentLayer.myMorphCaptures.Clear();
-				myCurrentLayer.myStates.Clear();
-				myCurrentLayer.myClock = 0.0f;
-				myCurrentState = null;
-			}
+			JSONClass layerObj = jc["Layer"].AsObject;
+
+			Layer layer;
+			if(newName)
+				layer = CreateLayer(FindNewLayerName());
+			else
+				layer = CreateLayer(layerObj["Name"]);
 
 			// load captures
-			JSONClass layer = jc["Layer"].AsObject;
-
-			if(!overwrite)
-                if(newName)
-                    myCurrentLayer = CreateLayer(FindNewLayerName());
-                else
-                    myCurrentLayer = CreateLayer(layer["Name"]);
-
-			// load captures
-			if (layer.HasKey("ControlCaptures"))
+			if (layerObj.HasKey("ControlCaptures"))
 			{
-				JSONArray cclist = layer["ControlCaptures"].AsArray;
+				JSONArray cclist = layerObj["ControlCaptures"].AsArray;
 				for (int i=0; i<cclist.Count; ++i)
 				{
 					ControlCapture cc;
@@ -406,12 +385,12 @@ namespace HaremLife
 					cc.myApplyRotation = ccclass["ApplyRot"].AsBool;
 
 					if (cc.IsValid())
-						myCurrentLayer.myControlCaptures.Add(cc);
+						layer.myControlCaptures.Add(cc);
 				}
 			}
-			if (layer.HasKey("MorphCaptures"))
+			if (layerObj.HasKey("MorphCaptures"))
 			{
-				JSONArray mclist = layer["MorphCaptures"].AsArray;
+				JSONArray mclist = layerObj["MorphCaptures"].AsArray;
 				DAZCharacterSelector geometry = containingAtom.GetStorableByID("geometry") as DAZCharacterSelector;
 				for (int i=0; i<mclist.Count; ++i)
 				{
@@ -425,17 +404,17 @@ namespace HaremLife
 					mc.myApply = mcclass["Apply"].AsBool;
 
 					if (mc.IsValid())
-						myCurrentLayer.myMorphCaptures.Add(mc);
+						layer.myMorphCaptures.Add(mc);
 				}
 			}
 
 			// load states
-			JSONArray slist = layer["States"].AsArray;
+			JSONArray slist = layerObj["States"].AsArray;
 			for (int i=0; i<slist.Count; ++i)
 			{
 				// load state
 				JSONClass st = slist[i].AsObject;
-				State state = new State(this, st["Name"]) {
+				State state = new State(this, st["Name"], layer) {
 					myIsRootState = st["IsRootState"].AsBool,
 					myWaitDurationMin = st["WaitDurationMin"].AsFloat,
 					myWaitDurationMax = st["WaitDurationMax"].AsFloat,
@@ -451,17 +430,17 @@ namespace HaremLife
 				state.ExitEndTrigger.RestoreFromJSON(st, base.subScenePrefix, base.mergeRestore, true);
 
 
-				if (myCurrentLayer.myStates.ContainsKey(state.myName))
+				if (layer.myStates.ContainsKey(state.myName))
 					continue;
-				myCurrentLayer.myStates[state.myName] = state;
+				layer.myStates[state.myName] = state;
 
 				// load control captures
-				if (myCurrentLayer.myControlCaptures.Count > 0)
+				if (layer.myControlCaptures.Count > 0)
 				{
 					JSONClass celist = st["ControlEntries"].AsObject;
 					foreach (string ccname in celist.Keys)
 					{
-						ControlCapture cc = myCurrentLayer.myControlCaptures.Find(x => x.myName == ccname);
+						ControlCapture cc = layer.myControlCaptures.Find(x => x.myName == ccname);
 						if (cc == null)
 							continue;
 
@@ -498,21 +477,21 @@ namespace HaremLife
 
 						state.myControlEntries.Add(cc, ce);
 					}
-					for (int j=0; j<myCurrentLayer.myControlCaptures.Count; ++j)
+					for (int j=0; j<layer.myControlCaptures.Count; ++j)
 					{
-						if (!state.myControlEntries.ContainsKey(myCurrentLayer.myControlCaptures[j]))
-							myCurrentLayer.myControlCaptures[j].CaptureEntry(state);
+						if (!state.myControlEntries.ContainsKey(layer.myControlCaptures[j]))
+							layer.myControlCaptures[j].CaptureEntry(state);
 					}
 				}
 
 				// load morph captures
-				if (myCurrentLayer.myMorphCaptures.Count > 0)
+				if (layer.myMorphCaptures.Count > 0)
 				{
 					JSONClass melist = st["MorphEntries"].AsObject;
 					foreach (string key in melist.Keys)
 					{
 						MorphCapture mc = null;
-						mc = myCurrentLayer.myMorphCaptures.Find(x => x.mySID == key);
+						mc = layer.myMorphCaptures.Find(x => x.mySID == key);
 						if (mc == null)
 						{
 							continue;
@@ -520,42 +499,35 @@ namespace HaremLife
 						float me = melist[key].AsFloat;
 						state.myMorphEntries.Add(mc, me);
 					}
-					for (int j=0; j<myCurrentLayer.myMorphCaptures.Count; ++j)
+					for (int j=0; j<layer.myMorphCaptures.Count; ++j)
 					{
-						if (!state.myMorphEntries.ContainsKey(myCurrentLayer.myMorphCaptures[j]))
-							myCurrentLayer.myMorphCaptures[j].CaptureEntry(state);
+						if (!state.myMorphEntries.ContainsKey(layer.myMorphCaptures[j]))
+							layer.myMorphCaptures[j].CaptureEntry(state);
 					}
 				}
 			}
-
-			// load settings
-			myPlayPaused.valNoCallback = jc.HasKey("Paused") && jc["Paused"].AsBool;
-			myPlayPaused.setCallbackFunction(myPlayPaused.val);
-
-			SetLayer(myCurrentLayer);
 
 			// blend to initial state
 			if (jc.HasKey("InitialState"))
 			{
 				State initial;
-				if (myCurrentLayer.myStates.TryGetValue(jc["InitialState"].Value, out initial))
+				if (layer.myStates.TryGetValue(jc["InitialState"].Value, out initial))
 				{
-					myCurrentLayer.SetState(initial);
+					layer.SetState(initial);
 					myMainState.valNoCallback = initial.myName;
 				}
 			}
-			return myCurrentLayer;
+			return layer;
 		}
 
-		private void LoadTransitions(JSONClass jc)
+		private void LoadTransitions(Layer layer, JSONClass layerObj)
 		{
-			JSONClass layer = jc["Layer"].AsObject;
-			JSONArray slist = layer["States"].AsArray;
+			JSONArray slist = layerObj["States"].AsArray;
 			for (int i=0; i<slist.Count; ++i)
 			{
 				JSONClass st = slist[i].AsObject;
 				State source;
-				if (!myCurrentLayer.myStates.TryGetValue(st["Name"], out source))
+				if (!layer.myStates.TryGetValue(st["Name"], out source))
 					continue;
 
 				JSONArray tlist = st["Transitions"].AsArray;
@@ -565,13 +537,13 @@ namespace HaremLife
 
 					Animation targetAnimation;
 					if(String.Equals(tclass["TargetAnimation"], "[Self]"))
-						targetAnimation = myCurrentAnimation;
+						targetAnimation = source.myLayer.myAnimation;
 					else if(!myAnimations.TryGetValue(tclass["TargetAnimation"], out targetAnimation))
 						continue;
 
 					Layer targetLayer;
 					if(String.Equals(tclass["TargetLayer"], "[Self]"))
-						targetLayer = myCurrentLayer;
+						targetLayer = source.myLayer;
 					else if(!targetAnimation.myLayers.TryGetValue(tclass["TargetLayer"], out targetLayer))
 						continue;
 
@@ -612,27 +584,23 @@ namespace HaremLife
 			}
 		}
 
-		private void LoadMessages(JSONClass jc)
+		private void LoadMessages(Layer layer, JSONClass layerObj)
 		{
-			JSONClass layer = jc["Layer"].AsObject;
+			JSONArray mlist = layerObj["Messages"].AsArray;
 
-			if (!myCurrentAnimation.myLayers.TryGetValue(layer["Name"], out myCurrentLayer))
-				return;
-
-			JSONArray mlist = layer["Messages"].AsArray;
 			for (int i=0; i<mlist.Count; ++i)
 			{
 				JSONClass mclass = mlist[i].AsObject;
 
 				Animation targetAnimation;
 				if(String.Equals(mclass["TargetAnimation"], "[Self]"))
-					targetAnimation = myCurrentAnimation;
+					targetAnimation = layer.myAnimation;
 				else if(!myAnimations.TryGetValue(mclass["TargetAnimation"], out targetAnimation))
 					continue;
 
 				Layer targetLayer;
 				if(String.Equals(mclass["TargetLayer"], "[Self]"))
-					targetLayer = myCurrentLayer;
+					targetLayer = layer;
 				else if(!targetAnimation.myLayers.TryGetValue(mclass["TargetLayer"], out targetLayer))
 					continue;
 
@@ -652,7 +620,7 @@ namespace HaremLife
 				for (int j=0; j<srcstlist.Count; ++j)
 				{
 					JSONClass src = srcstlist[j].AsObject;
-					State srcst = myCurrentLayer.myStates[src["Name"]];
+					State srcst = layer.myStates[src["Name"]];
 					message.mySourceStates[srcst.myName] = srcst;
 				}
 
@@ -669,7 +637,7 @@ namespace HaremLife
 					message.mySyncTargets[syncLayer] = syncState;
 				}
 
-				myCurrentLayer.myMessages[message.myName] = message;
+				layer.myMessages[message.myName] = message;
 			}
 		}
     }

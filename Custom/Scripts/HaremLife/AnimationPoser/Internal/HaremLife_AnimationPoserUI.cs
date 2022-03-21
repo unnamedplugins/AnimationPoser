@@ -1389,7 +1389,7 @@ namespace HaremLife
 				CreateMenuInfo("Use the following to sync other layers on target state arrival.", 80, true);
 
 				List<string> syncLayers = new List<string>();
-				foreach (var l in transition.myTargetState.myAnimation.myLayers)
+				foreach (var l in transition.myTargetState.myAnimation().myLayers)
 				{
 					Layer target = l.Value;
 					if(target != transition.myTargetState.myLayer)
@@ -1413,7 +1413,7 @@ namespace HaremLife
 				CreateMenuPopup(mySyncLayerList, true);
 
 				Layer syncLayer;
-				if(!transition.myTargetState.myAnimation.myLayers.TryGetValue(mySyncLayerList.val, out syncLayer)){
+				if(!transition.myTargetState.myAnimation().myLayers.TryGetValue(mySyncLayerList.val, out syncLayer)){
 					return;
 				};
 
@@ -1424,7 +1424,7 @@ namespace HaremLife
 							return;
 
 						Layer l;
-						if(!t.myTargetState.myAnimation.myLayers.TryGetValue(mySyncLayerList.val, out l)){
+						if(!t.myTargetState.myAnimation().myLayers.TryGetValue(mySyncLayerList.val, out l)){
 							return;
 						};
 
@@ -1461,7 +1461,7 @@ namespace HaremLife
 							return;
 
 						Layer l;
-						if(!t.myTargetState.myAnimation.myLayers.TryGetValue(mySyncLayerList.val, out l)){
+						if(!t.myTargetState.myAnimation().myLayers.TryGetValue(mySyncLayerList.val, out l)){
 							return;
 						};
 
@@ -1872,7 +1872,7 @@ namespace HaremLife
 			CreateMenuInfo("Use the following to sync other layers on target state arrival.", 80, true);
 
 			List<string> syncLayers = new List<string>();
-			foreach (var l in selectedMessage.myTargetState.myAnimation.myLayers)
+			foreach (var l in selectedMessage.myTargetState.myAnimation().myLayers)
 			{
 				Layer target = l.Value;
 				if(target != selectedMessage.myTargetState.myLayer)
@@ -1896,14 +1896,14 @@ namespace HaremLife
 			CreateMenuPopup(mySyncLayerList, true);
 
 			Layer syncLayer;
-			if(!selectedMessage.myTargetState.myAnimation.myLayers.TryGetValue(mySyncLayerList.val, out syncLayer)){
+			if(!selectedMessage.myTargetState.myAnimation().myLayers.TryGetValue(mySyncLayerList.val, out syncLayer)){
 				return;
 			};
 
 			if(selectedMessage.mySyncTargets.ContainsKey(syncLayer)) {
 				CreateMenuLabelXButton(selectedMessage.mySyncTargets[syncLayer].myName, () => {
 					Layer l;
-					if(!selectedMessage.myTargetState.myAnimation.myLayers.TryGetValue(mySyncLayerList.val, out l)){
+					if(!selectedMessage.myTargetState.myAnimation().myLayers.TryGetValue(mySyncLayerList.val, out l)){
 						return;
 					};
 
@@ -1936,7 +1936,7 @@ namespace HaremLife
 				CreateMenuPopup(mySyncStateList, true);
 				CreateMenuButton("Sync State", () => {
 					Layer l;
-					if(!selectedMessage.myTargetState.myAnimation.myLayers.TryGetValue(mySyncLayerList.val, out l)){
+					if(!selectedMessage.myTargetState.myAnimation().myLayers.TryGetValue(mySyncLayerList.val, out l)){
 						return;
 					};
 
@@ -2018,9 +2018,12 @@ namespace HaremLife
 		{
 			JSONClass jc = LoadJSON(url).AsObject;
 			if (jc != null) {
-				LoadLayer(jc, true);
-				LoadTransitions(jc);
-				LoadMessages(jc);
+				Layer layer = LoadLayer(jc, true);
+				JSONClass layerObj = jc["Layer"].AsObject;
+				myCurrentAnimation.myLayers[layer.myName] = layer;
+				layer.myAnimation = myCurrentAnimation;
+				LoadTransitions(layer, layerObj);
+				LoadMessages(layer, layerObj);
 			}
 
 			if (myCurrentState != null)
@@ -2271,7 +2274,8 @@ namespace HaremLife
 			if (name == null)
 				return;
 
-			CreateLayer(name);
+			Layer layer = CreateLayer(name);
+			myCurrentAnimation.myLayers[layer.myName] = layer;
 			myMainLayer.choices = myCurrentAnimation.myLayers.Keys.ToList();
 			myMainLayer.val = name;
 			myMainState.val = "";
@@ -2422,7 +2426,7 @@ namespace HaremLife
 			foreach (var a in myAnimations) {
 				foreach (var l in a.Value.myLayers) {
 					foreach (var s in l.Value.myStates)
-						s.Value.myTransitions.RemoveAll(x => x.myTargetState.myAnimation == animation);
+						s.Value.myTransitions.RemoveAll(x => x.myTargetState.myAnimation() == animation);
 				}
 			}
 			myAnimations.Remove(animation.myName);
@@ -2949,7 +2953,7 @@ namespace HaremLife
 			{
 				this.state = target;
 				this.layer = target.myLayer;
-				this.animation = target.myAnimation;
+				this.animation = target.myAnimation();
 				this.incoming = incoming;
 				this.outgoing = outgoing;
 			}
