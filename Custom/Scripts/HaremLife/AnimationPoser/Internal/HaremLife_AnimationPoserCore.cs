@@ -1101,8 +1101,14 @@ namespace HaremLife
 						if(st != rootState) {
 							ControlCapture cc = st.myControlEntries.Keys.ToList().Find(ccx => ccx.myName == myControlCapture.myName);
 							ControlEntryAnchored ce = st.myControlEntries[cc];
-							ce.myAnchorOffset.myPosition = ce.myAnchorOffset.myPosition + (position - rootce.myAnchorOffset.myPosition);
-							ce.myAnchorOffset.myRotation = Quaternion.Inverse(Quaternion.Inverse(rotation) * rootce.myAnchorOffset.myRotation) * ce.myAnchorOffset.myRotation;
+
+							Quaternion transformRotation = rotation * Quaternion.Inverse(rootce.myAnchorOffset.myRotation);
+							Vector3 transformPosition = position - rootce.myAnchorOffset.myPosition;
+
+							ce.myAnchorOffset.myPosition = ce.myAnchorOffset.myPosition + transformPosition;
+							ce.myAnchorOffset.myPosition = rootce.myAnchorOffset.myPosition + transformRotation * (ce.myAnchorOffset.myPosition - rootce.myAnchorOffset.myPosition);
+
+							ce.myAnchorOffset.myRotation = transformRotation * ce.myAnchorOffset.myRotation;
 						}
 					}
 				}
