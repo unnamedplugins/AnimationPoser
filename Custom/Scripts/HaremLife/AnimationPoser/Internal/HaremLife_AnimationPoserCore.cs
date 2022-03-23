@@ -1089,8 +1089,8 @@ namespace HaremLife
 
 			public void Capture(Vector3 position, Quaternion rotation)
 			{
-				// myEntry.myPosition = position;
-				// myEntry.myRotation = rotation;
+				myEntry.myPosition = position;
+				myEntry.myRotation = rotation;
 
 				State rootState = myCurrentLayer.myStates.Values.ToList().Find(s => s.myIsRootState);
 				if(rootState != null && myState == rootState) {
