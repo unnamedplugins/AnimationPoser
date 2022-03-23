@@ -59,8 +59,6 @@ namespace HaremLife
 		private JSONStorableFloat myGlobalDefaultWaitDurationMin;
 		private JSONStorableFloat myGlobalDefaultWaitDurationMax;
 
-		private bool myIsAddingNewState = false;
-		private bool myIsAddingNewLayer = false;
 		private bool myIsFullRefresh = true;
 
 		private readonly List<string> myAnchorModes = new List<string>() {
@@ -582,13 +580,7 @@ namespace HaremLife
 			State state;
 			if (myStateAutoTransition.val && myCurrentLayer.myStates.TryGetValue(myMainState.val, out state))
 			{
-				if (myIsAddingNewState) {
-					myCurrentLayer.SetState(state);
-				}
-				else {
-					myCurrentLayer.myDuration = 0.1f;
-					myCurrentLayer.SetBlendTransition(state, true);
-				}
+				myCurrentLayer.SetBlendTransition(state, true);
 			}
 		}
 
@@ -2291,9 +2283,7 @@ namespace HaremLife
 
 			CreateState(name);
 			myMainState.choices = myCurrentLayer.myStates.Keys.ToList();
-			myIsAddingNewState = true;  // prevent state blend
 			myMainState.val = name;
-			myIsAddingNewState = false;
 			UIRefreshMenu();
 			return;
 		}
@@ -2325,11 +2315,9 @@ namespace HaremLife
 				ControlEntryAnchored ce = entry.Value.Clone();
 				duplicate.myControlEntries.Add(cc, ce);
 			}
-			CaptureState(duplicate);
+			myCurrentLayer.CaptureState(duplicate);
 			myCurrentLayer.myStates[name] = duplicate;
-			myIsAddingNewState = true; // prevent state blend
 			myMainState.val = name;
-			myIsAddingNewState = false;
 			UIRefreshMenu();
 		}
 		private void UIAddMessage()
@@ -2396,7 +2384,7 @@ namespace HaremLife
 			if (state == null)
 				return;
 
-			CaptureState(state);
+			myCurrentLayer.CaptureState(state);
 			UIRefreshMenu();
 		}
 

@@ -160,7 +160,7 @@ namespace HaremLife
 				myDefaultEaseInDuration = myGlobalDefaultEaseInDuration.val,
 				myDefaultEaseOutDuration = myGlobalDefaultEaseOutDuration.val
 			};
-			CaptureState(s);
+			myCurrentLayer.CaptureState(s);
 			if(myCurrentLayer.myCurrentState != null) {
 				setCaptureDefaults(s, myCurrentLayer.myCurrentState);
 			}
@@ -193,16 +193,6 @@ namespace HaremLife
 				layer.myStates.TryGetValue(states[0], out state);
 				layer.myCurrentState = state;
 				layer.SetBlendTransition(state);
-			}
-		}
-
-		private void CaptureState(State state)
-		{
-			for (int i=0; i<myCurrentLayer.myControlCaptures.Count; ++i){
-				myCurrentLayer.myControlCaptures[i].CaptureEntry(state);
-			}
-			for (int i=0; i<myCurrentLayer.myMorphCaptures.Count; ++i) {
-				myCurrentLayer.myMorphCaptures[i].CaptureEntry(state);
 			}
 		}
 
@@ -296,7 +286,7 @@ namespace HaremLife
 			public float myClock = 0.0f;
 			public float myDuration = 1.0f;
 			private List<TriggerActionDiscrete> myTriggerActionsNeedingUpdate = new List<TriggerActionDiscrete>();
-			private State myBlendState = State.CreateBlendState();
+			private State myBlendState;
 
 			public Layer(string name)
 			{
@@ -557,14 +547,16 @@ namespace HaremLife
 				// 	}
 				// }
 
+
 				if (myCurrentState == null)
 				{
+					myBlendState = State.CreateBlendState();
 					CaptureState(myBlendState);
 					myBlendState.AssignOutTriggers(myCurrentState);
-					SetTransition(new Transition(myBlendState, state, 0.1f*myCurrentAnimation.mySpeed));
+					SetTransition(new Transition(myBlendState, state, 0.1f));
 				} else {
-					Transition t = new Transition(myCurrentState, state, 0.1f*myAnimation.mySpeed);
-					SetTransition(new Transition(myCurrentState, state, 0.1f*myAnimation.mySpeed));
+					Transition t = new Transition(myCurrentState, state, 0.1f);
+					SetTransition(new Transition(myCurrentState, state, 0.1f));
 				}
 				myClock = myDuration;
 			}
@@ -1105,10 +1097,10 @@ namespace HaremLife
 							Quaternion transformRotation = rotation * Quaternion.Inverse(rootce.myAnchorOffset.myRotation);
 							Vector3 transformPosition = position - rootce.myAnchorOffset.myPosition;
 
-							ce.myAnchorOffset.myPosition = ce.myAnchorOffset.myPosition + transformPosition;
 							ce.myAnchorOffset.myPosition = rootce.myAnchorOffset.myPosition + transformRotation * (ce.myAnchorOffset.myPosition - rootce.myAnchorOffset.myPosition);
-
 							ce.myAnchorOffset.myRotation = transformRotation * ce.myAnchorOffset.myRotation;
+
+							ce.myAnchorOffset.myPosition = ce.myAnchorOffset.myPosition + transformPosition;
 						}
 					}
 				}
