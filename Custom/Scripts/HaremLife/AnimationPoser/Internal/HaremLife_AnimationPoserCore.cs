@@ -375,8 +375,7 @@ namespace HaremLife
 
 						if (myClock >= myDuration + myTransition.myDuration + myTransitionNoise)
 							ArriveAtState();
-					} else if (myClock < myDuration)
-						UpdateState();
+					}
 				} 
 				// if no transition (updates position relative to anchor)
 				if (myTransition == null)
@@ -408,29 +407,21 @@ namespace HaremLife
 				myTransition = null;
 			}
 
-			public void ArriveFromAnotherAnimation(Transition transition, State targetState) {
-				targetState.myLayer.SetBlendTransition(targetState);
-
-				myMainAnimation.valNoCallback = myCurrentAnimation.myName;
-			}
-
-			private void TransitionToAnotherAnimation(Transition transition)
-			{
-				State targetState = transition.myTargetState;
-				Animation animation = targetState.myAnimation();
-				Layer targetLayer = targetState.myLayer;
-				myCurrentAnimation = animation;
-				SetAnimation(animation);
-				targetLayer.ArriveFromAnotherAnimation(transition, targetState);
-				foreach(var sc in transition.mySyncTargets) {
-					Layer syncLayer = sc.Key;
-					State syncState = sc.Value;
-					syncLayer.ArriveFromAnotherAnimation(transition, syncState);
+			public void SetNextTransition() {
+				if(!myPaused) {
+					while(myStateChain.Count < MAX_STATES) {
+						myStateChain.Add(myCurrentState.sortNextState());
+					}
 				}
 
-				// myMainAnimation.valNoCallback = myCurrentAnimation.myName;
-				// myMainLayer.valNoCallback = myCurrentLayer.myName;
-				// myMainState.valNoCallback = myCurrentState.myName;
+				if(myStateChain.Count > 0) {
+					State targetState = myStateChain[0];
+
+					myStateChain.Remove(targetState);
+					SetTransition(myCurrentState.getIncomingTransition(targetState));
+				} else {
+					myTransition = null;
+				}
 			}
 
 			public void SetTransition(Transition transition)
@@ -457,36 +448,6 @@ namespace HaremLife
 					transition.myTargetState.EnterBeginTrigger.Trigger(myTriggerActionsNeedingUpdate);
 			}
 
-			public void SetNextTransition() {
-				if(myStateChain.Count > 0) {
-					State targetState = myStateChain[0];
-
-					myStateChain.Remove(targetState);
-					SetTransition(myCurrentState.getIncomingTransition(targetState));
-				} else {
-					SetRandomTransition();
-				}
-			}
-
-			public void SetRandomTransition()
-			{
-				while(myStateChain.Count < MAX_STATES) {
-					myStateChain.Add(myCurrentState.sortNextState());
-				}
-
-				State targetState = myStateChain[0];
-				myStateChain.Remove(targetState);
-
-				if (targetState == null)
-				{
-					myTransition = null;
-				}
-				else
-				{
-					SetTransition(myCurrentState.getIncomingTransition(targetState));
-				}
-			}
-
 			public void SetBlendTransition(State state, bool debug = false)
 			{
 				if (myCurrentState == null)
@@ -506,6 +467,30 @@ namespace HaremLife
 					}
 				}
 				myClock = myDuration;
+			}
+
+			public void ArriveFromAnotherAnimation(Transition transition, State targetState) {
+				targetState.myLayer.SetBlendTransition(targetState);
+
+				myMainAnimation.valNoCallback = myCurrentAnimation.myName;
+			}
+
+			private void TransitionToAnotherAnimation(Transition transition)
+			{
+				State targetState = transition.myTargetState;
+				Animation animation = targetState.myAnimation();
+				Layer targetLayer = targetState.myLayer;
+				SetAnimation(animation);
+				targetLayer.ArriveFromAnotherAnimation(transition, targetState);
+				foreach(var sc in transition.mySyncTargets) {
+					Layer syncLayer = sc.Key;
+					State syncState = sc.Value;
+					syncLayer.ArriveFromAnotherAnimation(transition, syncState);
+				}
+
+				// myMainAnimation.valNoCallback = myCurrentAnimation.myName;
+				// myMainLayer.valNoCallback = myCurrentLayer.myName;
+				// myMainState.valNoCallback = myCurrentState.myName;
 			}
 		}
 		private class Role

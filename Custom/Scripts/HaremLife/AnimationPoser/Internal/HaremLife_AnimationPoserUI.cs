@@ -1343,7 +1343,7 @@ namespace HaremLife
 				};
 				CreateMenuSlider(transitionProbability, true);
 
-				JSONStorableFloat transitionDuration = new JSONStorableFloat("Transition Duration", transition.myDuration, 0.01f, 5.0f, true, true);
+				JSONStorableFloat transitionDuration = new JSONStorableFloat("Transition Duration", transition.myDuration, 0.01f, 20.0f, true, true);
 				transitionDuration.valNoCallback = transition.myDuration;
 				transitionDuration.setCallbackFunction = (float v) => {
 					Transition t = UIGetTransition();
