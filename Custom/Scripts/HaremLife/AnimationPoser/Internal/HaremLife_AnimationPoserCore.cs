@@ -117,7 +117,7 @@ namespace HaremLife
 						State currentState = layer.myCurrentState;
 						if(message.mySourceStates.Values.ToList().Contains(currentState)) {
 							Transition transition = new Transition(currentState, message);
-							layer.SetTransition(transition);
+							layer.SetBlendTransition(message.myTargetState);
 						}
 					}
 				}
@@ -287,12 +287,14 @@ namespace HaremLife
 			public float myDuration = 1.0f;
 			private List<TriggerActionDiscrete> myTriggerActionsNeedingUpdate = new List<TriggerActionDiscrete>();
 			private State myBlendState;
+			private List<State> myStateChain = new List<State>();
 
 			public Layer(string name)
 			{
 				myName = name;
 				myAnimation = myCurrentAnimation;
 			}
+
 			public void CaptureState(State state)
 			{
 				for (int i=0; i<myControlCaptures.Count; ++i)
@@ -481,73 +483,39 @@ namespace HaremLife
 					transition.myTargetState.EnterBeginTrigger.Trigger(myTriggerActionsNeedingUpdate);
 			}
 
+			public void SetNextTransition() {
+				if(myStateChain.Count > 0) {
+					State targetState = myStateChain[0];
+
+					myStateChain.Remove(targetState);
+					SetTransition(myCurrentState.getIncomingTransition(targetState));
+				} else {
+					SetRandomTransition();
+				}
+			}
+
 			public void SetRandomTransition()
 			{
-				List<State> states = myCurrentState.getReachableStates();
+				while(myStateChain.Count < MAX_STATES) {
+					myStateChain.Add(myCurrentState.sortNextState());
+				}
 
-				int i;
-				float sum = 0.0f;
-				// for (i=0; i<states.Count; ++i)
-				// 	sum += states[i].myDefaultProbability;
-				for (i=0; i<myCurrentState.myTransitions.Count; ++i)
-					sum += myCurrentState.myTransitions[i].myProbability;
-				if (sum == 0.0f)
+				State targetState = myStateChain[0];
+				myStateChain.Remove(targetState);
+
+				if (targetState == null)
 				{
 					myTransition = null;
 					myNoValidTransition = true;
 				}
 				else
 				{
-					float threshold = UnityEngine.Random.Range(0.0f, sum);
-					sum = 0.0f;
-					for (i=0; i<myCurrentState.myTransitions.Count-1; ++i)
-					{
-						sum += myCurrentState.myTransitions[i].myProbability;
-						if (threshold <= sum)
-							break;
-					}
-					SetTransition(myCurrentState.getIncomingTransition(states[i]));
+					SetTransition(myCurrentState.getIncomingTransition(targetState));
 				}
 			}
 
 			public void SetBlendTransition(State state, bool debug = false)
 			{
-				// SuperController.LogError("Set blend transition");
-				// SuperController.LogError(myCurrentState.myName);
-				// SuperController.LogError(state.myName);
-				// if (myCurrentState != null)
-				// {
-				// 	List<State> states = new List<State>(16);
-				// 	for (int i=0; i< myCurrentState.myTransitions.Count; i++) {
-				// 		states.Add(myCurrentState.myTransitions[i]);
-				// 	}
-				// 	List<int> indices = new List<int>(4);
-				// 	for (int i=0; i<states.Count; ++i)
-				// 	{
-				// 		if (states[i] == state)
-				// 			indices.Add(i);
-				// 	}
-				// 	if (indices.Count == 0)
-				// 	{
-				// 		states.Clear();
-				// 		for (int i=0; i< myCurrentState.myTransitions.Count; i++) {
-				// 			states.Add(myCurrentState.myTransitions[i]);
-				// 		}
-
-				// 		for (int i=0; i<states.Count; ++i)
-				// 		{
-				// 			if (states[i] == state)
-				// 				indices.Add(i);
-				// 		}
-				// 	}
-				// 	if (indices.Count > 0)
-				// 	{
-				// 		int selected = UnityEngine.Random.Range(0, indices.Count);
-				// 		myTransition.myTargetState = states[indices[selected]];
-				// 	}
-				// }
-
-
 				if (myCurrentState == null)
 				{
 					myBlendState = State.CreateBlendState();
@@ -555,8 +523,14 @@ namespace HaremLife
 					myBlendState.AssignOutTriggers(myCurrentState);
 					SetTransition(new Transition(myBlendState, state, 0.1f));
 				} else {
-					Transition t = new Transition(myCurrentState, state, 0.1f);
-					SetTransition(new Transition(myCurrentState, state, 0.1f));
+					List<State> path = myCurrentState.findPath(state);
+					if(path != null) {
+						myStateChain = path;
+						SetNextTransition();
+					} else {
+						Transition t = new Transition(myCurrentState, state, 0.1f);
+						SetTransition(new Transition(myCurrentState, state, 0.1f));
+					}
 				}
 				myClock = myDuration;
 			}
@@ -629,6 +603,23 @@ namespace HaremLife
 				mySourceState = sourceState;
 				BuildFromBaseTransition(message);
 			}
+
+			public void SendMessages() {
+				foreach(var m in myMessages) {
+					Role role = m.Key;
+					String message = m.Value;
+					Atom person = role.myPerson;
+					if (person == null) continue;
+					var storableId = person.GetStorableIDs().FirstOrDefault(id => id.EndsWith("HaremLife.AnimationPoser"));
+					if (storableId == null) continue;
+					MVRScript storable = person.GetStorableByID(storableId) as MVRScript;
+					if (storable == null) continue;
+					// if (ReferenceEquals(storable, _plugin)) continue;
+					if (!storable.enabled) continue;
+					storable.SendMessage(nameof(AnimationPoser.ReceiveMessage), message);
+				}
+			}
+
 		}
 
 		private class Message : BaseTransition
@@ -709,6 +700,70 @@ namespace HaremLife
 			public bool isReachable(State state) {
 				List<State> states = this.getReachableStates();
 				return states.Contains(state);
+			}
+
+			public List<State> findPath(State target) {
+				Dictionary<State, List<State>> paths = new Dictionary<State, List<State>>();
+
+				paths[this] = new List<State>();
+				paths[this].Add(this);
+
+				while(true) {
+					bool changed = false;
+
+					List<State> keys = paths.Keys.ToList();
+					for(int i=0; i<keys.Count(); i++) {
+						State thisState = keys[i];
+
+						List<State> reachable = thisState.getReachableStates();
+						for(int j=0; j<reachable.Count(); j++) {
+							State state = reachable[j];
+
+							if(!paths.ContainsKey(state)) {
+								paths[state] = new List<State>(paths[thisState]);
+								paths[state].Add(state);
+								changed = true;
+							}
+						}
+					}
+					if(!changed) {
+						break;
+					}
+				}
+
+				if(paths.ContainsKey(target)) {
+					List<State> path = paths[target];
+					path.Remove(this);
+					return path;
+				} else {
+					return null;
+				}
+			}
+
+			public State sortNextState() {
+				List<State> states = getReachableStates();
+
+				float sum = 0.0f;
+				for (int i=0; i<myTransitions.Count; ++i)
+					sum += myTransitions[i].myProbability;
+				if (sum == 0.0f)
+				{
+					return null;
+				}
+				else
+				{
+					float threshold = UnityEngine.Random.Range(0.0f, sum);
+					sum = 0.0f;
+					int i;
+					for (i=0; i<myTransitions.Count-1; ++i)
+					{
+						sum += myTransitions[i].myProbability;
+						if (threshold <= sum)
+							break;
+					}
+					return states[i];
+				}
+
 			}
 
 			public Transition getIncomingTransition(State state) {

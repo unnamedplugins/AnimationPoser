@@ -1796,21 +1796,21 @@ namespace HaremLife
 				);
 			}
 			if(availableAnimations.Count > 0) {
-				CreateMenuPopup(myTargetAnimationList, false);
+				CreateMenuPopup(myTargetAnimationList, true);
 			}
 			if(availableLayers.Count > 0) {
-				CreateMenuPopup(myTargetLayerList, false);
+				CreateMenuPopup(myTargetLayerList, true);
 			}
 			if (availableTargetStates.Count > 0)
 			{
 				if(selectedMessage.myTargetState == null) {
-					CreateMenuPopup(myTargetStateList, false);
+					CreateMenuPopup(myTargetStateList, true);
 					if(myTargetStateList.val != "") {
 						CreateMenuButton("Add Target State", () => {
 							State targetState = myCurrentLayer.myStates[myTargetStateList.val];
 							selectedMessage.myTargetState = targetState;
 							UIRefreshMenu();
-						}, false);
+						}, true);
 					}
 				}
 				else {
@@ -1819,128 +1819,14 @@ namespace HaremLife
 						() => {
 							selectedMessage.myTargetState = null;
 							UIRefreshMenu();
-						}, false
+						}, true
 					);
 				}
 			}
 			else
 			{
-				CreateMenuInfo("You need to add a second state before you can add transitions.", 100, false);
+				CreateMenuInfo("You need to add a second state before you can add messages.", 100, false);
 				return;
-			}
-
-
-			CreateMenuInfoOneLine("<size=30><b>Transition Settings</b></size>", true);
-
-			JSONStorableFloat transitionDuration = new JSONStorableFloat("Transition Duration", selectedMessage.myDuration, 0.01f, 5.0f, true, true);
-			transitionDuration.valNoCallback = selectedMessage.myDuration;
-			transitionDuration.setCallbackFunction = (float v) => {
-				selectedMessage.myDuration = v;
-			};
-			CreateMenuSlider(transitionDuration, true);
-
-			JSONStorableFloat transitionDurationNoise = new JSONStorableFloat("Transition Duration Noise", selectedMessage.myDurationNoise, 0.00f, 5.0f, true, true);
-			transitionDurationNoise.setCallbackFunction = (float v) => {
-				Transition t = UIGetTransition();
-				if (t != null)
-					t.myDurationNoise = v;
-			};
-			CreateMenuSlider(transitionDurationNoise, true);
-
-			JSONStorableFloat easeInDuration = new JSONStorableFloat("EaseIn Duration", selectedMessage.myEaseInDuration, 0.0f, 5.0f, true, true);
-			easeInDuration.valNoCallback = selectedMessage.myEaseInDuration;
-			easeInDuration.setCallbackFunction = (float v) => {
-				selectedMessage.myEaseInDuration = v;
-			};
-			CreateMenuSlider(easeInDuration, true);
-
-			JSONStorableFloat easeOutDuration = new JSONStorableFloat("EaseOut Duration", selectedMessage.myEaseOutDuration, 0.0f, 5.0f, true, true);
-			easeOutDuration.valNoCallback = selectedMessage.myEaseOutDuration;
-			easeOutDuration.setCallbackFunction = (float v) => {
-				selectedMessage.myEaseOutDuration = v;
-			};
-			CreateMenuSlider(easeOutDuration, true);
-
-			CreateMenuInfo("Use the following to sync other layers on target state arrival.", 80, true);
-
-			List<string> syncLayers = new List<string>();
-			foreach (var l in selectedMessage.myTargetState.myAnimation().myLayers)
-			{
-				Layer target = l.Value;
-				if(target != selectedMessage.myTargetState.myLayer)
-					syncLayers.Add(target.myName);
-			}
-			syncLayers.Sort();
-
-			if (syncLayers.Count == 0) {
-				return;
-			}
-
-			string selectedSyncLayer;
-			if (mySyncLayerList == null || !syncLayers.Contains(mySyncLayerList.val))
-				selectedSyncLayer = syncLayers[0];
-			else
-				selectedSyncLayer = mySyncLayerList.val;
-
-			mySyncLayerList = new JSONStorableStringChooser("Sync Layer", syncLayers, selectedSyncLayer, "Sync Layer");
-			mySyncLayerList.setCallbackFunction += (string v) => UIRefreshMenu();
-
-			CreateMenuPopup(mySyncLayerList, true);
-
-			Layer syncLayer;
-			if(!selectedMessage.myTargetState.myAnimation().myLayers.TryGetValue(mySyncLayerList.val, out syncLayer)){
-				return;
-			};
-
-			if(selectedMessage.mySyncTargets.ContainsKey(syncLayer)) {
-				CreateMenuLabelXButton(selectedMessage.mySyncTargets[syncLayer].myName, () => {
-					Layer l;
-					if(!selectedMessage.myTargetState.myAnimation().myLayers.TryGetValue(mySyncLayerList.val, out l)){
-						return;
-					};
-
-					selectedMessage.mySyncTargets.Remove(l);
-
-					UIRefreshMenu();
-				}, true);
-			} else {
-				List<string> syncStates = new List<string>();
-				foreach (var s in syncLayer.myStates)
-				{
-					State target = s.Value;
-					syncStates.Add(target.myName);
-				}
-				syncStates.Sort();
-
-				if (syncStates.Count == 0) {
-					return;
-				}
-
-				string selectedSyncState;
-				if (mySyncStateList == null || !syncStates.Contains(mySyncStateList.val))
-					selectedSyncState = syncStates[0];
-				else
-					selectedSyncState = mySyncStateList.val;
-
-				mySyncStateList = new JSONStorableStringChooser("Sync State", syncStates, selectedSyncState, "Sync State");
-				mySyncStateList.setCallbackFunction += (string v) => UIRefreshMenu();
-
-				CreateMenuPopup(mySyncStateList, true);
-				CreateMenuButton("Sync State", () => {
-					Layer l;
-					if(!selectedMessage.myTargetState.myAnimation().myLayers.TryGetValue(mySyncLayerList.val, out l)){
-						return;
-					};
-
-					State s;
-					if(!syncLayer.myStates.TryGetValue(mySyncStateList.val, out s)){
-						return;
-					};
-
-					selectedMessage.mySyncTargets[l] = s;
-
-					UIRefreshMenu();
-				}, true);
 			}
 		}
 
