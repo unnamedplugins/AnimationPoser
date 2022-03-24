@@ -407,6 +407,31 @@ namespace HaremLife
 				myTransition = null;
 			}
 
+			public void SetBlendTransition(State state, bool debug = false)
+			{
+				if (myCurrentState == null)
+				{
+					myBlendState = State.CreateBlendState();
+					CaptureState(myBlendState);
+					myBlendState.AssignOutTriggers(myCurrentState);
+
+					myStateChain.Clear();
+					myStateChain.Add(myBlendState);
+					myStateChain.Add(state);
+				} else {
+					List<State> path = myCurrentState.findPath(state);
+					if(path != null) {
+						myStateChain = path;
+					} else {
+						myStateChain.Clear();
+						myStateChain.Add(myCurrentState);
+						myStateChain.Add(state);
+					}
+				}
+				SetNextTransition();
+				myClock = myDuration;
+			}
+
 			public void SetNextTransition() {
 				if(!myPaused) {
 					while(myStateChain.Count < MAX_STATES) {
@@ -446,27 +471,6 @@ namespace HaremLife
 					transition.mySourceState.ExitBeginTrigger.Trigger(myTriggerActionsNeedingUpdate);
 				if (transition.myTargetState.EnterBeginTrigger != null)
 					transition.myTargetState.EnterBeginTrigger.Trigger(myTriggerActionsNeedingUpdate);
-			}
-
-			public void SetBlendTransition(State state, bool debug = false)
-			{
-				if (myCurrentState == null)
-				{
-					myBlendState = State.CreateBlendState();
-					CaptureState(myBlendState);
-					myBlendState.AssignOutTriggers(myCurrentState);
-					SetTransition(new Transition(myBlendState, state, 0.1f));
-				} else {
-					List<State> path = myCurrentState.findPath(state);
-					if(path != null) {
-						myStateChain = path;
-						SetNextTransition();
-					} else {
-						Transition t = new Transition(myCurrentState, state, 0.1f);
-						SetTransition(new Transition(myCurrentState, state, 0.1f));
-					}
-				}
-				myClock = myDuration;
 			}
 
 			public void ArriveFromAnotherAnimation(Transition transition, State targetState) {
