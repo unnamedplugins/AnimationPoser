@@ -277,7 +277,6 @@ namespace HaremLife
 			public Animation myAnimation;
 			public Dictionary<string, State> myStates = new Dictionary<string, State>();
 			public Dictionary<string, Message> myMessages = new Dictionary<string, Message>();
-			public bool myNoValidTransition = false;
 			public State myCurrentState;
 			public List<ControlCapture> myControlCaptures = new List<ControlCapture>();
 			public List<MorphCapture> myMorphCaptures = new List<MorphCapture>();
@@ -305,13 +304,15 @@ namespace HaremLife
 
 			public void SetState(State state)
 			{
-				// SuperController.LogError("Set State");
-				// SuperController.LogError(state.myName);
-				myNoValidTransition = false;
 				myCurrentState = state;
 
 				myClock = 0.0f;
 				myDuration = UnityEngine.Random.Range(state.myWaitDurationMin, state.myWaitDurationMax);
+
+				if (myMainLayer.val == myName) {
+					myMainState.valNoCallback = myCurrentState.myName;
+					myMainAnimation.valNoCallback = myCurrentState.myAnimation().myName;
+				}
 			}
 
 			public void Clear()
@@ -360,70 +361,51 @@ namespace HaremLife
 				}
 				myTriggerActionsNeedingUpdate.RemoveAll(a => !a.timerActive);
 
-				bool paused = myPaused && myTransition == null;
-				// if there is a transition selected or animation is unpaused
-				if (!paused)
+				bool paused = myPaused && myTransition == null && myStateChain.Count == 0;
+
+				if(!paused) {
 					myClock = Mathf.Min(myClock + Time.deltaTime*myCurrentAnimation.mySpeed, 100000.0f);
 
-				float t;
-				// if not paused
-				if(!paused) {
 					// if a transition is possible but not yet chosen and the state duration is up
-					if(myClock >= myDuration && myTransition == null && !myNoValidTransition) {
-						SetRandomTransition();
-					// if transition is selected
+					if(myClock >= myDuration && myTransition == null) {
+						SetNextTransition();
 					} else if (myTransition != null) {
-						t = Smooth(myTransition.myEaseOutDuration, myTransition.myEaseInDuration, myTransition.myDuration, myClock-myDuration);
-
-						for (int i=0; i<myControlCaptures.Count; ++i)
-							myControlCaptures[i].UpdateTransition(t);
-						for (int i=0; i<myMorphCaptures.Count; ++i)
-							myMorphCaptures[i].UpdateTransition(t);
+						float t = Smooth(myTransition.myEaseOutDuration, myTransition.myEaseInDuration, myTransition.myDuration, myClock-myDuration);
+						UpdateCurve(t);
 
 						if (myClock >= myDuration + myTransition.myDuration + myTransitionNoise)
-						{
-							if (myTransition.myTargetState != null)
-							{
-								State previousState = myCurrentState;
-								SetState(myTransition.myTargetState);
-								if (myMainLayer.val == myName)
-									myMainState.valNoCallback = myCurrentState.myName;
-									myMainAnimation.valNoCallback = myCurrentState.myAnimation().myName;
+							ArriveAtState();
+					} else if (myClock < myDuration)
+						UpdateState();
+				} 
+				// if no transition (updates position relative to anchor)
+				if (myTransition == null)
+					UpdateState();
+			}
 
-								if (previousState.ExitEndTrigger != null)
-									previousState.ExitEndTrigger.Trigger(myTriggerActionsNeedingUpdate);
-								if (myCurrentState.EnterEndTrigger != null)
-									myCurrentState.EnterEndTrigger.Trigger(myTriggerActionsNeedingUpdate);
-								foreach(var m in myTransition.myMessages) {
-									Role role = m.Key;
-									String message = m.Value;
-									Atom person = role.myPerson;
-									if (person == null) continue;
-									var storableId = person.GetStorableIDs().FirstOrDefault(id => id.EndsWith("HaremLife.AnimationPoser"));
-									if (storableId == null) continue;
-									MVRScript storable = person.GetStorableByID(storableId) as MVRScript;
-									if (storable == null) continue;
-									// if (ReferenceEquals(storable, _plugin)) continue;
-									if (!storable.enabled) continue;
-									storable.SendMessage(nameof(AnimationPoser.ReceiveMessage), message);
-								}
-							}
-							myTransition = null;
-						}
-					// if clock is less than duration
-					} else if (myClock < myDuration) {
-						for (int i=0; i<myControlCaptures.Count; ++i)
-							myControlCaptures[i].UpdateState(myCurrentState);
-					// if not paused but no transition possible (updates position relative to anchor)
-					} else if (myNoValidTransition) {
-						for (int i=0; i<myControlCaptures.Count; ++i)
-							myControlCaptures[i].UpdateState(myCurrentState);
-					}
-				// if paused and no transition (updates position relative to anchor)
-				} else if (myNoValidTransition) {
-					for (int i=0; i<myControlCaptures.Count; ++i)
-						myControlCaptures[i].UpdateState(myCurrentState);
-				}
+			public void UpdateCurve(float t) {
+				for (int i=0; i<myControlCaptures.Count; ++i)
+					myControlCaptures[i].UpdateCurve(t);
+				for (int i=0; i<myMorphCaptures.Count; ++i)
+					myMorphCaptures[i].UpdateCurve(t);
+			}
+
+			public void UpdateState() {
+				for (int i=0; i<myControlCaptures.Count; ++i)
+					myControlCaptures[i].UpdateState(myCurrentState);
+			}
+
+			public void ArriveAtState() {
+				State previousState = myCurrentState;
+				SetState(myTransition.myTargetState);
+
+				if (previousState.ExitEndTrigger != null)
+					previousState.ExitEndTrigger.Trigger(myTriggerActionsNeedingUpdate);
+				if (myCurrentState.EnterEndTrigger != null)
+					myCurrentState.EnterEndTrigger.Trigger(myTriggerActionsNeedingUpdate);
+
+				myTransition.SendMessages();
+				myTransition = null;
 			}
 
 			public void ArriveFromAnotherAnimation(Transition transition, State targetState) {
@@ -453,14 +435,6 @@ namespace HaremLife
 
 			public void SetTransition(Transition transition)
 			{
-				// SuperController.LogError("Set transition");
-				// SuperController.LogError(myTransition.myDuration.ToString());
-				// SuperController.LogError(myTransition.mySourceState.myName);
-				// SuperController.LogError(myTransition.myTargetState.myAnimation.myName);
-				// SuperController.LogError(myTransition.myTargetState.myName);
-
-				myNoValidTransition = false;
-
 				myClock = 0.0f;
 
 				if(transition.myTargetState.myAnimation() != transition.mySourceState.myAnimation()) {
@@ -506,7 +480,6 @@ namespace HaremLife
 				if (targetState == null)
 				{
 					myTransition = null;
-					myNoValidTransition = true;
 				}
 				else
 				{
@@ -799,7 +772,7 @@ namespace HaremLife
 			public string myName;
 			private AnimationPoser myPlugin;
 			private Transform myTransform;
-			private ControlEntryAnchored[] myTransition = new ControlEntryAnchored[MAX_STATES];
+			private ControlEntryAnchored[] myCurve = new ControlEntryAnchored[MAX_STATES];
 			private int myEntryCount = 0;
 			public bool myApplyPosition = true;
 			public bool myApplyRotation = true;
@@ -844,23 +817,23 @@ namespace HaremLife
 			public void SetTransition(Transition transition)
 			{
 				myEntryCount = 2;
-				if (!transition.mySourceState.myControlEntries.TryGetValue(this, out myTransition[0]))
+				if (!transition.mySourceState.myControlEntries.TryGetValue(this, out myCurve[0]))
 				{
 					CaptureEntry(transition.mySourceState);
-					myTransition[0] = transition.mySourceState.myControlEntries[this];
+					myCurve[0] = transition.mySourceState.myControlEntries[this];
 				}
 
-				if (!transition.myTargetState.myControlEntries.TryGetValue(this, out myTransition[1]))
+				if (!transition.myTargetState.myControlEntries.TryGetValue(this, out myCurve[1]))
 				{
 					CaptureEntry(transition.myTargetState);
-					myTransition[1] = transition.myTargetState.myControlEntries[this];
+					myCurve[1] = transition.myTargetState.myControlEntries[this];
 				}
 			}
 
-			public void UpdateTransition(float t)
+			public void UpdateCurve(float t)
 			{
 				for (int i=0; i<myEntryCount; ++i)
-					myTransition[i].Update();
+					myCurve[i].Update();
 
 				//t = ArcLengthParametrization(t);
 
@@ -871,7 +844,7 @@ namespace HaremLife
 						case 4:	myTransform.position = EvalBezierCubicPosition(t);          break;
 						case 3: myTransform.position = EvalBezierQuadraticPosition(t);      break;
 						case 2: myTransform.position = EvalBezierLinearPosition(t);         break;
-						default: myTransform.position = myTransition[0].myEntry.myPosition; break;
+						default: myTransform.position = myCurve[0].myEntry.myPosition; break;
 					}
 				}
 				if (myApplyRotation)
@@ -881,7 +854,7 @@ namespace HaremLife
 						case 4: myTransform.rotation = EvalBezierCubicRotation(t);          break;
 						case 3: myTransform.rotation = EvalBezierQuadraticRotation(t);      break;
 						case 2: myTransform.rotation = EvalBezierLinearRotation(t);         break;
-						default: myTransform.rotation = myTransition[0].myEntry.myRotation; break;
+						default: myTransform.rotation = myCurve[0].myEntry.myRotation; break;
 					}
 				}
 			}
@@ -895,7 +868,7 @@ namespace HaremLife
 				int numSamples = DISTANCE_SAMPLES[myEntryCount];
 				float numLines = (float)(numSamples+1);
 				float distance = 0.0f;
-				Vector3 previous = myTransition[0].myEntry.myPosition;
+				Vector3 previous = myCurve[0].myEntry.myPosition;
 				ourTempDistances[0] = 0.0f;
 
 				if (myEntryCount == 3)
@@ -919,7 +892,7 @@ namespace HaremLife
 					}
 				}
 
-				distance += Vector3.Distance(previous, myTransition[myEntryCount-1].myEntry.myPosition);
+				distance += Vector3.Distance(previous, myCurve[myEntryCount-1].myEntry.myPosition);
 				ourTempDistances[numSamples+1] = distance;
 
 				t *= distance;
@@ -945,16 +918,16 @@ namespace HaremLife
 
 			private Vector3 EvalBezierLinearPosition(float t)
 			{
-				return Vector3.LerpUnclamped(myTransition[0].myEntry.myPosition, myTransition[1].myEntry.myPosition, t);
+				return Vector3.LerpUnclamped(myCurve[0].myEntry.myPosition, myCurve[1].myEntry.myPosition, t);
 			}
 
 			private Vector3 EvalBezierQuadraticPosition(float t)
 			{
 				// evaluating quadratic Bézier curve using Bernstein polynomials
 				float s = 1.0f - t;
-				return      (s*s) * myTransition[0].myEntry.myPosition
-					 + (2.0f*s*t) * myTransition[1].myEntry.myPosition
-					 +      (t*t) * myTransition[2].myEntry.myPosition;
+				return      (s*s) * myCurve[0].myEntry.myPosition
+					 + (2.0f*s*t) * myCurve[1].myEntry.myPosition
+					 +      (t*t) * myCurve[2].myEntry.myPosition;
 			}
 
 			private Vector3 EvalBezierCubicPosition(float t)
@@ -963,22 +936,22 @@ namespace HaremLife
 				float s = 1.0f - t;
 				float t2 = t*t;
 				float s2 = s*s;
-				return      (s*s2) * myTransition[0].myEntry.myPosition
-					 + (3.0f*s2*t) * myTransition[1].myEntry.myPosition
-					 + (3.0f*s*t2) * myTransition[2].myEntry.myPosition
-					 +      (t*t2) * myTransition[3].myEntry.myPosition;
+				return      (s*s2) * myCurve[0].myEntry.myPosition
+					 + (3.0f*s2*t) * myCurve[1].myEntry.myPosition
+					 + (3.0f*s*t2) * myCurve[2].myEntry.myPosition
+					 +      (t*t2) * myCurve[3].myEntry.myPosition;
 			}
 
 			private Quaternion EvalBezierLinearRotation(float t)
 			{
-				return Quaternion.SlerpUnclamped(myTransition[0].myEntry.myRotation, myTransition[1].myEntry.myRotation, t);
+				return Quaternion.SlerpUnclamped(myCurve[0].myEntry.myRotation, myCurve[1].myEntry.myRotation, t);
 			}
 
 			private Quaternion EvalBezierQuadraticRotation(float t)
 			{
 				// evaluating quadratic Bézier curve using de Casteljau's algorithm
-				ourTempQuaternions[0] = Quaternion.SlerpUnclamped(myTransition[0].myEntry.myRotation, myTransition[1].myEntry.myRotation, t);
-				ourTempQuaternions[1] = Quaternion.SlerpUnclamped(myTransition[1].myEntry.myRotation, myTransition[2].myEntry.myRotation, t);
+				ourTempQuaternions[0] = Quaternion.SlerpUnclamped(myCurve[0].myEntry.myRotation, myCurve[1].myEntry.myRotation, t);
+				ourTempQuaternions[1] = Quaternion.SlerpUnclamped(myCurve[1].myEntry.myRotation, myCurve[2].myEntry.myRotation, t);
 				return Quaternion.SlerpUnclamped(ourTempQuaternions[0], ourTempQuaternions[1], t);
 			}
 
@@ -986,7 +959,7 @@ namespace HaremLife
 			{
 				// evaluating cubic Bézier curve using de Casteljau's algorithm
 				for (int i=0; i<3; ++i)
-					ourTempQuaternions[i] = Quaternion.SlerpUnclamped(myTransition[i].myEntry.myRotation, myTransition[i+1].myEntry.myRotation, t);
+					ourTempQuaternions[i] = Quaternion.SlerpUnclamped(myCurve[i].myEntry.myRotation, myCurve[i+1].myEntry.myRotation, t);
 				for (int i=0; i<2; ++i)
 					ourTempQuaternions[i] = Quaternion.SlerpUnclamped(ourTempQuaternions[i], ourTempQuaternions[i+1], t);
 				return Quaternion.SlerpUnclamped(ourTempQuaternions[0], ourTempQuaternions[1], t);
@@ -1194,7 +1167,7 @@ namespace HaremLife
 			public string mySID;
 			public DAZMorph myMorph;
 			public DAZCharacterSelector.Gender myGender;
-			private float[] myTransition = new float[MAX_STATES];
+			private float[] myCurve = new float[MAX_STATES];
 			private int myEntryCount = 0;
 			public bool myApply = true;
 
@@ -1252,31 +1225,31 @@ namespace HaremLife
 				bool identical = true;
 				float morphValue = myMorph.morphValue;
 
-				if (!transition.mySourceState.myMorphEntries.TryGetValue(this, out myTransition[0]))
+				if (!transition.mySourceState.myMorphEntries.TryGetValue(this, out myCurve[0]))
 				{
 					CaptureEntry(transition.mySourceState);
-					myTransition[0] = morphValue;
+					myCurve[0] = morphValue;
 				}
 				else
 				{
-					identical &= (myTransition[0] == morphValue);
+					identical &= (myCurve[0] == morphValue);
 				}
 
-				if (!transition.myTargetState.myMorphEntries.TryGetValue(this, out myTransition[1]))
+				if (!transition.myTargetState.myMorphEntries.TryGetValue(this, out myCurve[1]))
 				{
 					CaptureEntry(transition.myTargetState);
-					myTransition[1] = morphValue;
+					myCurve[1] = morphValue;
 				}
 				else
 				{
-					identical &= (myTransition[1] == morphValue);
+					identical &= (myCurve[1] == morphValue);
 				}
 
 				if (identical)
 					myEntryCount = 0; // nothing to do, save some performance
 			}
 
-			public void UpdateTransition(float t)
+			public void UpdateCurve(float t)
 			{
 				if (!myApply){
 					return;
@@ -1294,23 +1267,23 @@ namespace HaremLife
 						myMorph.morphValue = EvalBezierLinear(t);
 						break;
 					default:
-						myMorph.morphValue = myTransition[0];
+						myMorph.morphValue = myCurve[0];
 						break;
 				}
 			}
 
 			private float EvalBezierLinear(float t)
 			{
-				return Mathf.LerpUnclamped(myTransition[0], myTransition[1], t);
+				return Mathf.LerpUnclamped(myCurve[0], myCurve[1], t);
 			}
 
 			private float EvalBezierQuadratic(float t)
 			{
 				// evaluating using Bernstein polynomials
 				float s = 1.0f - t;
-				return      (s*s) * myTransition[0]
-					 + (2.0f*s*t) * myTransition[1]
-					 +      (t*t) * myTransition[2];
+				return      (s*s) * myCurve[0]
+					 + (2.0f*s*t) * myCurve[1]
+					 +      (t*t) * myCurve[2];
 			}
 
 			private float EvalBezierCubic(float t)
@@ -1319,10 +1292,10 @@ namespace HaremLife
 				float s = 1.0f - t;
 				float t2 = t*t;
 				float s2 = s*s;
-				return      (s*s2) * myTransition[0]
-					 + (3.0f*s2*t) * myTransition[1]
-					 + (3.0f*s*t2) * myTransition[2]
-					 +      (t*t2) * myTransition[3];
+				return      (s*s2) * myCurve[0]
+					 + (3.0f*s2*t) * myCurve[1]
+					 + (3.0f*s*t2) * myCurve[2]
+					 +      (t*t2) * myCurve[3];
 			}
 
 			public bool IsValid()

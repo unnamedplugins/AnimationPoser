@@ -514,7 +514,6 @@ namespace HaremLife
 				if (layer.myStates.TryGetValue(jc["InitialState"].Value, out initial))
 				{
 					layer.SetState(initial);
-					myMainState.valNoCallback = initial.myName;
 				}
 			}
 			return layer;
