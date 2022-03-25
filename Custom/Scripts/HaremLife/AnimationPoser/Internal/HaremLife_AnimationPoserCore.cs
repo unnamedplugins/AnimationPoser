@@ -434,10 +434,11 @@ namespace HaremLife
 
 			public void SetNextTransition() {
 				if(!myPaused) {
-					State state = myCurrentState;
+					if(myStateChain.Count == 0)
+						myStateChain.Add(myCurrentState);
 					while(myStateChain.Count < MAX_STATES) {
-						state = state.sortNextState();
-						myStateChain.Add(state);
+						State state = myStateChain.Last();
+						myStateChain.Add(state.sortNextState());
 					}
 				}
 
@@ -452,8 +453,9 @@ namespace HaremLife
 			{
 				myClock = 0.0f;
 
-				State targetState = myStateChain[0];
-				Transition transition = myCurrentState.getIncomingTransition(targetState);
+				State sourceState = myStateChain[0];
+				State targetState = myStateChain[1];
+				Transition transition = sourceState.getIncomingTransition(targetState);
 
 				if(transition.myTargetState.myAnimation() != transition.mySourceState.myAnimation()) {
 					TransitionToAnotherAnimation(transition);
@@ -465,7 +467,7 @@ namespace HaremLife
 				for (int i=0; i<myMorphCaptures.Count; ++i)
 					myMorphCaptures[i].SetTransition(myStateChain);
 
-				myStateChain.Remove(targetState);
+				myStateChain.RemoveAt(0);
 
 				myTransition = transition;
 				myTransitionNoise = UnityEngine.Random.Range(-transition.myDurationNoise, transition.myDurationNoise);
