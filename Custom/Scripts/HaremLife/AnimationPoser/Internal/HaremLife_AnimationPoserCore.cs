@@ -434,24 +434,26 @@ namespace HaremLife
 
 			public void SetNextTransition() {
 				if(!myPaused) {
+					State state = myCurrentState;
 					while(myStateChain.Count < MAX_STATES) {
-						myStateChain.Add(myCurrentState.sortNextState());
+						state = state.sortNextState();
+						myStateChain.Add(state);
 					}
 				}
 
 				if(myStateChain.Count > 0) {
-					State targetState = myStateChain[0];
-
-					myStateChain.Remove(targetState);
-					SetTransition(myCurrentState.getIncomingTransition(targetState));
+					SetTransition();
 				} else {
 					myTransition = null;
 				}
 			}
 
-			public void SetTransition(Transition transition)
+			public void SetTransition()
 			{
 				myClock = 0.0f;
+
+				State targetState = myStateChain[0];
+				Transition transition = myCurrentState.getIncomingTransition(targetState);
 
 				if(transition.myTargetState.myAnimation() != transition.mySourceState.myAnimation()) {
 					TransitionToAnotherAnimation(transition);
@@ -459,14 +461,14 @@ namespace HaremLife
 				}
 
 				for (int i=0; i<myControlCaptures.Count; ++i)
-					myControlCaptures[i].SetTransition(transition);
+					myControlCaptures[i].SetTransition(myStateChain);
 				for (int i=0; i<myMorphCaptures.Count; ++i)
-					myMorphCaptures[i].SetTransition(transition);
+					myMorphCaptures[i].SetTransition(myStateChain);
+
+				myStateChain.Remove(targetState);
 
 				myTransition = transition;
-
 				myTransitionNoise = UnityEngine.Random.Range(-transition.myDurationNoise, transition.myDurationNoise);
-
 				if (transition.mySourceState.ExitBeginTrigger != null)
 					transition.mySourceState.ExitBeginTrigger.Trigger(myTriggerActionsNeedingUpdate);
 				if (transition.myTargetState.EnterBeginTrigger != null)
@@ -803,19 +805,15 @@ namespace HaremLife
 				entry.myAnchorMode = oldEntry.myAnchorMode;
 			}
 
-			public void SetTransition(Transition transition)
+			public void SetTransition(List<State> stateChain)
 			{
-				myEntryCount = 2;
-				if (!transition.mySourceState.myControlEntries.TryGetValue(this, out myCurve[0]))
-				{
-					CaptureEntry(transition.mySourceState);
-					myCurve[0] = transition.mySourceState.myControlEntries[this];
-				}
-
-				if (!transition.myTargetState.myControlEntries.TryGetValue(this, out myCurve[1]))
-				{
-					CaptureEntry(transition.myTargetState);
-					myCurve[1] = transition.myTargetState.myControlEntries[this];
+				myEntryCount = stateChain.Count;
+				for(int i=0; i<myEntryCount; i++) {
+					if (!stateChain[i].myControlEntries.TryGetValue(this, out myCurve[i]))
+					{
+						CaptureEntry(stateChain[i]);
+						myCurve[i] = stateChain[i].myControlEntries[this];
+					}
 				}
 			}
 
@@ -1208,30 +1206,22 @@ namespace HaremLife
 				state.myMorphEntries[this] = myMorph.morphValue;
 			}
 
-			public void SetTransition(Transition transition)
+			public void SetTransition(List<State> stateChain)
 			{
-				myEntryCount = 2;
+				myEntryCount = stateChain.Count;
 				bool identical = true;
 				float morphValue = myMorph.morphValue;
 
-				if (!transition.mySourceState.myMorphEntries.TryGetValue(this, out myCurve[0]))
-				{
-					CaptureEntry(transition.mySourceState);
-					myCurve[0] = morphValue;
-				}
-				else
-				{
-					identical &= (myCurve[0] == morphValue);
-				}
-
-				if (!transition.myTargetState.myMorphEntries.TryGetValue(this, out myCurve[1]))
-				{
-					CaptureEntry(transition.myTargetState);
-					myCurve[1] = morphValue;
-				}
-				else
-				{
-					identical &= (myCurve[1] == morphValue);
+				for(int i=0; i<myEntryCount; i++) {
+					if (!stateChain[i].myMorphEntries.TryGetValue(this, out myCurve[i]))
+					{
+						CaptureEntry(stateChain[i]);
+						myCurve[i] = morphValue;
+					}
+					else
+					{
+						identical &= (myCurve[i] == morphValue);
+					}
 				}
 
 				if (identical)
