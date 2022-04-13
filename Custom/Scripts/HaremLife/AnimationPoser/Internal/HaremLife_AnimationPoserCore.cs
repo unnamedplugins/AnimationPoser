@@ -434,15 +434,16 @@ namespace HaremLife
 
 			public void SetNextTransition() {
 				if(!myPaused) {
-					if(myStateChain.Count == 0)
-						myStateChain.Add(myCurrentState);
 					while(myStateChain.Count < MAX_STATES) {
 						State state = myStateChain.Last();
-						myStateChain.Add(state.sortNextState());
+						State nextState = state.sortNextState();
+						if(nextState == null)
+							break;
+						myStateChain.Add(nextState);
 					}
 				}
 
-				if(myStateChain.Count > 0) {
+				if(myStateChain.Count > 1) {
 					SetTransition();
 				} else {
 					myTransition = null;
@@ -456,6 +457,7 @@ namespace HaremLife
 				State sourceState = myStateChain[0];
 				State targetState = myStateChain[1];
 				Transition transition;
+
 				if(sourceState.isReachable(targetState)) {
 					transition = sourceState.getIncomingTransition(targetState);
 				} else {
@@ -716,6 +718,10 @@ namespace HaremLife
 
 			public State sortNextState() {
 				List<State> states = getReachableStates();
+
+				if(states.Count == 0) {
+					return null;
+				}
 
 				float sum = 0.0f;
 				for (int i=0; i<myTransitions.Count; ++i)
