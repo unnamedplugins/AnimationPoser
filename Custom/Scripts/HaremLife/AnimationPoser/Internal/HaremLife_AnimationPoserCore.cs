@@ -403,7 +403,6 @@ namespace HaremLife
 				if (myCurrentState.EnterEndTrigger != null)
 					myCurrentState.EnterEndTrigger.Trigger(myTriggerActionsNeedingUpdate);
 
-				myTransition.SendMessages();
 				myTransition = null;
 			}
 
@@ -466,17 +465,16 @@ namespace HaremLife
 
 				if(transition.myTargetState.myAnimation() != transition.mySourceState.myAnimation()) {
 					TransitionToAnotherAnimation(transition);
-					return;
+				} else {
+					List<State> stateChain = new List<State>(2);
+					stateChain.Add(sourceState);
+					stateChain.Add(targetState);
+
+					for (int i=0; i<myControlCaptures.Count; ++i)
+						myControlCaptures[i].SetTransition(stateChain);
+					for (int i=0; i<myMorphCaptures.Count; ++i)
+						myMorphCaptures[i].SetTransition(stateChain);
 				}
-
-				List<State> stateChain = new List<State>(2);
-				stateChain.Add(sourceState);
-				stateChain.Add(targetState);
-
-				for (int i=0; i<myControlCaptures.Count; ++i)
-					myControlCaptures[i].SetTransition(stateChain);
-				for (int i=0; i<myMorphCaptures.Count; ++i)
-					myMorphCaptures[i].SetTransition(stateChain);
 
 				myStateChain.RemoveAt(0);
 
@@ -486,6 +484,8 @@ namespace HaremLife
 					transition.mySourceState.ExitBeginTrigger.Trigger(myTriggerActionsNeedingUpdate);
 				if (transition.myTargetState.EnterBeginTrigger != null)
 					transition.myTargetState.EnterBeginTrigger.Trigger(myTriggerActionsNeedingUpdate);
+
+				myTransition.SendMessages();
 			}
 
 			public void ArriveFromAnotherAnimation(Transition transition, State targetState) {
