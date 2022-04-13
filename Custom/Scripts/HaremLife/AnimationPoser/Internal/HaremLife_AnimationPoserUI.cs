@@ -1579,7 +1579,7 @@ namespace HaremLife
 
 			CreateMenuButton("Add Role", UIAddRole, false);
 
-			CreateMenuButton("Remove Role", UIRemoveAnimation, false);
+			CreateMenuButton("Remove Role", UIRemoveRole, false);
 		}
 
 		private void UIAddRole() {
@@ -1589,6 +1589,21 @@ namespace HaremLife
 			myRoleList.val = name;
 			UIRefreshMenu();
 		}
+
+		private void UIRemoveRole() {
+			myCurrentAnimation.myRoles.Remove(myRoleList.val);
+
+			List<string> roles = myCurrentAnimation.myRoles.Keys.ToList();
+			roles.Sort();
+			if(roles.Count > 0) {
+				myRoleList.val = roles[0];
+			} else {
+				myRoleList.val = "";
+			}
+
+			UIRefreshMenu();
+		}
+
 		private string FindNewRoleName()
 		{
 			for (int i=1; i<1000; ++i)
