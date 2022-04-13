@@ -1657,15 +1657,21 @@ namespace HaremLife
 			CreateMenuTextInput("String", messageString, false);
 
 			List<string> availableAnimations = new List<string>();
-			foreach (var a in myAnimations)
-			{
-				Animation target = a.Value;
-				availableAnimations.Add(target.myName);
+			if(selectedMessage.myTargetState != null) {
+				availableAnimations.Add(selectedMessage.myTargetState.myAnimation().myName);
+			} else {
+				foreach (var a in myAnimations)
+				{
+					Animation target = a.Value;
+					availableAnimations.Add(target.myName);
+				}
+				availableAnimations.Sort();
 			}
-			availableAnimations.Sort();
 
 			string selectedTargetAnimation;
-			if (availableAnimations.Count == 0)
+			if(selectedMessage.myTargetState != null)
+				selectedTargetAnimation = selectedMessage.myTargetState.myAnimation().myName;
+			else if (availableAnimations.Count == 0)
 				selectedTargetAnimation= "";
 			else if (myTargetAnimationList == null || !availableAnimations.Contains(myTargetAnimationList.val))
 				selectedTargetAnimation = myCurrentAnimation.myName;
@@ -1683,15 +1689,21 @@ namespace HaremLife
 			Layer targetLayer;
 			List<string> availableLayers = new List<string>();
 			if(targetAnimation != myCurrentAnimation) {
-				foreach (var l in targetAnimation.myLayers)
-				{
-					Layer target = l.Value;
-					availableLayers.Add(target.myName);
+				if(selectedMessage.myTargetState != null) {
+					availableLayers.Add(selectedMessage.myTargetState.myLayer.myName);
+				} else {
+					foreach (var l in targetAnimation.myLayers)
+					{
+						Layer target = l.Value;
+						availableLayers.Add(target.myName);
+					}
+					availableLayers.Sort();
 				}
-				availableLayers.Sort();
 
 				string selectedTargetLayer;
-				if (availableLayers.Count == 0)
+				if(selectedMessage.myTargetState != null)
+					selectedTargetLayer = selectedMessage.myTargetState.myLayer.myName;
+				else if (availableLayers.Count == 0)
 					selectedTargetLayer = "";
 				else if (myTargetLayerList == null || !availableLayers.Contains(myTargetLayerList.val))
 					selectedTargetLayer = myCurrentLayer.myName;
@@ -1808,7 +1820,7 @@ namespace HaremLife
 					CreateMenuPopup(myTargetStateList, true);
 					if(myTargetStateList.val != "") {
 						CreateMenuButton("Add Target State", () => {
-							State targetState = myCurrentLayer.myStates[myTargetStateList.val];
+							State targetState = targetLayer.myStates[myTargetStateList.val];
 							selectedMessage.myTargetState = targetState;
 							UIRefreshMenu();
 						}, true);
@@ -2207,6 +2219,7 @@ namespace HaremLife
 			myMainState.val = name;
 			UIRefreshMenu();
 		}
+
 		private void UIAddMessage()
 		{
 			string name = FindNewMessageName();
