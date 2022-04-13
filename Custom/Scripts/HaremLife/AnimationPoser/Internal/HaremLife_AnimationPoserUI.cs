@@ -1628,6 +1628,7 @@ namespace HaremLife
 			CreateMenuPopup(myMessageList, false);
 
 			CreateMenuButton("Add Message", UIAddMessage, false);
+			CreateMenuButton("Remove Message", UIRemoveMessage, false);
 
 			Message selectedMessage;
 			myCurrentLayer.myMessages.TryGetValue(selectedMessageName, out selectedMessage);
@@ -2216,6 +2217,23 @@ namespace HaremLife
 			myMessageList.val = name;
 			UIRefreshMenu();
 		}
+
+		private void UIRemoveMessage()
+		{
+			myCurrentLayer.myMessages.Remove(myMessageList.val);
+
+			List<string> messages = myCurrentLayer.myMessages.Keys.ToList();
+			messages.Sort();
+			if(messages.Count > 0) {
+				myMessageList.val = messages[0];
+			} else {
+				myMessageList.val = "";
+			}
+
+			UIRefreshMenu();
+		}
+
+
 
 		private string FindNewAnimationName()
 		{
