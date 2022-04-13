@@ -409,7 +409,7 @@ namespace HaremLife
 
 			public void SetBlendTransition(State state, bool debug = false)
 			{
-				if (myCurrentState == null)
+				if (myCurrentState == null || myCurrentState == state)
 				{
 					myBlendState = State.CreateBlendState();
 					CaptureState(myBlendState);
@@ -455,17 +455,26 @@ namespace HaremLife
 
 				State sourceState = myStateChain[0];
 				State targetState = myStateChain[1];
-				Transition transition = sourceState.getIncomingTransition(targetState);
+				Transition transition;
+				if(sourceState.isReachable(targetState)) {
+					transition = sourceState.getIncomingTransition(targetState);
+				} else {
+					transition = new Transition(sourceState, targetState);
+				}
 
 				if(transition.myTargetState.myAnimation() != transition.mySourceState.myAnimation()) {
 					TransitionToAnotherAnimation(transition);
 					return;
 				}
 
+				List<State> stateChain = new List<State>(2);
+				stateChain.Add(sourceState);
+				stateChain.Add(targetState);
+
 				for (int i=0; i<myControlCaptures.Count; ++i)
-					myControlCaptures[i].SetTransition(myStateChain);
+					myControlCaptures[i].SetTransition(stateChain);
 				for (int i=0; i<myMorphCaptures.Count; ++i)
-					myMorphCaptures[i].SetTransition(myStateChain);
+					myMorphCaptures[i].SetTransition(stateChain);
 
 				myStateChain.RemoveAt(0);
 
@@ -699,7 +708,6 @@ namespace HaremLife
 
 				if(paths.ContainsKey(target)) {
 					List<State> path = paths[target];
-					path.Remove(this);
 					return path;
 				} else {
 					return null;
