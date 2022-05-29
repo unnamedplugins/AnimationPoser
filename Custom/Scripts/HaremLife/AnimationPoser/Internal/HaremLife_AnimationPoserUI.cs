@@ -1161,7 +1161,6 @@ namespace HaremLife
 			for (int i=0; i<state.myTransitions.Count; ++i)
 				transitions.Add(new UITransition(state.myTransitions[i].myTargetState, false, true));
 
-
 			foreach (var s in myCurrentLayer.myStates)
 			{
 				State target = s.Value;

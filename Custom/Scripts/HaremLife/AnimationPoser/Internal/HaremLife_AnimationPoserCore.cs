@@ -378,8 +378,8 @@ namespace HaremLife
 					}
 				} 
 				// if no transition (updates position relative to anchor)
-				if (myTransition == null)
-					UpdateState();
+				// if (myTransition == null)
+				// 	UpdateState();
 			}
 
 			public void UpdateCurve(float t) {
@@ -404,6 +404,9 @@ namespace HaremLife
 					myCurrentState.EnterEndTrigger.Trigger(myTriggerActionsNeedingUpdate);
 
 				myTransition = null;
+
+				for (int i=0; i<myControlCaptures.Count; ++i)
+					myControlCaptures[i].UpdateControllerStates();
 			}
 
 			public void SetBlendTransition(State state, bool debug = false)
@@ -783,6 +786,7 @@ namespace HaremLife
 			private int myEntryCount = 0;
 			public bool myApplyPosition = true;
 			public bool myApplyRotation = true;
+			FreeControllerV3 myController;
 
 			private static Quaternion[] ourTempQuaternions = new Quaternion[MAX_STATES-1];
 			private static float[] ourTempDistances = new float[DISTANCE_SAMPLES[DISTANCE_SAMPLES.Length-1] + 2];
@@ -794,6 +798,8 @@ namespace HaremLife
 				FreeControllerV3 controller = plugin.containingAtom.GetStorableByID(control) as FreeControllerV3;
 				if (controller != null)
 					myTransform = controller.transform;
+
+				myController = controller;
 			}
 
 			public void CaptureEntry(State state)
@@ -805,7 +811,17 @@ namespace HaremLife
 					entry.Initialize();
 					state.myControlEntries[this] = entry;
 				}
-				entry.Capture(myTransform.position, myTransform.rotation);
+				FreeControllerV3.PositionState positionState;
+				FreeControllerV3.RotationState rotationState;
+				if(myController.name == "control") {
+					positionState = FreeControllerV3.PositionState.On;
+					rotationState = FreeControllerV3.RotationState.On;
+				} else {
+					positionState = myController.currentPositionState;
+					rotationState = myController.currentRotationState;
+				}
+				entry.Capture(myTransform.position, myTransform.rotation,
+								positionState, rotationState);
 			}
 
 			public void setDefaults(State state, State oldState)
@@ -833,6 +849,11 @@ namespace HaremLife
 				}
 			}
 
+			public void UpdateControllerStates() {
+				myController.currentPositionState = myCurve[1].myPositionState;
+				myController.currentRotationState = myCurve[1].myRotationState;
+			}
+
 			public void UpdateCurve(float t)
 			{
 				for (int i=0; i<myEntryCount; ++i)
@@ -840,7 +861,7 @@ namespace HaremLife
 
 				//t = ArcLengthParametrization(t);
 
-				if (myApplyPosition)
+				if (myApplyPosition && myCurve[1].myPositionState != FreeControllerV3.PositionState.Off)
 				{
 					switch (myEntryCount)
 					{
@@ -850,7 +871,7 @@ namespace HaremLife
 						default: myTransform.position = myCurve[0].myEntry.myPosition; break;
 					}
 				}
-				if (myApplyRotation)
+				if (myApplyRotation && myCurve[1].myRotationState != FreeControllerV3.RotationState.Off)
 				{
 					switch (myEntryCount)
 					{
@@ -1000,6 +1021,8 @@ namespace HaremLife
 			public const int ANCHORMODE_BLEND = 2;
 
 			public ControlEntry myEntry;
+			public FreeControllerV3.PositionState myPositionState;
+			public FreeControllerV3.RotationState myRotationState;
 			public ControlEntry myAnchorOffset;
 			public Transform myAnchorATransform;
 			public Transform myAnchorBTransform;
@@ -1039,7 +1062,8 @@ namespace HaremLife
 			public void AdjustAnchor()
 			{
 				GetTransforms();
-				Capture(myEntry.myPosition, myEntry.myRotation);
+				Capture(myEntry.myPosition, myEntry.myRotation,
+							myPositionState, myRotationState);
 			}
 
 			private void GetTransforms()

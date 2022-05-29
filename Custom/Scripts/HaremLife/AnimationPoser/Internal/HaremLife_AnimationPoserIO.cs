@@ -265,6 +265,8 @@ namespace HaremLife
 					{
 						ControlEntryAnchored ce = e.Value;
 						JSONClass ceclass = new JSONClass();
+						ceclass["PositionState"] = ce.myPositionState.ToString();
+						ceclass["RotationState"] = ce.myRotationState.ToString();
 						ceclass["PX"].AsFloat = ce.myAnchorOffset.myPosition.x;
 						ceclass["PY"].AsFloat = ce.myAnchorOffset.myPosition.y;
 						ceclass["PZ"].AsFloat = ce.myAnchorOffset.myPosition.z;
@@ -362,6 +364,34 @@ namespace HaremLife
 			return jc;
 		}
 
+		private FreeControllerV3.PositionState getPositionState(String state) {
+			if(state == "On") {
+				return FreeControllerV3.PositionState.On;
+			} else if(state == "Comply") {
+				return FreeControllerV3.PositionState.Comply;
+			} else if(state == "Off") {
+				return FreeControllerV3.PositionState.Off;
+			} else if(state == "Hold") {
+				return FreeControllerV3.PositionState.Hold;
+			} else if(state == "Lock") {
+				return FreeControllerV3.PositionState.Lock;
+			} return FreeControllerV3.PositionState.On;
+		}
+
+		private FreeControllerV3.RotationState getRotationState(String state) {
+			if(state == "On") {
+				return FreeControllerV3.RotationState.On;
+			} else if(state == "Comply") {
+				return FreeControllerV3.RotationState.Comply;
+			} else if(state == "Off") {
+				return FreeControllerV3.RotationState.Off;
+			} else if(state == "Hold") {
+				return FreeControllerV3.RotationState.Hold;
+			} else if(state == "Lock") {
+				return FreeControllerV3.RotationState.Lock;
+			} return FreeControllerV3.RotationState.On;
+		}
+
 		private Layer LoadLayer(JSONClass jc, bool newName)
 		{
 			JSONClass layerObj = jc["Layer"].AsObject;
@@ -446,6 +476,8 @@ namespace HaremLife
 
 						JSONClass ceclass = celist[ccname].AsObject;
 						ControlEntryAnchored ce = new ControlEntryAnchored(this, ccname, state, cc);
+						ce.myPositionState = getPositionState(ceclass["PositionState"]);
+						ce.myRotationState = getRotationState(ceclass["RotationState"]);
 						ce.myAnchorOffset.myPosition.x = ceclass["PX"].AsFloat;
 						ce.myAnchorOffset.myPosition.y = ceclass["PY"].AsFloat;
 						ce.myAnchorOffset.myPosition.z = ceclass["PZ"].AsFloat;
