@@ -1134,31 +1134,19 @@ namespace HaremLife
 				}
 			}
 
-			public void Capture(Vector3 position, Quaternion rotation)
+			public void Capture(Vector3 position, Quaternion rotation,
+									FreeControllerV3.PositionState positionState,
+									FreeControllerV3.RotationState rotationState)
 			{
+				myPositionState = positionState;
+				myRotationState = rotationState;
+
 				myEntry.myPosition = position;
 				myEntry.myRotation = rotation;
 
-				State rootState = myCurrentLayer.myStates.Values.ToList().Find(s => s.myIsRootState);
-				if(rootState != null && myState == rootState) {
-					ControlCapture rootcc = rootState.myControlEntries.Keys.ToList().Find(ccx => ccx.myName == myControlCapture.myName);
-					ControlEntryAnchored rootce = rootState.myControlEntries[rootcc];
-					foreach(var s in myCurrentLayer.myStates) {
-						State st = s.Value;
-						if(st != rootState) {
-							ControlCapture cc = st.myControlEntries.Keys.ToList().Find(ccx => ccx.myName == myControlCapture.myName);
-							ControlEntryAnchored ce = st.myControlEntries[cc];
+				Quaternion oldRootRotation = myAnchorOffset.myRotation;
+				Vector3 oldRootPosition = myAnchorOffset.myPosition;
 
-							Quaternion transformRotation = rotation * Quaternion.Inverse(rootce.myAnchorOffset.myRotation);
-							Vector3 transformPosition = position - rootce.myAnchorOffset.myPosition;
-
-							ce.myAnchorOffset.myPosition = rootce.myAnchorOffset.myPosition + transformRotation * (ce.myAnchorOffset.myPosition - rootce.myAnchorOffset.myPosition);
-							ce.myAnchorOffset.myRotation = transformRotation * ce.myAnchorOffset.myRotation;
-
-							ce.myAnchorOffset.myPosition = ce.myAnchorOffset.myPosition + transformPosition;
-						}
-					}
-				}
 				if (myAnchorMode == ANCHORMODE_WORLD)
 				{
 					myAnchorOffset.myPosition = position;
@@ -1184,6 +1172,23 @@ namespace HaremLife
 
 					myAnchorOffset.myPosition = Quaternion.Inverse(root.myRotation) * (position - root.myPosition);
 					myAnchorOffset.myRotation = Quaternion.Inverse(root.myRotation) * rotation;
+				}
+
+				State rootState = myCurrentLayer.myStates.Values.ToList().Find(s => s.myIsRootState);
+				if(rootState != null && myState == rootState) {
+					foreach(var s in myCurrentLayer.myStates) {
+						State st = s.Value;
+						if(st != rootState) {
+							ControlCapture cc = st.myControlEntries.Keys.ToList().Find(ccx => ccx.myName == myControlCapture.myName);
+							ControlEntryAnchored ce = st.myControlEntries[cc];
+
+							Quaternion transformRotation = myAnchorOffset.myRotation * Quaternion.Inverse(oldRootRotation);
+							Vector3 transformPosition = position - oldRootPosition;
+
+							ce.myAnchorOffset.myPosition = myAnchorOffset.myPosition + transformRotation * (ce.myAnchorOffset.myPosition - oldRootPosition);
+							ce.myAnchorOffset.myRotation = transformRotation * ce.myAnchorOffset.myRotation;
+						}
+					}
 				}
 			}
 		}
