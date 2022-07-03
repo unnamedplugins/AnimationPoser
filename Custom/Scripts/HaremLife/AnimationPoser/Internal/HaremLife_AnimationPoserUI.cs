@@ -4,7 +4,9 @@ using UnityEngine.Events;
 using System;
 using System.Linq;
 using System.Text;
+using System.Collections;
 using System.Collections.Generic;
+using System.Reflection;
 using MVR.FileManagementSecure;
 using SimpleJSON;
 
@@ -158,15 +160,6 @@ namespace HaremLife
 			myGlobalDefaultWaitDurationMin = new JSONStorableFloat("Default Wait Duration Min", DEFAULT_WAIT_DURATION_MIN, 0.0f, 300.0f, true, true);
 			myGlobalDefaultWaitDurationMax = new JSONStorableFloat("Default Wait Duration Max", DEFAULT_WAIT_DURATION_MAX, 0.0f, 300.0f, true, true);
 
-			// myOptionsDefaultToWorldAnchor = new JSONStorableBool("Default to World Anchor", false);
-			// myDebugShowInfo = new JSONStorableBool("Show Debug Info", false);
-			// myDebugShowInfo.setCallbackFunction += (bool v) => UIRefreshMenu();
-			// myDebugShowPaths = new JSONStorableBool("Draw Paths", false);
-			// myDebugShowPaths.setCallbackFunction += DebugSwitchShowCurves;
-			// myDebugShowTransitions = new JSONStorableBool("Draw Transitions", false);
-			// myDebugShowTransitions.setCallbackFunction += DebugSwitchShowCurves;
-			// myDebugShowSelectedOnly = new JSONStorableBool("Draw Selected Only", false);
-
 			UIRefreshMenu();
 
 			SuperController.singleton.BroadcastMessage("OnActionsProviderAvailable", this, SendMessageOptions.DontRequireReceiver);
@@ -207,11 +200,6 @@ namespace HaremLife
 				myStateAutoTransition.val = !myStateAutoTransition.val;
 				OpenTab(2);
 			}));
-
-			// bindings.Add(new JSONStorableAction("Toggle Debug Info",          () => myDebugShowInfo.val = !myDebugShowInfo.val));
-			// bindings.Add(new JSONStorableAction("Toggle Debug Paths",         () => myDebugShowPaths.val = !myDebugShowPaths.val));
-			// bindings.Add(new JSONStorableAction("Toggle Debug Transitions",   () => myDebugShowTransitions.val = !myDebugShowTransitions.val));
-			// bindings.Add(new JSONStorableAction("Toggle Debug Selected Only", () => myDebugShowSelectedOnly.val = !myDebugShowSelectedOnly.val));
 		}
 
 		private void OpenTab(int tabIdx)
@@ -252,6 +240,18 @@ namespace HaremLife
 			// switch to the desired tab
 			UISelectMenu(tabIdx);
 		}
+		
+		private RectTransform InitBasicRectTransformPrefab(string prefabName, Transform initTransform, Transform instTransform, float[] coordsArray, bool initialCast = true)
+		{
+			RectTransform myTransform = Instantiate(initTransform as RectTransform, instTransform);
+			myTransform.name = prefabName;
+			myTransform.anchorMax = new Vector2(coordsArray[0], coordsArray[1]);
+			myTransform.anchorMin = new Vector2(coordsArray[2], coordsArray[3]);
+			myTransform.offsetMax = new Vector2(coordsArray[4], coordsArray[5]);
+			myTransform.offsetMin = new Vector2(coordsArray[6], coordsArray[7]);
+
+			return myTransform;
+		}
 
 		private void InitPrefabs()
 		{
@@ -270,97 +270,62 @@ namespace HaremLife
 				le.preferredHeight = 50;
 				le.preferredWidth = 500;
 
-				RectTransform backgroundTransform = manager.configurableScrollablePopupPrefab.transform.Find("Background") as RectTransform;
-				backgroundTransform = Instantiate(backgroundTransform, myLabelWith2BXButtonPrefab.transform);
-				backgroundTransform.name = "Background";
-				backgroundTransform.anchorMax = new Vector2(1, 1);
-				backgroundTransform.anchorMin = new Vector2(0, 0);
-				backgroundTransform.offsetMax = new Vector2(0, 0);
-				backgroundTransform.offsetMin = new Vector2(0, -10);
-
-				RectTransform xButtonTransform = manager.configurableScrollablePopupPrefab.transform.Find("Button") as RectTransform;
-				xButtonTransform = Instantiate(xButtonTransform, myLabelWith2BXButtonPrefab.transform);
-				xButtonTransform.name = "ButtonX";
-				xButtonTransform.anchorMax = new Vector2(1, 1);
-				xButtonTransform.anchorMin = new Vector2(1, 0);
-				xButtonTransform.offsetMax = new Vector2(0, 0);
-				xButtonTransform.offsetMin = new Vector2(-60, -10);
+				RectTransform backgroundTransform = InitBasicRectTransformPrefab(
+					"Background", manager.configurableScrollablePopupPrefab.transform.Find("Background"), myLabelWith2BXButtonPrefab.transform, new float[] {1, 1, 0, 0, 0, 0, 0, -10}
+				);
+				RectTransform xButtonTransform = InitBasicRectTransformPrefab(
+					"ButtonX", manager.configurableScrollablePopupPrefab.transform.Find("Button"), myLabelWith2BXButtonPrefab.transform, new float[] {1, 1, 1, 0, 0, 0, -60, -10}
+				);
 				Button buttonX = xButtonTransform.GetComponent<Button>();
 				Text xButtonText = xButtonTransform.Find("Text").GetComponent<Text>();
 				xButtonText.text = "X";
 				Image xButtonImage = xButtonTransform.GetComponent<Image>();
 
-				RectTransform labelTransform = xButtonText.rectTransform;
-				labelTransform = Instantiate(labelTransform, myLabelWith2BXButtonPrefab.transform);
-				labelTransform.name = "Text";
-				labelTransform.anchorMax = new Vector2(1, 1);
-				labelTransform.anchorMin = new Vector2(0, 0);
-				labelTransform.offsetMax = new Vector2(-65, 0);
-				labelTransform.offsetMin = new Vector2(100, -10);
+				RectTransform labelTransform = InitBasicRectTransformPrefab(
+					"Text", xButtonText.rectTransform, myLabelWith2BXButtonPrefab.transform, new float[] {1, 1, 0, 0, -65, 0, 100, -10}
+				);
 				Text labelText = labelTransform.GetComponent<Text>();
 				labelText.verticalOverflow = VerticalWrapMode.Overflow;
 
-				RectTransform toggleBG1Transform = manager.configurableTogglePrefab.transform.Find("Panel") as RectTransform;
-				toggleBG1Transform = Instantiate(toggleBG1Transform, myLabelWith2BXButtonPrefab.transform);
-				toggleBG1Transform.name = "ToggleBG1";
-				toggleBG1Transform.anchorMax = new Vector2(0, 1);
-				toggleBG1Transform.anchorMin = new Vector2(0, 0);
-				toggleBG1Transform.offsetMax = new Vector2(50, 0);
-				toggleBG1Transform.offsetMin = new Vector2(0, -10);
+				RectTransform toggleBG1Transform = InitBasicRectTransformPrefab(
+					"ToggleBG1", manager.configurableTogglePrefab.transform.Find("Panel"), myLabelWith2BXButtonPrefab.transform, new float[] {0, 1, 0, 0, 50, 0, 0, -10}
+				);
 				Image toggleBG1Image = toggleBG1Transform.GetComponent<Image>();
 				toggleBG1Image.sprite = xButtonImage.sprite;
 				toggleBG1Image.color = xButtonImage.color;
 				Toggle toggle1 = toggleBG1Transform.gameObject.AddComponent<Toggle>();
 				toggle1.isOn = true;
 
-				RectTransform toggle1Check = manager.configurableTogglePrefab.transform.Find("Background/Checkmark") as RectTransform;
-				toggle1Check = Instantiate(toggle1Check, toggleBG1Transform);
-				toggle1Check.name = "Toggle1";
-				toggle1Check.anchorMax = new Vector2(1, 1);
-				toggle1Check.anchorMin = new Vector2(0, 0);
-				toggle1Check.offsetMax = new Vector2(2, -10);
-				toggle1Check.offsetMin = new Vector2(3, -10);
+				RectTransform toggle1Check = InitBasicRectTransformPrefab(
+					"Toggle1", manager.configurableTogglePrefab.transform.Find("Background/Checkmark"), toggleBG1Transform, new float[] {1, 1, 0, 0, 2, -10, 3, -10}
+				);
 				Image image1 = toggle1Check.GetComponent<Image>();
 
-				RectTransform toggle1Label = Instantiate(xButtonText.rectTransform, toggle1Check);
-				toggle1Label.name = "Toggle1Label";
-				toggle1Label.anchorMax = new Vector2(1.0f, 1.0f);
-				toggle1Label.anchorMin = new Vector2(0.0f, 0.5f);
-				toggle1Label.offsetMax = new Vector2(0, 4);
-				toggle1Label.offsetMin = new Vector2(-4, 4);
+				RectTransform toggle1Label = InitBasicRectTransformPrefab(
+					"Toggle1Label", xButtonText.rectTransform as Transform, toggle1Check, new float[] {1.0f, 1.0f, 0.0f, 0.5f, 0.0f, 4.0f, -4.0f, 4.0f}
+				);
 				Text toggle1Text = toggle1Label.GetComponent<Text>();
 				toggle1Text.fontSize = 20;
 				toggle1Text.text = "POS";
 				toggle1Text.alignment = TextAnchor.UpperCenter;
 
-				RectTransform toggleBG2Transform = manager.configurableTogglePrefab.transform.Find("Panel") as RectTransform;
-				toggleBG2Transform = Instantiate(toggleBG2Transform, myLabelWith2BXButtonPrefab.transform);
-				toggleBG2Transform.name = "ToggleBG2";
-				toggleBG2Transform.anchorMax = new Vector2(0, 1);
-				toggleBG2Transform.anchorMin = new Vector2(0, 0);
-				toggleBG2Transform.offsetMax = new Vector2(100, 0);
-				toggleBG2Transform.offsetMin = new Vector2(50, -10);
+				RectTransform toggleBG2Transform = InitBasicRectTransformPrefab(
+					"ToggleBG2", manager.configurableTogglePrefab.transform.Find("Panel"), myLabelWith2BXButtonPrefab.transform, new float[] {0, 1, 0, 0, 100, 0, 50, -10}
+				);
 				Image toggleBG2Image = toggleBG2Transform.GetComponent<Image>();
 				toggleBG2Image.sprite = xButtonImage.sprite;
 				toggleBG2Image.color = xButtonImage.color;
 				Toggle toggle2 = toggleBG2Transform.gameObject.AddComponent<Toggle>();
 				toggle2.isOn = true;
 
-				RectTransform toggle2Check = manager.configurableTogglePrefab.transform.Find("Background/Checkmark") as RectTransform;
-				toggle2Check = Instantiate(toggle2Check, toggleBG2Transform);
-				toggle2Check.name = "Toggle2";
-				toggle2Check.anchorMax = new Vector2(1, 1);
-				toggle2Check.anchorMin = new Vector2(0, 0);
-				toggle2Check.offsetMax = new Vector2(2, -10);
-				toggle2Check.offsetMin = new Vector2(3, -10);
+				RectTransform toggle2Check = InitBasicRectTransformPrefab(
+					"Toggle2", manager.configurableTogglePrefab.transform.Find("Background/Checkmark"), toggleBG2Transform, new float[] {1, 1, 0, 0, 2, -10, 3, -10}
+				);
 				Image image2 = toggle2Check.GetComponent<Image>();
 
-				RectTransform toggle2Label = Instantiate(xButtonText.rectTransform, toggle2Check);
-				toggle2Label.name = "Toggle2Label";
-				toggle2Label.anchorMax = new Vector2(1.0f, 1.0f);
-				toggle2Label.anchorMin = new Vector2(0.0f, 0.5f);
-				toggle2Label.offsetMax = new Vector2(0, 4);
-				toggle2Label.offsetMin = new Vector2(-4, 4);
+				RectTransform toggle2Label = InitBasicRectTransformPrefab(
+					"Toggle2Label", xButtonText.rectTransform, toggle2Check, new float[] {1.0f, 1.0f, 0.0f, 0.5f, 0.0f, 4.0f, -4.0f, 4.0f}
+				);
 				Text toggle2Text = toggle2Label.GetComponent<Text>();
 				toggle2Text.fontSize = 20;
 				toggle2Text.text = "ROT";
@@ -392,64 +357,41 @@ namespace HaremLife
 				le.preferredHeight = 50;
 				le.preferredWidth = 500;
 
-				RectTransform backgroundTransform = manager.configurableScrollablePopupPrefab.transform.Find("Background") as RectTransform;
-				backgroundTransform = Instantiate(backgroundTransform, myLabelWithMXButtonPrefab.transform);
-				backgroundTransform.name = "Background";
-				backgroundTransform.anchorMax = new Vector2(1, 1);
-				backgroundTransform.anchorMin = new Vector2(0, 0);
-				backgroundTransform.offsetMax = new Vector2(0, 0);
-				backgroundTransform.offsetMin = new Vector2(0, -10);
+				RectTransform backgroundTransform = InitBasicRectTransformPrefab(
+					"Background", manager.configurableScrollablePopupPrefab.transform.Find("Background"), myLabelWithMXButtonPrefab.transform, new float[] {1, 1, 0, 0, 0, 0, 0, -10}
+				);
 
-				RectTransform xButtonTransform = manager.configurableScrollablePopupPrefab.transform.Find("Button") as RectTransform;
-				xButtonTransform = Instantiate(xButtonTransform, myLabelWithMXButtonPrefab.transform);
-				xButtonTransform.name = "ButtonX";
-				xButtonTransform.anchorMax = new Vector2(1, 1);
-				xButtonTransform.anchorMin = new Vector2(1, 0);
-				xButtonTransform.offsetMax = new Vector2(0, 0);
-				xButtonTransform.offsetMin = new Vector2(-60, -10);
+				RectTransform xButtonTransform = InitBasicRectTransformPrefab(
+					"ButtonX", manager.configurableScrollablePopupPrefab.transform.Find("Button"), myLabelWithMXButtonPrefab.transform, new float[] {1, 1, 1, 0, 0, 0, -60, -10}
+				);
 				Button buttonX = xButtonTransform.GetComponent<Button>();
 				Text xButtonText = xButtonTransform.Find("Text").GetComponent<Text>();
 				xButtonText.text = "X";
 				Image xButtonImage = xButtonTransform.GetComponent<Image>();
 
-				RectTransform labelTransform = xButtonText.rectTransform;
-				labelTransform = Instantiate(labelTransform, myLabelWithMXButtonPrefab.transform);
-				labelTransform.name = "Text";
-				labelTransform.anchorMax = new Vector2(1, 1);
-				labelTransform.anchorMin = new Vector2(0, 0);
-				labelTransform.offsetMax = new Vector2(-65, 0);
-				labelTransform.offsetMin = new Vector2(50, -10);
+				RectTransform labelTransform = InitBasicRectTransformPrefab(
+					"Text", xButtonText.rectTransform, myLabelWithMXButtonPrefab.transform, new float[] {1, 1, 0, 0, -65, 0, 50, -10}
+				);
 				Text labelText = labelTransform.GetComponent<Text>();
 				labelText.verticalOverflow = VerticalWrapMode.Overflow;
 
-				RectTransform toggleBGMTransform = manager.configurableTogglePrefab.transform.Find("Panel") as RectTransform;
-				toggleBGMTransform = Instantiate(toggleBGMTransform, myLabelWithMXButtonPrefab.transform);
-				toggleBGMTransform.name = "ToggleBGM";
-				toggleBGMTransform.anchorMax = new Vector2(0, 1);
-				toggleBGMTransform.anchorMin = new Vector2(0, 0);
-				toggleBGMTransform.offsetMax = new Vector2(50, 0);
-				toggleBGMTransform.offsetMin = new Vector2(0, -10);
+				RectTransform toggleBGMTransform = InitBasicRectTransformPrefab(
+					"ToggleBGM", manager.configurableTogglePrefab.transform.Find("Panel"), myLabelWithMXButtonPrefab.transform, new float[] {0, 1, 0, 0, 50, 0, 0, -10}
+				);
 				Image toggleBGMImage = toggleBGMTransform.GetComponent<Image>();
 				toggleBGMImage.sprite = xButtonImage.sprite;
 				toggleBGMImage.color = xButtonImage.color;
 				Toggle toggleM = toggleBGMTransform.gameObject.AddComponent<Toggle>();
 				toggleM.isOn = true;
 
-				RectTransform toggleMCheck = manager.configurableTogglePrefab.transform.Find("Background/Checkmark") as RectTransform;
-				toggleMCheck = Instantiate(toggleMCheck, toggleBGMTransform);
-				toggleMCheck.name = "ToggleM";
-				toggleMCheck.anchorMax = new Vector2(1, 1);
-				toggleMCheck.anchorMin = new Vector2(0, 0);
-				toggleMCheck.offsetMax = new Vector2(2, -5);
-				toggleMCheck.offsetMin = new Vector2(3, -5);
+				RectTransform toggleMCheck = InitBasicRectTransformPrefab(
+					"ToggleM", manager.configurableTogglePrefab.transform.Find("Background/Checkmark"), toggleBGMTransform, new float[] {1, 1, 0, 0, 2, -5, 3, -5}
+				);
 				Image imageM = toggleMCheck.GetComponent<Image>();
 
-				RectTransform toggleMLabel = Instantiate(xButtonText.rectTransform, toggleMCheck);
-				toggleMLabel.name = "ToggleMLabel";
-				toggleMLabel.anchorMax = new Vector2(0.5f, 1.0f);
-				toggleMLabel.anchorMin = new Vector2(0.0f, 0.5f);
-				toggleMLabel.offsetMax = new Vector2(0, 0);
-				toggleMLabel.offsetMin = new Vector2(0, 0);
+				RectTransform toggleMLabel = InitBasicRectTransformPrefab(
+					"ToggleMLabel", xButtonText.rectTransform, toggleMCheck, new float[] {0.5f, 1.0f, 0.0f, 0.5f, 0.0f, 0.0f, 0.0f, 0.0f}
+				);
 				Text toggleMText = toggleMLabel.GetComponent<Text>();
 				toggleMText.fontSize = 22;
 				toggleMText.text = "M";
@@ -466,9 +408,104 @@ namespace HaremLife
 		{
 			CleanupMenu();
 			CreateMainUI();
-			// myIsFullRefresh = false;
 			UISelectMenu(myMenuItem);
 			myIsFullRefresh = true;
+		}
+
+		private IEnumerable<DictionaryEntry> CastDict(IDictionary dictionary)
+		{
+			foreach (DictionaryEntry entry in dictionary)
+			{
+				yield return entry;
+			}
+		}
+		
+		private List<string> GetAvailableOptions(
+			Dictionary<string, AnimationObject> myAnimationObjects,
+			bool singleChoice = false,
+			AnimationObject mySingleChoice = null
+		) {
+			List<string> availableAnimationObjects = new List<string>();
+			if (singleChoice) {
+				availableAnimationObjects.Add(mySingleChoice.myName);
+			} else {
+				foreach (var a in myAnimationObjects)
+				{
+					AnimationObject source = a.Value;
+					availableAnimationObjects.Add(source.myName);
+				}
+			}
+			availableAnimationObjects.Sort();
+
+			return availableAnimationObjects;
+		}
+
+		private JSONStorableStringChooser PopulateJSONChooserSelection(
+			List<string> availableAnimationObjects,
+			JSONStorableStringChooser myAnimationObjectList,
+			string strLabel,
+			bool singleChoice = false
+		) {
+			string selectedAnimationObject;
+			if (availableAnimationObjects.Count == 0)
+				selectedAnimationObject= "";
+			else if(singleChoice || myAnimationObjectList == null || !availableAnimationObjects.Contains(myAnimationObjectList.val))
+				selectedAnimationObject = availableAnimationObjects[0];
+			else
+				selectedAnimationObject = myAnimationObjectList.val;
+
+			myAnimationObjectList = new JSONStorableStringChooser(strLabel, availableAnimationObjects, selectedAnimationObject, strLabel);
+			myAnimationObjectList.setCallbackFunction += (string v) => UIRefreshMenu();
+
+			return myAnimationObjectList;
+		}
+		
+		private JSONStorableStringChooser CreateDropDown(
+			Dictionary<string, AnimationObject> myAnimationObjects,
+			JSONStorableStringChooser myAnimationObjectList,
+			string strLabel,
+			bool singleChoice = false,
+			AnimationObject mySingleChoice = null
+		) {
+
+			List<string> availableAnimationObjects = GetAvailableOptions(myAnimationObjects, singleChoice, mySingleChoice);
+			myAnimationObjectList = PopulateJSONChooserSelection(availableAnimationObjects, myAnimationObjectList, strLabel, singleChoice);
+
+			return myAnimationObjectList;
+		}
+
+		private void CreateMainDropDown(Dictionary<string, AnimationObject> myChoices, JSONStorableStringChooser myMainSelection, AnimationObject myParent, string objectType){
+			List<string> options = new List<string>();
+			foreach (var option in myChoices)
+				options.Add(option.Key);
+			options.Sort();
+			myMainSelection.choices = options;
+			if (objectType == "state") {
+				List<string> stateDisplays = new List<string>(options.Count);
+				for (int i=0; i<options.Count; ++i)
+				{
+					State state = myCurrentLayer.myStates[options[i]];
+					stateDisplays.Add(state.myName);
+				}
+				myMainSelection.displayChoices = stateDisplays;
+			} else {
+				myMainSelection.displayChoices = options;
+			}
+			if (options.Count == 0)
+			{
+				myMainSelection.valNoCallback = "";
+			}
+			else if (!options.Contains(myMainSelection.val))
+			{
+				myMainSelection.valNoCallback = options[0];
+				AnimationObject selection;
+				myChoices.TryGetValue(myMainSelection.val, out selection);
+				if(objectType == "animation")
+					SetAnimation(selection as Animation);
+				else if (objectType == "layer")
+					SetLayer(selection as Layer);
+				UIBlendToState();
+			}
 		}
 
 		private void UISelectMenu(int menuItem)
@@ -480,80 +517,47 @@ namespace HaremLife
 
 			myPaused = (myMenuItem != MENU_PLAY || myPlayPaused.val);
 			myPlayMode = (myMenuItem == MENU_PLAY);
-			myMainAnimation.popup.visible = true; // Workaround for PopupPanel appearing behind other UI for some reason
-			myMainAnimation.popup.visible = false;
-			myMainLayer.popup.visible = true; // Workaround for PopupPanel appearing behind other UI for some reason
-			myMainLayer.popup.visible = false;
-			myMainState.popup.visible = true; // Workaround for PopupPanel appearing behind other UI for some reason
-			myMainState.popup.visible = false;
-			// CleanupMenu();
+			// myMainAnimation.popup.visible = true; // Workaround for PopupPanel appearing behind other UI for some reason
+			// myMainAnimation.popup.visible = false;
+			// myMainLayer.popup.visible = true; // Workaround for PopupPanel appearing behind other UI for some reason
+			// myMainLayer.popup.visible = false;
+			// myMainState.popup.visible = true; // Workaround for PopupPanel appearing behind other UI for some reason
+			// myMainState.popup.visible = false;
 
-			List<string> animations = new List<string>();
-			foreach (var animation in myAnimations)
-				animations.Add(animation.Key);
-			animations.Sort();
-			myMainAnimation.choices = animations;
-			myMainAnimation.displayChoices = animations;
-			if (animations.Count == 0)
-			{
-				myMainAnimation.valNoCallback = "";
-			}
-			else if (!animations.Contains(myMainAnimation.val))
-			{
-				myMainAnimation.valNoCallback = animations[0];
-				Animation animation;
-				myAnimations.TryGetValue(myMainAnimation.val, out animation);
-				SetAnimation(animation);
-				UIBlendToState();
-			}
-
-			List<string> layers = new List<string>();
-			if(myCurrentAnimation != null)
-			{
-				foreach (var layer in myCurrentAnimation.myLayers)
-					layers.Add(layer.Key);
-			}
-
-			layers.Sort();
-			myMainLayer.choices = layers;
-			myMainLayer.displayChoices = layers;
-			if (layers.Count == 0)
-			{
-				myMainLayer.valNoCallback = "";
-			}
-			else if (!layers.Contains(myMainLayer.val))
-			{
-				myMainLayer.valNoCallback = layers[0];
-				Layer layer;
-				myCurrentAnimation.myLayers.TryGetValue(myMainLayer.val, out layer);
-				SetLayer(layer);
-				UIBlendToState();
-			}
-
-			List<string> states = new List<string>();
-			if(myCurrentLayer != null)
-			{
-				foreach (var state in myCurrentLayer.myStates)
-					states.Add(state.Key);
-			}
-			states.Sort();
-			List<string> stateDisplays = new List<string>(states.Count);
-			for (int i=0; i<states.Count; ++i)
-			{
-				State state = myCurrentLayer.myStates[states[i]];
-				stateDisplays.Add(state.myName);
-			}
-			myMainState.choices = states;
-			myMainState.displayChoices = stateDisplays;
-			if (states.Count == 0)
-			{
-				myMainState.valNoCallback = "";
-			}
-			else if (!states.Contains(myMainState.val))
-			{
-				myMainState.valNoCallback = states[0];
-				UIBlendToState();
-			}
+			CreateMainDropDown(
+				CastDict(myAnimations).ToDictionary(entry => (string)entry.Key, entry => (AnimationObject)entry.Value),
+				myMainAnimation,
+				new AnimationObject("test"),
+				"animation"
+			);
+			if (myCurrentAnimation != null)
+				CreateMainDropDown(
+					CastDict(myCurrentAnimation.myLayers).ToDictionary(entry => (string)entry.Key, entry => (AnimationObject)entry.Value),
+					myMainLayer,
+					myCurrentAnimation,
+					"layer"
+				);
+			else
+				CreateMainDropDown(
+					new Dictionary<string, AnimationObject>(),
+					myMainLayer,
+					myCurrentAnimation,
+					"layer"
+				);
+			if (myCurrentLayer != null)
+				CreateMainDropDown(
+					CastDict(myCurrentLayer.myStates).ToDictionary(entry => (string)entry.Key, entry => (AnimationObject)entry.Value),
+					myMainState,
+					myCurrentLayer,
+					"state"
+				);
+			else
+				CreateMainDropDown(
+					new Dictionary<string, AnimationObject>(),
+					myMainState,
+					myCurrentLayer,
+					"state"
+				);
 
 			Utils.OnInitUI(CreateUIElement);
 			switch (myMenuItem)
@@ -629,7 +633,6 @@ namespace HaremLife
 
 			CreateTabs(new string[] { "Play", "Animations", "Layers", "States", "Transitions", "Triggers", "Anchors", "Roles", "Messages", "Options" });
 
-			// myMenuElements.Clear();
 		}
 
 		private void CreateTabs(string[] menuItems) {
@@ -640,14 +643,6 @@ namespace HaremLife
 			le.minWidth = 1064;
 			le.preferredHeight = 90;
 			le.preferredWidth = 1064;
-
-			// RectTransform backgroundTransform = manager.configurableScrollablePopupPrefab.transform.Find("Background") as RectTransform;
-			// backgroundTransform = Instantiate(backgroundTransform, tabbarPrefab.transform);
-			// backgroundTransform.name = "Background";
-			// backgroundTransform.anchorMax = new Vector2(1, 1);
-			// backgroundTransform.anchorMin = new Vector2(0, 0);
-			// backgroundTransform.offsetMax = new Vector2(0, 0);
-			// backgroundTransform.offsetMin = new Vector2(0, 0);
 
 			UIDynamicTabBar uid = tabbarPrefab.AddComponent<UIDynamicTabBar>();
 
@@ -665,13 +660,9 @@ namespace HaremLife
 				}
 				float extraWidth = (i == MENU_TRANSITIONS || i == MENU_ANIMATIONS) ? 11.0f : 0.0f;
 
-				RectTransform buttonTransform = manager.configurableScrollablePopupPrefab.transform.Find("Button") as RectTransform;
-				buttonTransform = Instantiate(buttonTransform, tabbarPrefab.transform);
-				buttonTransform.name = "Button";
-				buttonTransform.anchorMax = new Vector2(0, 1);
-				buttonTransform.anchorMin = new Vector2(0, 0);
-				buttonTransform.offsetMax = new Vector2(x+width+extraWidth, -15-secondRow);
-				buttonTransform.offsetMin = new Vector2(x, 15-secondRow);
+				RectTransform buttonTransform = InitBasicRectTransformPrefab(
+					"Button", manager.configurableScrollablePopupPrefab.transform.Find("Button"), tabbarPrefab.transform, new float[] {0, 1, 0, 0, x+width+extraWidth, -15-secondRow, x, 15-secondRow}
+				);
 				Button buttonButton = buttonTransform.GetComponent<Button>();
 				uid.buttons.Add(buttonButton);
 				Text buttonText = buttonTransform.Find("Text").GetComponent<Text>();
@@ -686,7 +677,7 @@ namespace HaremLife
 			{
 				int menuItem = i;
 				myMenuTabBar.buttons[i].onClick.AddListener(
-					() => {myMenuItem = menuItem; UIRefreshMenu();} //UISelectMenu(menuItem)
+					() => {myMenuItem = menuItem; UIRefreshMenu();}
 				);
 			}
 
@@ -698,13 +689,10 @@ namespace HaremLife
 		{
 			CreateMenuInfoOneLine("<size=30><b>Play Idle</b></size>", false);
 
-			// if (!myDebugShowInfo.val)
-			// {
-				if (myCurrentLayer != null && myCurrentLayer.myStates.Count > 0)
-					myPlayInfo.val = "AnimationPoser is playing animations.";
-				else
-					myPlayInfo.val = "You need to add some states and transitions before you can play animations.";
-			// }
+			if (myCurrentLayer != null && myCurrentLayer.myStates.Count > 0)
+				myPlayInfo.val = "AnimationPoser is playing animations.";
+			else
+				myPlayInfo.val = "You need to add some states and transitions before you can play animations.";
 
 			CreateMenuInfo(myPlayInfo, 300, false);
 			CreateMenuToggle(myPlayPaused, false);
@@ -1177,25 +1165,11 @@ namespace HaremLife
 			}
 			transitions.Sort((UITransition a, UITransition b) => a.state.myName.CompareTo(b.state.myName));
 
-			List<string> availableAnimations = new List<string>();
-			foreach (var a in myAnimations)
-			{
-				Animation target = a.Value;
-				availableAnimations.Add(target.myName);
-			}
-			availableAnimations.Sort();
-
-			string selectedTargetAnimation;
-			if (availableAnimations.Count == 0)
-				selectedTargetAnimation= "";
-			else if (myTargetAnimationList == null || !availableAnimations.Contains(myTargetAnimationList.val))
-				selectedTargetAnimation = myCurrentAnimation.myName;
-			else
-				selectedTargetAnimation = myTargetAnimationList.val;
-
-			myTargetAnimationList = new JSONStorableStringChooser("Target Animation", availableAnimations, selectedTargetAnimation, "Target Animation");
-			myTargetAnimationList.setCallbackFunction += (string v) => UIRefreshMenu();
-
+			myTargetAnimationList = CreateDropDown(
+				CastDict(myAnimations).ToDictionary(entry => (string)entry.Key, entry => (AnimationObject)entry.Value),
+				myTargetAnimationList,
+				"Target Animation"
+			);
 			Animation targetAnimation;
 			if(!myAnimations.TryGetValue(myTargetAnimationList.val, out targetAnimation)){
 				return;
@@ -1203,29 +1177,24 @@ namespace HaremLife
 
 			Layer targetLayer;
 			List<string> availableLayers = new List<string>();
+			bool singleChoice = false;
+			AnimationObject mySingleChoice = null;
 			if(targetAnimation != myCurrentAnimation) {
-				foreach (var l in targetAnimation.myLayers)
-				{
-					Layer target = l.Value;
-					availableLayers.Add(target.myName);
-				}
-				availableLayers.Sort();
-
-				string selectedTargetLayer;
-				if (availableLayers.Count == 0)
-					selectedTargetLayer = "";
-				else if (myTargetLayerList == null || !availableLayers.Contains(myTargetLayerList.val))
-					selectedTargetLayer = myCurrentLayer.myName;
-				else
-					selectedTargetLayer = myTargetLayerList.val;
-
-				myTargetLayerList = new JSONStorableStringChooser("Target Layer", availableLayers, selectedTargetLayer, "Target Layer");
-				myTargetLayerList.setCallbackFunction += (string v) => UIRefreshMenu();
-
-				if(!targetAnimation.myLayers.TryGetValue(myTargetLayerList.val, out targetLayer))
-					return;
-			} else
-				targetLayer = myCurrentLayer;
+				singleChoice = false;
+				mySingleChoice = null;
+			} else {
+				singleChoice = true;
+				mySingleChoice = myCurrentLayer as AnimationObject;
+			}
+			myTargetLayerList = CreateDropDown(
+				CastDict(targetAnimation.myLayers).ToDictionary(entry => (string)entry.Key, entry => (AnimationObject)entry.Value),
+				myTargetLayerList,
+				"Target Layer",
+				singleChoice:singleChoice,
+				mySingleChoice:mySingleChoice
+			);
+			if(!targetAnimation.myLayers.TryGetValue(myTargetLayerList.val, out targetLayer))
+				return;
 
 			List<string> availableStates = new List<string>();
 			foreach (var s in targetLayer.myStates)
@@ -1237,24 +1206,19 @@ namespace HaremLife
 			}
 			availableStates.Sort();
 
-			string selectedTargetState;
-			if (availableStates.Count == 0)
-				selectedTargetState = "";
-			else if (myTargetStateList == null || !availableStates.Contains(myTargetStateList.val))
-				selectedTargetState = availableStates[0];
-			else
-				selectedTargetState = myTargetStateList.val;
+			myTargetStateList = PopulateJSONChooserSelection(
+				availableStates,
+				myTargetStateList,
+				"Target State"
+			);
 
-			myTargetStateList = new JSONStorableStringChooser("Target State", availableStates, selectedTargetState, "Target State");
-			myTargetStateList.setCallbackFunction += (string v) => UIRefreshMenu();
-
-			if(availableAnimations.Count > 0) {
+			if(myTargetAnimationList.choices.Count > 0) {
 				CreateMenuPopup(myTargetAnimationList, false);
 			}
-			if(availableLayers.Count > 0) {
+			if(myTargetLayerList.choices.Count > 0) {
 				CreateMenuPopup(myTargetLayerList, false);
 			}
-			if (availableStates.Count > 0)
+			if (myTargetStateList.choices.Count > 0)
 			{
 				CreateMenuPopup(myTargetStateList, false);
 				CreateMenuButton("Add Transition", UIAddTransition, false);
@@ -1286,23 +1250,12 @@ namespace HaremLife
 			Transition transition = state.getIncomingTransition(targetState);
 
 			if(transition != null) {
-				List<string> syncRoles = new List<string>();
-				foreach (var r in targetAnimation.myRoles)
-				{
-					syncRoles.Add(r.Value.myName);
-				}
-				syncRoles.Sort();
-
-				string selectedRoleName;
-				if (syncRoles.Count == 0)
-					selectedRoleName = "";
-				else if(mySyncRoleList != null && syncRoles.Contains(mySyncRoleList.val))
-					selectedRoleName = mySyncRoleList.val;
-				else
-					selectedRoleName = syncRoles[0];
-
-				mySyncRoleList = new JSONStorableStringChooser("Sync Role", syncRoles, selectedRoleName, "Sync Role");
-				mySyncRoleList.setCallbackFunction += (string v) => UIRefreshMenu();
+				
+				mySyncRoleList = CreateDropDown(
+					CastDict(targetAnimation.myRoles).ToDictionary(entry => (string)entry.Key, entry => (AnimationObject)entry.Value),
+					mySyncRoleList,
+					"Sync Role"
+				);
 
 				CreateMenuSpacer(10, false);
 				CreateMenuInfoOneLine("<size=30><b>Messages</b></size>", false);
@@ -1394,14 +1347,11 @@ namespace HaremLife
 					return;
 				}
 
-				string selectedSyncLayer;
-				if (mySyncLayerList == null || !syncLayers.Contains(mySyncLayerList.val))
-					selectedSyncLayer = syncLayers[0];
-				else
-					selectedSyncLayer = mySyncLayerList.val;
-
-				mySyncLayerList = new JSONStorableStringChooser("Sync Layer", syncLayers, selectedSyncLayer, "Sync Layer");
-				mySyncLayerList.setCallbackFunction += (string v) => UIRefreshMenu();
+				mySyncLayerList = PopulateJSONChooserSelection(
+					syncLayers,
+					mySyncLayerList,
+					"Sync Layer"
+				);
 
 				CreateMenuPopup(mySyncLayerList, true);
 
@@ -1438,14 +1388,11 @@ namespace HaremLife
 						return;
 					}
 
-					string selectedSyncState;
-					if (mySyncStateList == null || !syncStates.Contains(mySyncStateList.val))
-						selectedSyncState = syncStates[0];
-					else
-						selectedSyncState = mySyncStateList.val;
-
-					mySyncStateList = new JSONStorableStringChooser("Sync State", syncStates, selectedSyncState, "Sync State");
-					mySyncStateList.setCallbackFunction += (string v) => UIRefreshMenu();
+					mySyncStateList = PopulateJSONChooserSelection(
+						syncStates,
+						mySyncStateList,
+						"Sync State"
+					);
 
 					CreateMenuPopup(mySyncStateList, true);
 					CreateMenuButton("Sync State", () => {
@@ -1503,24 +1450,11 @@ namespace HaremLife
 			CreateMenuInfo("The Roles tab allows you to define roles for a layer. Each role can be assigned to a person, and used in the transitions tab to sync the layers of that person. Like in a play, the roles can be assigned and switched between different persons with minimal work to the script writer :)", 230, false);
 
 			CreateMenuSpacer(132, true);
-			List<string> roles = new List<string>();
-			foreach (var r in myCurrentAnimation.myRoles)
-			{
-				roles.Add(r.Value.myName);
-			}
-			roles.Sort();
-
-			String selectedRoleName;
-			if (myRoleList == null || !roles.Contains(myRoleList.val))
-				if(roles.Count > 0) {
-					selectedRoleName = roles[0];
-				} else {
-					selectedRoleName = "";
-				}
-			else
-				selectedRoleName = myRoleList.val;
-			myRoleList = new JSONStorableStringChooser("Role", roles, selectedRoleName, "Role");
-			myRoleList.setCallbackFunction += (string v) => UIRefreshMenu();
+			myRoleList = CreateDropDown(
+				CastDict(myCurrentAnimation.myRoles).ToDictionary(entry => (string)entry.Key, entry => (AnimationObject)entry.Value),
+				myRoleList,
+				"Role"
+			);
 
 			CreateMenuPopup(myRoleList, true);
 
@@ -1533,11 +1467,8 @@ namespace HaremLife
 				if (storableId == null) continue;
 				MVRScript storable = atom.GetStorableByID(storableId) as MVRScript;
 				if (storable == null) continue;
-				// if (ReferenceEquals(storable, _plugin)) continue;
 				if (!storable.enabled) continue;
-				// syncRoles.Add(storable.name);
 				people.Add(atom.name);
-				// storable.SendMessage(nameof(AnimationPoser.GetCalled), "");
 			}
 			people.Sort();
 
@@ -1584,7 +1515,7 @@ namespace HaremLife
 		}
 
 		private void UIAddRole() {
-			String name = FindNewRoleName();
+			String name = FindNewName("Role", "roles", myCurrentAnimation.myRoles.Keys.ToList());
 			Role role = new Role(name);
 			myCurrentAnimation.myRoles[name] = role;
 			myRoleList.val = name;
@@ -1605,17 +1536,6 @@ namespace HaremLife
 			UIRefreshMenu();
 		}
 
-		private string FindNewRoleName()
-		{
-			for (int i=1; i<1000; ++i)
-			{
-				string name = "Role#" + i;
-				if (!myCurrentAnimation.myRoles.ContainsKey(name))
-					return name;
-			}
-			SuperController.LogError("AnimationPoser: Too many roles!");
-			return null;
-		}
 		private void CreateMessagesMenu()
 		{
 			CreateMenuInfoOneLine("<size=30><b>Messages</b></size>", false);
@@ -1672,118 +1592,76 @@ namespace HaremLife
 			CreateMenuTextInput("Name", messageName, false);
 			CreateMenuTextInput("String", messageString, false);
 
-			List<string> availableSourceAnimations = new List<string>();
-			foreach (var a in myAnimations)
-			{
-				Animation source = a.Value;
-				availableSourceAnimations.Add(source.myName);
-			}
-			availableSourceAnimations.Sort();
-
-			string selectedSourceAnimation;
-			if (availableSourceAnimations.Count == 0)
-				selectedSourceAnimation= "";
-			else if (mySourceAnimationList == null || !availableSourceAnimations.Contains(mySourceAnimationList.val))
-				selectedSourceAnimation = myCurrentAnimation.myName;
-			else
-				selectedSourceAnimation = mySourceAnimationList.val;
-
-			mySourceAnimationList = new JSONStorableStringChooser("Source Animation", availableSourceAnimations, selectedSourceAnimation, "Source Animation");
-			mySourceAnimationList.setCallbackFunction += (string v) => UIRefreshMenu();
-
+			mySourceAnimationList = CreateDropDown(
+				CastDict(myAnimations).ToDictionary(entry => (string)entry.Key, entry => (AnimationObject)entry.Value),
+				mySourceAnimationList,
+				"Source Animation"
+			);
 			Animation sourceAnimation;
 			if(!myAnimations.TryGetValue(mySourceAnimationList.val, out sourceAnimation)){
 				return;
 			};
 
-			List<string> availableAnimations = new List<string>();
-			if(selectedMessage.myTargetState != null) {
-				availableAnimations.Add(selectedMessage.myTargetState.myAnimation().myName);
-			} else {
-				foreach (var a in myAnimations)
-				{
-					Animation target = a.Value;
-					availableAnimations.Add(target.myName);
-				}
-				availableAnimations.Sort();
-			}
-
-			string selectedTargetAnimation;
-			if(selectedMessage.myTargetState != null)
-				selectedTargetAnimation = selectedMessage.myTargetState.myAnimation().myName;
-			else if (availableAnimations.Count == 0)
-				selectedTargetAnimation= "";
-			else if (myTargetAnimationList == null || !availableAnimations.Contains(myTargetAnimationList.val))
-				selectedTargetAnimation = myCurrentAnimation.myName;
-			else
-				selectedTargetAnimation = myTargetAnimationList.val;
-
-			myTargetAnimationList = new JSONStorableStringChooser("Target Animation", availableAnimations, selectedTargetAnimation, "Target Animation");
-			myTargetAnimationList.setCallbackFunction += (string v) => UIRefreshMenu();
-
 			Animation targetAnimation;
+			bool singleChoice = false;
+			AnimationObject mySingleChoice = null;
+			if (selectedMessage.myTargetState == null) {
+				singleChoice=false;
+				mySingleChoice=null;
+			} else {
+				singleChoice=true;
+				mySingleChoice=selectedMessage.myTargetState.myAnimation() as AnimationObject;
+			}
+			myTargetAnimationList = CreateDropDown(
+				CastDict(myAnimations).ToDictionary(entry => (string)entry.Key, entry => (AnimationObject)entry.Value),
+				myTargetAnimationList,
+				"Target Animation",
+				singleChoice:singleChoice,
+				mySingleChoice:mySingleChoice
+			);
 			if(!myAnimations.TryGetValue(myTargetAnimationList.val, out targetAnimation)){
 				return;
 			};
 
 			Layer sourceLayer;
-			List<string> availableSourceLayers = new List<string>();
-			if (selectedMessage.myTargetState == null || sourceAnimation != selectedMessage.myTargetState.myLayer.myAnimation){
-				foreach (var l in sourceAnimation.myLayers)
-				{
-					Layer source = l.Value;
-					availableSourceLayers.Add(source.myName);
-				}
-				availableSourceLayers.Sort();
-
-				string selectedSourceLayer;
-				if (availableSourceLayers.Count == 0)
-					selectedSourceLayer = "";
-				else if (mySourceLayerList == null || !availableSourceLayers.Contains(mySourceLayerList.val))
-					selectedSourceLayer = myCurrentLayer.myName;
-				else
-					selectedSourceLayer = mySourceLayerList.val;
-
-				mySourceLayerList = new JSONStorableStringChooser("Source Layer", availableSourceLayers, selectedSourceLayer, "Source Layer");
-				mySourceLayerList.setCallbackFunction += (string v) => UIRefreshMenu();
-
-				if(!sourceAnimation.myLayers.TryGetValue(mySourceLayerList.val, out sourceLayer))
-					return;
+			if (selectedMessage.myTargetState == null || sourceAnimation != selectedMessage.myTargetState.myLayer.myAnimation) {
+				singleChoice=false;
+				mySingleChoice=null;
 			} else {
-				sourceLayer = selectedMessage.myTargetState.myLayer;
+				singleChoice=true;
+				mySingleChoice=selectedMessage.myTargetState.myLayer as AnimationObject as AnimationObject;
 			}
+			mySourceLayerList = CreateDropDown(
+				CastDict(sourceAnimation.myLayers).ToDictionary(entry => (string)entry.Key, entry => (AnimationObject)entry.Value),
+				mySourceLayerList,
+				"Source Layer",
+				singleChoice:singleChoice,
+				mySingleChoice:mySingleChoice
+			);
+			if(!sourceAnimation.myLayers.TryGetValue(mySourceLayerList.val, out sourceLayer))
+				return;
 
 			Layer targetLayer;
 			List<string> availableLayers = new List<string>();
-			if(targetAnimation != sourceAnimation) {
-				if(selectedMessage.myTargetState != null) {
-					availableLayers.Add(selectedMessage.myTargetState.myLayer.myName);
-				} else {
-					foreach (var l in targetAnimation.myLayers)
-					{
-						Layer target = l.Value;
-						availableLayers.Add(target.myName);
-					}
-					availableLayers.Sort();
-				}
-
-				string selectedTargetLayer;
-				if(selectedMessage.myTargetState != null)
-					selectedTargetLayer = selectedMessage.myTargetState.myLayer.myName;
-				else if (availableLayers.Count == 0)
-					selectedTargetLayer = "";
-				else if (myTargetLayerList == null || !availableLayers.Contains(myTargetLayerList.val))
-					selectedTargetLayer = myCurrentLayer.myName;
-				else
-					selectedTargetLayer = myTargetLayerList.val;
-
-				myTargetLayerList = new JSONStorableStringChooser("Target Layer", availableLayers, selectedTargetLayer, "Target Layer");
-				myTargetLayerList.setCallbackFunction += (string v) => UIRefreshMenu();
-
-				if(!targetAnimation.myLayers.TryGetValue(myTargetLayerList.val, out targetLayer))
-					return;
-			} else
-				targetLayer = sourceLayer;
+			if ((selectedMessage.myTargetState == null) & (targetAnimation != sourceAnimation)) {
+				singleChoice=false;
+				mySingleChoice=null;
+			} else if (selectedMessage.myTargetState == null) {
+				singleChoice=true;
+				mySingleChoice=sourceLayer as AnimationObject;
+			} else {
+				singleChoice=true;
+				mySingleChoice=selectedMessage.myTargetState.myLayer as AnimationObject;
+			}
+			myTargetLayerList = CreateDropDown(
+				CastDict(targetAnimation.myLayers).ToDictionary(entry => (string)entry.Key, entry => (AnimationObject)entry.Value),
+				myTargetLayerList,
+				"Target Layer",
+				singleChoice:singleChoice,
+				mySingleChoice:mySingleChoice
+			);
+			if(!targetAnimation.myLayers.TryGetValue(myTargetLayerList.val, out targetLayer))
+				return;
 
 			List<string> availableSourceStates = new List<string>();
 			foreach (var s in sourceLayer.myStates)
@@ -1822,16 +1700,11 @@ namespace HaremLife
 			}
 			availableSourceStates.Sort();
 
-			string selectedSourceState;
-			if (availableSourceStates.Count == 0)
-				selectedSourceState = "";
-			else if (mySourceStateList == null || !availableSourceStates.Contains(mySourceStateList.val))
-				selectedSourceState = availableSourceStates[0];
-			else
-				selectedSourceState = mySourceStateList.val;
-
-			mySourceStateList = new JSONStorableStringChooser("Source State", availableSourceStates, selectedSourceState, "Source State");
-			mySourceStateList.setCallbackFunction += (string v) => UIRefreshMenu();
+			mySourceStateList = PopulateJSONChooserSelection(
+				availableSourceStates,
+				mySourceStateList,
+				"Source State"
+			);
 
 			List<string> availableTargetStates = new List<string>();
 			foreach (var s in targetLayer.myStates)
@@ -1839,30 +1712,27 @@ namespace HaremLife
 				State target = s.Value;
 				if (selectedMessage != null) {
 					string qualStateName = $"{target.myLayer.myAnimation.myName}.{target.myLayer.myName}.{target.myName}";
-					if (selectedMessage.mySourceStates.Keys.ToList().Contains(qualStateName))
+					if (selectedMessage.mySourceStates.Keys.ToList().Contains(qualStateName)) {
+						SuperController.LogError("Cannot add state to availableTargetStates: " + qualStateName);
 						continue;
+					}
 				}
 
 				availableTargetStates.Add(target.myName);
 			}
 			availableTargetStates.Sort();
 
-			string selectedTargetState;
-			if (availableTargetStates.Count == 0)
-				selectedTargetState = "";
-			else if (myTargetStateList == null || !availableTargetStates.Contains(myTargetStateList.val))
-				selectedTargetState = availableTargetStates[0];
-			else
-				selectedTargetState = myTargetStateList.val;
+			myTargetStateList = PopulateJSONChooserSelection(
+				availableTargetStates,
+				myTargetStateList,
+				"Target State"
+			);
 
-			myTargetStateList = new JSONStorableStringChooser("Target State", availableTargetStates, selectedTargetState, "Target State");
-			myTargetStateList.setCallbackFunction += (string v) => UIRefreshMenu();
-
-			if (availableSourceAnimations.Count > 0)
+			if (mySourceAnimationList.choices.Count > 0)
 			{
 				CreateMenuPopup(mySourceAnimationList, false);
 			}
-			if (availableSourceLayers.Count > 0)
+			if (mySourceLayerList.choices.Count > 0)
 			{
 				CreateMenuPopup(mySourceLayerList, false);
 			}
@@ -1888,10 +1758,10 @@ namespace HaremLife
 					}, false
 				);
 			}
-			if(availableAnimations.Count > 0) {
+			if((myTargetAnimationList.choices.Count > 0) & (selectedMessage.myTargetState == null)) {
 				CreateMenuPopup(myTargetAnimationList, true);
 			}
-			if(availableLayers.Count > 0) {
+			if((myTargetLayerList.choices.Count > 0) & (selectedMessage.myTargetState == null)) {
 				CreateMenuPopup(myTargetLayerList, true);
 			}
 			if (availableTargetStates.Count > 0)
@@ -1926,27 +1796,12 @@ namespace HaremLife
 		private void CreateOptionsMenu()
 		{
 			CreateMenuInfoOneLine("<size=30><b>General Options</b></size>", false);
-			// CreateMenuToggle(myOptionsDefaultToWorldAnchor, false);
 
 			CreateMenuSlider(myGlobalDefaultTransitionDuration, false);
 			CreateMenuSlider(myGlobalDefaultEaseInDuration, false);
 			CreateMenuSlider(myGlobalDefaultEaseOutDuration, false);
 			CreateMenuSlider(myGlobalDefaultWaitDurationMin, false);
 			CreateMenuSlider(myGlobalDefaultWaitDurationMax, false);
-
-			// CreateMenuInfoOneLine("<size=30><b>Debug Options</b></size>", false);
-			// CreateMenuInfoOneLine("<color=#ff0000><b>Can cause performance issues!</b></color>", false);
-
-			// CreateMenuToggle(myDebugShowInfo, false);
-			// if (myDebugShowInfo.val)
-				// CreateMenuInfo(myPlayInfo, 300, false);
-
-			// CreateMenuToggle(myDebugShowPaths, false);
-			// CreateMenuToggle(myDebugShowTransitions, false);
-			// CreateMenuToggle(myDebugShowSelectedOnly, false);
-
-			// if (myDebugShowPaths.val)
-			// 	CreateMenuButton("Log Path Stats", DebugLogStats, false);
 		}
 
 		// =======================================================================================
@@ -1970,17 +1825,14 @@ namespace HaremLife
 			if (myCurrentState != null)
 			{
 				myMainState.valNoCallback = myCurrentState.myName;
-				// myMainState.setCallbackFunction(myCurrentState.myName);
 			}
 			if (myCurrentLayer != null)
 			{
 				myMainLayer.valNoCallback = myCurrentLayer.myName;
-				// myMainLayer.setCallbackFunction(myCurrentLayer.myName);
 			}
 			if (myCurrentAnimation != null)
 			{
 				myMainAnimation.valNoCallback = myCurrentAnimation.myName;
-				// myMainAnimation.setCallbackFunction(myCurrentAnimation.myName);
 			}
 			UIRefreshMenu();
 		}
@@ -1994,13 +1846,11 @@ namespace HaremLife
 				myCurrentAnimation.myLayers[layer.myName] = layer;
 				layer.myAnimation = myCurrentAnimation;
 				LoadTransitions(layer, layerObj);
-				// LoadMessages(layer, layerObj);
 			}
 
 			if (myCurrentState != null)
 			{
 				myMainState.valNoCallback = myCurrentState.myName;
-				// myMainState.setCallbackFunction(myCurrentState.myName);
 			}
 			UIRefreshMenu();
 		}
@@ -2228,7 +2078,7 @@ namespace HaremLife
 
 		private void UIAddAnimation()
 		{
-			string name = FindNewAnimationName();
+			string name = FindNewName("Animation", "animations", new List<string>(myAnimations.Keys));
 			if (name == null)
 				return;
 
@@ -2241,7 +2091,7 @@ namespace HaremLife
 
 		private void UIAddLayer()
 		{
-			string name = FindNewLayerName();
+			string name = FindNewName("Layer", "layers", new List<string>(myCurrentAnimation.myLayers.Keys));
 			if (name == null)
 				return;
 
@@ -2256,7 +2106,7 @@ namespace HaremLife
 
 		private void UIAddState()
 		{
-			string name = FindNewStateName();
+			string name = FindNewName("State", "states", new List<string>(myCurrentLayer.myStates.Keys));
 			if (name == null)
 				return;
 
@@ -2273,7 +2123,7 @@ namespace HaremLife
 			if (source == null)
 				return;
 
-			string name = FindNewStateName();
+			string name = FindNewName("Message", "messages", new List<string>(myMessages.Keys));
 			if (name == null)
 				return;
 
@@ -2302,7 +2152,7 @@ namespace HaremLife
 
 		private void UIAddMessage()
 		{
-			string name = FindNewMessageName();
+			string name = FindNewName("Message", "messages", new List<string>(myMessages.Keys));
 			if (name == null)
 				return;
 
@@ -2326,52 +2176,15 @@ namespace HaremLife
 			UIRefreshMenu();
 		}
 
-
-
-		private string FindNewAnimationName()
+		private string FindNewName(string nameBase, string objectNames, List<string> myExistingNames)
 		{
 			for (int i=1; i<1000; ++i)
 			{
-				string name = "Animation#" + i;
-				if (!myAnimations.ContainsKey(name))
+				string name = nameBase+"#" + i;
+				if (!myExistingNames.Contains(name))
 					return name;
 			}
-			SuperController.LogError("AnimationPoser: Too many animations!");
-			return null;
-		}
-
-		private string FindNewLayerName()
-		{
-			for (int i=1; i<1000; ++i)
-			{
-				string name = "Layer#" + i;
-				if (!myCurrentAnimation.myLayers.ContainsKey(name))
-					return name;
-			}
-			SuperController.LogError("AnimationPoser: Too many layers!");
-			return null;
-		}
-
-		private string FindNewStateName()
-		{
-			for (int i=1; i<1000; ++i)
-			{
-				string name = "State#" + i;
-				if (!myCurrentLayer.myStates.ContainsKey(name))
-					return name;
-			}
-			SuperController.LogError("AnimationPoser: Too many states!");
-			return null;
-		}
-		private string FindNewMessageName()
-		{
-			for (int i=1; i<1000; ++i)
-			{
-				string name = "Message#" + i;
-				if (!myMessages.ContainsKey(name))
-					return name;
-			}
-			SuperController.LogError("AnimationPoser: Too many messages!");
+			SuperController.LogError("AnimationPoser: Too many " + objectNames + "!");
 			return null;
 		}
 
