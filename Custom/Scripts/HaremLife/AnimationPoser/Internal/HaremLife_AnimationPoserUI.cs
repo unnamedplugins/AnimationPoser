@@ -2303,6 +2303,7 @@ namespace HaremLife
 
 			myAnimations.Add(name, myCurrentAnimation);
 			myCurrentAnimation.myName = name;
+			myMainAnimation.valNoCallback = name;
 			UIRefreshMenu();
 		}
 		private void UIRenameMessage(string name)
