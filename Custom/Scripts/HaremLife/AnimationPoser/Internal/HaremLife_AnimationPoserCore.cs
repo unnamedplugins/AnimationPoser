@@ -63,6 +63,10 @@ namespace HaremLife
 			mySendMessage.isStorable = mySendMessage.isRestorable = false;
 			RegisterString(mySendMessage);
 
+			JSONStorableFloat myAnimationSpeed = new JSONStorableFloat("AnimationSpeed", 1.0f, ChangeSpeed, 0.0f, 10.0f, true, true);
+			myAnimationSpeed.isStorable = myAnimationSpeed.isRestorable = false;
+			RegisterFloat(myAnimationSpeed);
+
 			myPlayPaused = new JSONStorableBool("PlayPause", false, PlayPauseAction);
 			myPlayPaused.isStorable = myPlayPaused.isRestorable = false;
 			RegisterBool(myPlayPaused);
@@ -84,6 +88,12 @@ namespace HaremLife
 			{
 				ms.Value.Clear();
 			}
+		}
+
+		private void ChangeSpeed(float f)
+		{
+			if(myCurrentAnimation!=null)
+				myCurrentAnimation.mySpeed = f;
 		}
 
 		public override JSONClass GetJSON(bool includePhysical = true, bool includeAppearance = true, bool forceStore = false)
