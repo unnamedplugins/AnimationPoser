@@ -352,8 +352,7 @@ namespace HaremLife
 
 		private Animation LoadAnimation(JSONClass anim)
 		{
-			Animation animation;
-			animation = CreateAnimation(anim["Name"]);
+			Animation animation = CreateAnimation(anim["Name"]);
 			animation.mySpeed = anim["Speed"].AsFloat;
 
 			JSONArray layers = anim["Layers"].AsArray;

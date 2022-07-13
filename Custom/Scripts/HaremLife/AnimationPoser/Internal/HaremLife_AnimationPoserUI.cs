@@ -96,6 +96,9 @@ namespace HaremLife
 		private void InitUI()
 		{
 			FileManagerSecure.CreateDirectory(BASE_DIRECTORY);
+			List<string> subdirectories = new List<string> {"Instances", "Animations", "Layers", "Roles", "Messages" };
+			foreach(string subdirectory in subdirectories)
+				FileManagerSecure.CreateDirectory(BASE_DIRECTORY+'/'+subdirectory);
 
 			List<string> animationItems = new List<string>();
 			myMainAnimation = new JSONStorableStringChooser("Animation", animationItems, "", "Animation");
@@ -708,13 +711,13 @@ namespace HaremLife
 			CreateMenuInfoOneLine("<size=30><b>Manage Animations</b></size>", false);
 
 			CreateMenuInfo("Careful! Loading the plugin instance overwrites everything!", 63, false);
-			CreateLoadButton("Load Plugin Instance", UILoadAnimationsJSON, false);
+			CreateLoadButton("Load Plugin Instance", UILoadAnimationsJSON, false, "Instances");
 			CreateMenuInfo("Saving the plugin instance serves as a backup of the entire plugin state", 63, false);
-			CreateMenuButton("Save Plugin Instance", UISaveJSONDialog(UISaveAnimationsJSON), false);
+			CreateMenuButton("Save Plugin Instance", UISaveJSONDialog(UISaveAnimationsJSON, "Instances"), false);
 
 			CreateMenuInfo("Save and load the current animation:", 35, false);
-			CreateLoadButton("Load Animation", UILoadAnimationJSON, false);
-			CreateMenuButton("Save Animation", UISaveJSONDialog(UISaveAnimationJSON), false);
+			CreateLoadButton("Load Animation", UILoadAnimationJSON, false, "Animations");
+			CreateMenuButton("Save Animation", UISaveJSONDialog(UISaveAnimationJSON, "Animations"), false);
 
 			String animationName = "";
 			if(myCurrentAnimation != null)
@@ -733,8 +736,8 @@ namespace HaremLife
 			// control captures
 			CreateMenuInfoOneLine("<size=30><b>Manage Layers</b></size>", false);
 
-			CreateLoadButton("Load Layer", UILoadJSON, false);
-			CreateMenuButton("Save Layer As", UISaveJSONDialog(UISaveLayerJSON), false);
+			CreateLoadButton("Load Layer", UILoadJSON, false, "Layers");
+			CreateMenuButton("Save Layer As", UISaveJSONDialog(UISaveLayerJSON, "Layers"), false);
 
 			String layerName = "";
 			if(myCurrentLayer != null)
@@ -1438,8 +1441,8 @@ namespace HaremLife
 		{
 			CreateMenuInfo("The Roles tab allows you to define roles for a layer. Each role can be assigned to a person, and used in the transitions tab to sync the layers of that person. Like in a play, the roles can be assigned and switched between different persons with minimal work to the script writer :)", 230, false);
 
-			CreateLoadButton("Load Roles", UILoadRolesJSON, false);
-			CreateMenuButton("Save Roles", UISaveJSONDialog(UISaveRolesJSON), false);
+			CreateLoadButton("Load Roles", UILoadRolesJSON, false, "Roles");
+			CreateMenuButton("Save Roles", UISaveJSONDialog(UISaveRolesJSON, "Roles"), false);
 
 			CreateMenuSpacer(132, true);
 			myRoleList = CreateDropDown(
@@ -1535,8 +1538,8 @@ namespace HaremLife
 
 			CreateMenuInfo("Use this to define special transitions that only take place when a given message is received.", 100, false);
 
-			CreateLoadButton("Load Messages", UILoadMessagesJSON, false);
-			CreateMenuButton("Save Messages", UISaveJSONDialog(UISaveMessagesJSON), false);
+			CreateLoadButton("Load Messages", UILoadMessagesJSON, false, "Messages");
+			CreateMenuButton("Save Messages", UISaveJSONDialog(UISaveMessagesJSON, "Messages"), false);
 
 			List<string> messages = new List<string>();
 			foreach (var m in myMessages)
@@ -1881,11 +1884,11 @@ namespace HaremLife
 			UIRefreshMenu();
 		}
 
-		private UnityAction UISaveJSONDialog(uFileBrowser.FileBrowserCallback saveJSON)
+		private UnityAction UISaveJSONDialog(uFileBrowser.FileBrowserCallback saveJSON, string path = "")
 		{
 			UnityAction action = new UnityAction(() => {
 				SuperController sc = SuperController.singleton;
-				sc.GetMediaPathDialog(saveJSON, FILE_EXTENSION, BASE_DIRECTORY, false, true, false, null, false, null, false, false);
+				sc.GetMediaPathDialog(saveJSON, FILE_EXTENSION, BASE_DIRECTORY + "/" + path, false, true, false, null, false, null, false, false);
 				sc.mediaFileBrowserUI.SetTextEntry(true);
 				if (sc.mediaFileBrowserUI.fileEntryField != null)
 				{
@@ -2629,7 +2632,7 @@ namespace HaremLife
 			myMenuElements.Add(uid);
 		}
 
-		private void CreateLoadButton(string label, JSONStorableString.SetStringCallback callback, bool rightSide)
+		private void CreateLoadButton(string label, JSONStorableString.SetStringCallback callback, bool rightSide, string path = "")
 		{
 			JSONStorableUrl myDataFile;
 			myDataFile = new JSONStorableUrl("AnimPose", "", callback, FILE_EXTENSION, true);
@@ -2637,7 +2640,7 @@ namespace HaremLife
 			myDataFile.setCallbackFunction -= callback;
 			myDataFile.allowFullComputerBrowse = false;
 			myDataFile.allowBrowseAboveSuggestedPath = true;
-			myDataFile.SetFilePath(BASE_DIRECTORY+"/");
+			myDataFile.SetFilePath(BASE_DIRECTORY+"/"+path+"/");
 			myDataFile.RegisterFileBrowseButton(button.button);
 			myDataFile.setCallbackFunction += callback;
 			myMenuElements.Add(button);
