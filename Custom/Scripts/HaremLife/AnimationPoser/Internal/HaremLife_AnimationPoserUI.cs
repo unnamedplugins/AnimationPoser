@@ -1436,6 +1436,9 @@ namespace HaremLife
 		{
 			CreateMenuInfo("The Roles tab allows you to define roles for a layer. Each role can be assigned to a person, and used in the transitions tab to sync the layers of that person. Like in a play, the roles can be assigned and switched between different persons with minimal work to the script writer :)", 230, false);
 
+			CreateLoadButton("Load Roles", UILoadRolesJSON, false);
+			CreateMenuButton("Save Roles", UISaveJSONDialog(UISaveRolesJSON), false);
+
 			CreateMenuSpacer(132, true);
 			myRoleList = CreateDropDown(
 				CastDict(myRoles).ToDictionary(entry => (string)entry.Key, entry => (AnimationObject)entry.Value),
@@ -1805,6 +1808,15 @@ namespace HaremLife
 			return atomUIDs;
 		}
 
+		private void UILoadRolesJSON(string url)
+		{
+			JSONClass jc = LoadJSON(url).AsObject;
+			if (jc != null)
+				LoadRoles(jc);
+
+			UIRefreshMenu();
+		}
+
 		private void UILoadAnimationsJSON(string url)
 		{
 			JSONClass jc = LoadJSON(url).AsObject;
@@ -1871,12 +1883,13 @@ namespace HaremLife
 			return action;
 		}
 
-		private void UISaveAnimationsJSON(string path)
+		private void UISaveRolesJSON(string path)
 		{
 			if (string.IsNullOrEmpty(path))
 				return;
 			path = path.Replace('\\', '/');
-			JSONClass jc = SaveAnimations();
+			JSONClass jc = new JSONClass();
+			SaveRoles(jc);
 			SaveJSON(jc, path);
 		}
 

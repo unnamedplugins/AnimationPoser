@@ -42,25 +42,29 @@ namespace HaremLife
 				anims.Add("", SaveAnimation(an.Value));
 			}
 
-			// save roles
+			SaveRoles(jc);
+			SaveMessages(jc);
+			jc["Animations"] = anims;
+
+			return jc;
+		}
+
+		private void SaveRoles(JSONClass jc) {
 			JSONArray rlist = new JSONArray();
 			foreach (var r in myRoles)
 			{
 				rlist.Add("", SaveRole(r.Value));
 			}
+			jc["Roles"] = rlist;
+		}
 
-			// save messages
+		private void SaveMessages(JSONClass jc) {
 			JSONArray mlist = new JSONArray();
 			foreach(var mm in myMessages)
 			{
 				mlist.Add("", SaveMessage(mm.Value));
 			}
-
-			jc["Roles"] = rlist;
 			jc["Messages"] = mlist;
-			jc["Animations"] = anims;
-
-			return jc;
 		}
 
 		private JSONClass SaveAnimation(Animation animationToSave)
