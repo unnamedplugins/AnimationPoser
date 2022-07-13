@@ -1533,6 +1533,9 @@ namespace HaremLife
 
 			CreateMenuInfo("Use this to define special transitions that only take place when a given message is received.", 100, false);
 
+			CreateLoadButton("Load Messages", UILoadMessagesJSON, false);
+			CreateMenuButton("Save Messages", UISaveJSONDialog(UISaveMessagesJSON), false);
+
 			List<string> messages = new List<string>();
 			foreach (var m in myMessages)
 			{
@@ -1817,6 +1820,15 @@ namespace HaremLife
 			UIRefreshMenu();
 		}
 
+		private void UILoadMessagesJSON(string url)
+		{
+			JSONClass jc = LoadJSON(url).AsObject;
+			if (jc != null)
+				LoadMessages(jc);
+
+			UIRefreshMenu();
+		}
+
 		private void UILoadAnimationsJSON(string url)
 		{
 			JSONClass jc = LoadJSON(url).AsObject;
@@ -1890,6 +1902,16 @@ namespace HaremLife
 			path = path.Replace('\\', '/');
 			JSONClass jc = new JSONClass();
 			SaveRoles(jc);
+			SaveJSON(jc, path);
+		}
+
+		private void UISaveMessagesJSON(string path)
+		{
+			if (string.IsNullOrEmpty(path))
+				return;
+			path = path.Replace('\\', '/');
+			JSONClass jc = new JSONClass();
+			SaveMessages(jc);
 			SaveJSON(jc, path);
 		}
 
