@@ -573,7 +573,7 @@ namespace HaremLife
 				case MENU_ROLES:       CreateRolesMenu();       break;
 				case MENU_MESSAGES:    CreateMessagesMenu();    break;
 				case MENU_OPTIONS:     CreateOptionsMenu();     break;
-				default:               CreatePlayMenu();        break;
+				case MENU_PLAY:        CreatePlayMenu();        break;
 			}
 		}
 
@@ -2676,7 +2676,7 @@ namespace HaremLife
 		{
 			UIDynamicSlider slider = CreateSlider(storable, rightSide);
 			slider.rangeAdjustEnabled = true;
-			myMenuElements.Add(storable);
+			myMenuElements.Add(slider);
 		}
 
 		private void CreateMenuPopup(JSONStorableStringChooser storable, bool rightSide)
