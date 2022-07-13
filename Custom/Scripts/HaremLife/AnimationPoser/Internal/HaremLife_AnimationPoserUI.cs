@@ -2172,7 +2172,7 @@ namespace HaremLife
 			if (source == null)
 				return;
 
-			string name = FindNewName("State", "states", new List<string>(myMessages.Keys));
+			string name = FindNewName("State", "states", new List<string>(myCurrentLayer.myStates.Keys));
 			if (name == null)
 				return;
 
