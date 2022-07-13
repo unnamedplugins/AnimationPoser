@@ -39,6 +39,7 @@ namespace HaremLife
 
 		private Dictionary<string, Animation> myAnimations = new Dictionary<string, Animation>();
 		private Dictionary<string, Message> myMessages = new Dictionary<string, Message>();
+		private Dictionary<string, Role> myRoles = new Dictionary<string, Role>();
 		private static Animation myCurrentAnimation;
 		private static Layer myCurrentLayer;
 		private static State myCurrentState;
@@ -267,7 +268,6 @@ namespace HaremLife
 		private class Animation : AnimationObject
 		{
 			public Dictionary<string, Layer> myLayers = new Dictionary<string, Layer>();
-			public Dictionary<string, Role> myRoles = new Dictionary<string, Role>();
 			public float mySpeed = 1.0f;
 
 			public Animation(string name) : base(name){}

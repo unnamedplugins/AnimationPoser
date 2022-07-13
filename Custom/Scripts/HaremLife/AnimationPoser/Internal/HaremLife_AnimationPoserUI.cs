@@ -1257,7 +1257,7 @@ namespace HaremLife
 			if(transition != null) {
 				
 				mySyncRoleList = CreateDropDown(
-					CastDict(targetAnimation.myRoles).ToDictionary(entry => (string)entry.Key, entry => (AnimationObject)entry.Value),
+					CastDict(myRoles).ToDictionary(entry => (string)entry.Key, entry => (AnimationObject)entry.Value),
 					mySyncRoleList,
 					"Sync Role"
 				);
@@ -1269,7 +1269,7 @@ namespace HaremLife
 				CreateMenuPopup(mySyncRoleList, false);
 
 				Role selectedRole;
-				targetAnimation.myRoles.TryGetValue(mySyncRoleList.val, out selectedRole);
+				myRoles.TryGetValue(mySyncRoleList.val, out selectedRole);
 
 				if(mySyncRoleList.val != "") {
 					String messageString;
@@ -1456,7 +1456,7 @@ namespace HaremLife
 
 			CreateMenuSpacer(132, true);
 			myRoleList = CreateDropDown(
-				CastDict(myCurrentAnimation.myRoles).ToDictionary(entry => (string)entry.Key, entry => (AnimationObject)entry.Value),
+				CastDict(myRoles).ToDictionary(entry => (string)entry.Key, entry => (AnimationObject)entry.Value),
 				myRoleList,
 				"Role"
 			);
@@ -1478,7 +1478,7 @@ namespace HaremLife
 			people.Sort();
 
 			Role selectedRole;
-			myCurrentAnimation.myRoles.TryGetValue(myRoleList.val, out selectedRole);
+			myRoles.TryGetValue(myRoleList.val, out selectedRole);
 
 			if(selectedRole != null) {
 				String selectedPersonName;
@@ -1505,9 +1505,9 @@ namespace HaremLife
 				roleName = selectedRole.myName;
 			JSONStorableString role = new JSONStorableString("Role Name",
 				roleName, (String newName) => {
-					myCurrentAnimation.myRoles.Remove(selectedRole.myName);
+					myRoles.Remove(selectedRole.myName);
 					selectedRole.myName = newName;
-					myCurrentAnimation.myRoles.Add(newName, selectedRole);
+					myRoles.Add(newName, selectedRole);
 					UIRefreshMenu();
 				}
 			);
@@ -1520,18 +1520,18 @@ namespace HaremLife
 		}
 
 		private void UIAddRole() {
-			String name = FindNewName("Role", "roles", myCurrentAnimation.myRoles.Keys.ToList());
+			String name = FindNewName("Role", "roles", myRoles.Keys.ToList());
 			SuperController.LogError("New Name: " + name);
 			Role role = new Role(name);
-			myCurrentAnimation.myRoles[name] = role;
+			myRoles[name] = role;
 			myRoleList.val = name;
 			UIRefreshMenu();
 		}
 
 		private void UIRemoveRole() {
-			myCurrentAnimation.myRoles.Remove(myRoleList.val);
+			myRoles.Remove(myRoleList.val);
 
-			List<string> roles = myCurrentAnimation.myRoles.Keys.ToList();
+			List<string> roles = myRoles.Keys.ToList();
 			roles.Sort();
 			if(roles.Count > 0) {
 				myRoleList.val = roles[0];

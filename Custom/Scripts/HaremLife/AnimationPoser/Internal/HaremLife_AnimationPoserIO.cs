@@ -50,26 +50,23 @@ namespace HaremLife
 				}
 				anim["Layers"] = llist;
 
-				// save roles
-				if (animation.myRoles.Keys.Count > 0)
-				{
-					JSONArray rlist = new JSONArray();
-					foreach (var r in animation.myRoles)
-					{
-						Role role = r.Value;
-						JSONClass rclass = new JSONClass();
-						rclass["Name"] = role.myName;
-						if(role.myPerson != null) {
-							rclass["Person"] = role.myPerson.name;
-						} else {
-							rclass["Person"] = "";
-						}
-						// ccclass["Person"] = r.myPerson;
-						rlist.Add("", rclass);
-					}
-					anim["Roles"] = rlist;
-				}
 				anims.Add("", anim);
+			}
+
+			// save roles
+			JSONArray rlist = new JSONArray();
+			foreach (var r in myRoles)
+			{
+				Role role = r.Value;
+				JSONClass rclass = new JSONClass();
+				rclass["Name"] = role.myName;
+				if(role.myPerson != null) {
+					rclass["Person"] = role.myPerson.name;
+				} else {
+					rclass["Person"] = "";
+				}
+				// ccclass["Person"] = r.myPerson;
+				rlist.Add("", rclass);
 			}
 
 			// save messages
@@ -111,6 +108,7 @@ namespace HaremLife
 				mlist.Add(m);
 			}
 
+			jc["Roles"] = rlist;
 			jc["Messages"] = mlist;
 			jc["Animations"] = anims;
 
@@ -130,25 +128,6 @@ namespace HaremLife
 				JSONClass anim = anims[l].AsObject;
 				Animation animation = CreateAnimation(anim["Name"]);
 				animation.mySpeed = anim["Speed"].AsFloat;
-
-				// load roles
-				if (anim.HasKey("Roles"))
-				{
-					JSONArray rlist = anim["Roles"].AsArray;
-					for (int i=0; i<rlist.Count; ++i)
-					{
-						Role r;
-						JSONClass rclass = rlist[i].AsObject;
-						r = new Role(rclass["Name"]);
-						if(rclass["Person"] != "") {
-							Atom person = SuperController.singleton.GetAtoms().Find(a => String.Equals(a.name, rclass["Person"]));
-							if(person != null) {
-								r.myPerson = person;
-							}
-						}
-						animation.myRoles[r.myName] = r;
-					}
-				}
 
 				JSONArray layers = anim["Layers"].AsArray;
 				for(int m=0; m<layers.Count; m++)
@@ -204,6 +183,7 @@ namespace HaremLife
 				myMainState.valNoCallback = myCurrentState.myName;
 				myMainState.setCallbackFunction(myCurrentState.myName);
 			}
+			LoadRoles(jc);
 			LoadMessages(jc);
 		}
 
@@ -600,13 +580,31 @@ namespace HaremLife
 					JSONClass msglist = tclass["Messages"].AsObject;
 					foreach (string key in msglist.Keys) {
 						Role role;
-						if (!targetAnimation.myRoles.TryGetValue(key, out role))
+						if (!myRoles.TryGetValue(key, out role))
 							continue;
 						transition.myMessages[role] = msglist[key];
 					}
 
 					source.myTransitions.Add(transition);
 				}
+			}
+		}
+
+		private void LoadRoles(JSONClass jc)
+		{
+			JSONArray rlist = jc["Roles"].AsArray;
+			for (int i=0; i<rlist.Count; ++i)
+			{
+				Role r;
+				JSONClass rclass = rlist[i].AsObject;
+				r = new Role(rclass["Name"]);
+				if(rclass["Person"] != "") {
+					Atom person = SuperController.singleton.GetAtoms().Find(a => String.Equals(a.name, rclass["Person"]));
+					if(person != null) {
+						r.myPerson = person;
+					}
+				}
+				myRoles[r.myName] = r;
 			}
 		}
 
