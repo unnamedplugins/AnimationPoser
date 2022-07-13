@@ -38,6 +38,7 @@ namespace HaremLife
 		private const float DEFAULT_ANCHOR_DAMPING_TIME = 0.2f;
 
 		private Dictionary<string, Animation> myAnimations = new Dictionary<string, Animation>();
+		private Dictionary<string, Message> myMessages = new Dictionary<string, Message>();
 		private static Animation myCurrentAnimation;
 		private static Layer myCurrentLayer;
 		private static State myCurrentState;
@@ -62,6 +63,10 @@ namespace HaremLife
 			mySendMessage.isStorable = mySendMessage.isRestorable = false;
 			RegisterString(mySendMessage);
 
+			JSONStorableFloat myAnimationSpeed = new JSONStorableFloat("AnimationSpeed", 1.0f, ChangeSpeed, 0.0f, 10.0f, true, true);
+			myAnimationSpeed.isStorable = myAnimationSpeed.isRestorable = false;
+			RegisterFloat(myAnimationSpeed);
+
 			myPlayPaused = new JSONStorableBool("PlayPause", false, PlayPauseAction);
 			myPlayPaused.isStorable = myPlayPaused.isRestorable = false;
 			RegisterBool(myPlayPaused);
@@ -83,6 +88,12 @@ namespace HaremLife
 			{
 				ms.Value.Clear();
 			}
+		}
+
+		private void ChangeSpeed(float f)
+		{
+			if(myCurrentAnimation!=null)
+				myCurrentAnimation.mySpeed = f;
 		}
 
 		public override JSONClass GetJSON(bool includePhysical = true, bool includeAppearance = true, bool forceStore = false)
@@ -109,16 +120,13 @@ namespace HaremLife
 
 		public void ReceiveMessage(String messageString) {
 			mySendMessage.valNoCallback = "";
-			foreach(var l in myCurrentAnimation.myLayers) {
-				Layer layer = l.Value;
-				foreach(var m in layer.myMessages) {
-					Message message = m.Value;
-					if(message.myMessageString == messageString) {
-						State currentState = layer.myCurrentState;
-						if(message.mySourceStates.Values.ToList().Contains(currentState)) {
-							Transition transition = new Transition(currentState, message);
-							layer.SetBlendTransition(message.myTargetState);
-						}
+			foreach (var m in myMessages) {
+				Message message = m.Value;
+				if(message.myMessageString == messageString) {
+					State currentState = myCurrentLayer.myCurrentState;
+					if(message.mySourceStates.Values.ToList().Contains(currentState)) {
+						Transition transition = new Transition(currentState, message);
+						myCurrentLayer.SetBlendTransition(message.myTargetState);
 					}
 				}
 			}
@@ -246,18 +254,23 @@ namespace HaremLife
 		}
 
 		// =======================================================================================
-
-		private class Animation
+		private class AnimationObject
 		{
 			public string myName;
+
+			public AnimationObject(string name)
+			{
+				myName = name;
+			}
+		}
+
+		private class Animation : AnimationObject
+		{
 			public Dictionary<string, Layer> myLayers = new Dictionary<string, Layer>();
 			public Dictionary<string, Role> myRoles = new Dictionary<string, Role>();
 			public float mySpeed = 1.0f;
 
-			public Animation(string name)
-			{
-				myName = name;
-			}
+			public Animation(string name) : base(name){}
 
 			public void Clear()
 			{
@@ -271,12 +284,10 @@ namespace HaremLife
 		}
 
 		// =======================================================================================
-		private class Layer
+		private class Layer : AnimationObject
 		{
-			public string myName;
 			public Animation myAnimation;
 			public Dictionary<string, State> myStates = new Dictionary<string, State>();
-			public Dictionary<string, Message> myMessages = new Dictionary<string, Message>();
 			public State myCurrentState;
 			public List<ControlCapture> myControlCaptures = new List<ControlCapture>();
 			public List<MorphCapture> myMorphCaptures = new List<MorphCapture>();
@@ -288,9 +299,8 @@ namespace HaremLife
 			private State myBlendState;
 			private List<State> myStateChain = new List<State>();
 
-			public Layer(string name)
+			public Layer(string name) : base(name)
 			{
-				myName = name;
 				myAnimation = myCurrentAnimation;
 			}
 
@@ -376,10 +386,9 @@ namespace HaremLife
 						if (myClock >= myDuration + myTransition.myDuration + myTransitionNoise)
 							ArriveAtState();
 					}
-				} 
-				// if no transition (updates position relative to anchor)
-				// if (myTransition == null)
-				// 	UpdateState();
+					// if (myTransition == null)
+						// UpdateState();
+				}
 			}
 
 			public void UpdateCurve(float t) {
@@ -515,13 +524,11 @@ namespace HaremLife
 				// myMainState.valNoCallback = myCurrentState.myName;
 			}
 		}
-		private class Role
+		private class Role : AnimationObject
 		{
-			public String myName;
 			public Atom myPerson;
 
-			public Role(string name){
-				myName = name;
+			public Role(string name) : base(name) {
 			}
 		}
 
@@ -613,9 +620,8 @@ namespace HaremLife
 			}
 		}
 
-		private class State
+		private class State : AnimationObject
 		{
-			public string myName;
 			public Layer myLayer;
 			public float myWaitDurationMin;
 			public float myWaitDurationMax;
@@ -633,9 +639,8 @@ namespace HaremLife
 			public EventTrigger ExitBeginTrigger;
 			public EventTrigger ExitEndTrigger;
 
-			public State(MVRScript script, string name, Layer layer)
+			public State(MVRScript script, string name, Layer layer) : base(name)
 			{
-				myName = name;
 				myLayer = layer;
 				EnterBeginTrigger = new EventTrigger(script, "OnEnterBegin", name);
 				EnterEndTrigger = new EventTrigger(script, "OnEnterEnd", name);
@@ -643,15 +648,13 @@ namespace HaremLife
 				ExitEndTrigger = new EventTrigger(script, "OnExitEnd", name);
 			}
 
-			public State(string name, Layer layer)
+			public State(string name, Layer layer) : base(name)
 			{
-				myName = name;
 				myLayer = layer;
 			}
 
-			public State(string name, State source)
+			public State(string name, State source) : base(name)
 			{
-				myName = name;
 				myLayer = myCurrentLayer;
 				myWaitDurationMin = source.myWaitDurationMin;
 				myWaitDurationMax = source.myWaitDurationMax;
