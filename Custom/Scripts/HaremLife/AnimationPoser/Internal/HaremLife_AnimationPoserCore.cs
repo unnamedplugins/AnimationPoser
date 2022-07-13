@@ -124,10 +124,12 @@ namespace HaremLife
 			foreach (var m in myMessages) {
 				Message message = m.Value;
 				if(message.myMessageString == messageString) {
-					State currentState = myCurrentLayer.myCurrentState;
-					if(message.mySourceStates.Values.ToList().Contains(currentState)) {
-						Transition transition = new Transition(currentState, message);
-						myCurrentLayer.SetBlendTransition(message.myTargetState);
+					foreach (var l in myCurrentAnimation.myLayers) {
+						State currentState = l.Value.myCurrentState;
+						if(message.mySourceStates.Values.ToList().Contains(currentState)) {
+							Transition transition = new Transition(currentState, message);
+							myCurrentLayer.SetBlendTransition(message.myTargetState);
+						}
 					}
 				}
 			}
