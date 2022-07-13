@@ -18,9 +18,6 @@ namespace HaremLife
 		private List<object> myMenuElements = new List<object>();
 
 		private int myMenuItem = 0;
-		private JSONStorableUrl myDataFile;
-		private JSONStorableUrl myAnimationFile;
-		private JSONStorableUrl myLayerFile;
 		private UIDynamicTabBar myMenuTabBar;
 		private static JSONStorableStringChooser myMainAnimation;
 		private static JSONStorableStringChooser myMainState;
@@ -99,10 +96,6 @@ namespace HaremLife
 		private void InitUI()
 		{
 			FileManagerSecure.CreateDirectory(BASE_DIRECTORY);
-
-			myDataFile = new JSONStorableUrl("AnimPose", "", UILoadAnimationsJSON, FILE_EXTENSION, true);
-			myAnimationFile = new JSONStorableUrl("AnimPose", "", UILoadAnimationJSON, FILE_EXTENSION, true);
-			myLayerFile = new JSONStorableUrl("AnimPose", "", UILoadJSON, FILE_EXTENSION, true);
 
 			List<string> animationItems = new List<string>();
 			myMainAnimation = new JSONStorableStringChooser("Animation", animationItems, "", "Animation");
@@ -714,27 +707,11 @@ namespace HaremLife
 		{
 			CreateMenuInfoOneLine("<size=30><b>Manage Animations</b></size>", false);
 
-			UIDynamicButton button = CreateButton("Load All Animations", false);
-			myDataFile.setCallbackFunction -= UILoadAnimationsJSON;
-			myDataFile.allowFullComputerBrowse = false;
-			myDataFile.allowBrowseAboveSuggestedPath = true;
-			myDataFile.SetFilePath(BASE_DIRECTORY+"/");
-			myDataFile.RegisterFileBrowseButton(button.button);
-			myDataFile.setCallbackFunction += UILoadAnimationsJSON;
-			myMenuElements.Add(button);
+			CreateLoadButton("Load All Animations", UILoadAnimationsJSON, false);
+			CreateMenuButton("Save All Animations", UISaveJSONDialog(UISaveAnimationsJSON), false);
 
-			CreateMenuButton("Save All Animations", UISaveAnimationsJSONDialog, false);
-
-			UIDynamicButton buttonn = CreateButton("Load Animation", false);
-			myAnimationFile.setCallbackFunction -= UILoadAnimationJSON;
-			myAnimationFile.allowFullComputerBrowse = false;
-			myAnimationFile.allowBrowseAboveSuggestedPath = true;
-			myAnimationFile.SetFilePath(BASE_DIRECTORY+"/");
-			myAnimationFile.RegisterFileBrowseButton(buttonn.button);
-			myAnimationFile.setCallbackFunction += UILoadAnimationJSON;
-			myMenuElements.Add(buttonn);
-
-			CreateMenuButton("Save Animation", UISaveAnimationJSONDialog, false);
+			CreateLoadButton("Load Animation", UILoadAnimationJSON, false);
+			CreateMenuButton("Save Animation", UISaveJSONDialog(UISaveAnimationJSON), false);
 
 			CreateMenuSpacer(132, true);
 			String animationName = "";
@@ -754,16 +731,8 @@ namespace HaremLife
 			// control captures
 			CreateMenuInfoOneLine("<size=30><b>Manage Layers</b></size>", false);
 
-			UIDynamicButton button = CreateButton("Load Layer", false);
-			myLayerFile.setCallbackFunction -= UILoadJSON;
-			myLayerFile.allowFullComputerBrowse = false;
-			myLayerFile.allowBrowseAboveSuggestedPath = true;
-			myLayerFile.SetFilePath(BASE_DIRECTORY+"/");
-			myLayerFile.RegisterFileBrowseButton(button.button);
-			myLayerFile.setCallbackFunction += UILoadJSON;
-			myMenuElements.Add(button);
-
-			CreateMenuButton("Save Layer As", UISaveJSONDialog, false);
+			CreateLoadButton("Load Layer", UILoadJSON, false);
+			CreateMenuButton("Save Layer As", UISaveJSONDialog(UISaveLayerJSON), false);
 
 			String layerName = "";
 			if(myCurrentLayer != null)
@@ -1886,17 +1855,20 @@ namespace HaremLife
 			UIRefreshMenu();
 		}
 
-		private void UISaveAnimationsJSONDialog()
+		private UnityAction UISaveJSONDialog(uFileBrowser.FileBrowserCallback saveJSON)
 		{
-			SuperController sc = SuperController.singleton;
-			sc.GetMediaPathDialog(UISaveAnimationsJSON, FILE_EXTENSION, BASE_DIRECTORY, false, true, false, null, false, null, false, false);
-			sc.mediaFileBrowserUI.SetTextEntry(true);
-			if (sc.mediaFileBrowserUI.fileEntryField != null)
-			{
-				string filename = ((int)(DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalSeconds).ToString();
-				sc.mediaFileBrowserUI.fileEntryField.text = filename + "." + FILE_EXTENSION;
-				sc.mediaFileBrowserUI.ActivateFileNameField();
-			}
+			UnityAction action = new UnityAction(() => {
+				SuperController sc = SuperController.singleton;
+				sc.GetMediaPathDialog(saveJSON, FILE_EXTENSION, BASE_DIRECTORY, false, true, false, null, false, null, false, false);
+				sc.mediaFileBrowserUI.SetTextEntry(true);
+				if (sc.mediaFileBrowserUI.fileEntryField != null)
+				{
+					string filename = ((int)(DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalSeconds).ToString();
+					sc.mediaFileBrowserUI.fileEntryField.text = filename + "." + FILE_EXTENSION;
+					sc.mediaFileBrowserUI.ActivateFileNameField();
+				}
+			});
+			return action;
 		}
 
 		private void UISaveAnimationsJSON(string path)
@@ -1908,17 +1880,13 @@ namespace HaremLife
 			SaveJSON(jc, path);
 		}
 
-		private void UISaveAnimationJSONDialog()
+		private void UISaveAnimationsJSON(string path)
 		{
-			SuperController sc = SuperController.singleton;
-			sc.GetMediaPathDialog(UISaveAnimationJSON, FILE_EXTENSION, BASE_DIRECTORY, false, true, false, null, false, null, false, false);
-			sc.mediaFileBrowserUI.SetTextEntry(true);
-			if (sc.mediaFileBrowserUI.fileEntryField != null)
-			{
-				string filename = ((int)(DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalSeconds).ToString();
-				sc.mediaFileBrowserUI.fileEntryField.text = filename + "." + FILE_EXTENSION;
-				sc.mediaFileBrowserUI.ActivateFileNameField();
-			}
+			if (string.IsNullOrEmpty(path))
+				return;
+			path = path.Replace('\\', '/');
+			JSONClass jc = SaveAnimations();
+			SaveJSON(jc, path);
 		}
 
 		private void UISaveAnimationJSON(string path)
@@ -1930,20 +1898,7 @@ namespace HaremLife
 			SaveJSON(jc, path);
 		}
 
-		private void UISaveJSONDialog()
-		{
-			SuperController sc = SuperController.singleton;
-			sc.GetMediaPathDialog(UISaveJSON, FILE_EXTENSION, BASE_DIRECTORY, false, true, false, null, false, null, false, false);
-			sc.mediaFileBrowserUI.SetTextEntry(true);
-			if (sc.mediaFileBrowserUI.fileEntryField != null)
-			{
-				string filename = ((int)(DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalSeconds).ToString();
-				sc.mediaFileBrowserUI.fileEntryField.text = filename + "." + FILE_EXTENSION;
-				sc.mediaFileBrowserUI.ActivateFileNameField();
-			}
-		}
-
-		private void UISaveJSON(string path)
+		private void UISaveLayerJSON(string path)
 		{
 			if (string.IsNullOrEmpty(path))
 				return;
@@ -2635,6 +2590,20 @@ namespace HaremLife
 		{
 			UIDynamicButton uid = Utils.SetupButton(this, label, callback, rightSide);
 			myMenuElements.Add(uid);
+		}
+
+		private void CreateLoadButton(string label, JSONStorableString.SetStringCallback callback, bool rightSide)
+		{
+			JSONStorableUrl myDataFile;
+			myDataFile = new JSONStorableUrl("AnimPose", "", callback, FILE_EXTENSION, true);
+			UIDynamicButton button = CreateButton(label, rightSide);
+			myDataFile.setCallbackFunction -= callback;
+			myDataFile.allowFullComputerBrowse = false;
+			myDataFile.allowBrowseAboveSuggestedPath = true;
+			myDataFile.SetFilePath(BASE_DIRECTORY+"/");
+			myDataFile.RegisterFileBrowseButton(button.button);
+			myDataFile.setCallbackFunction += callback;
+			myMenuElements.Add(button);
 		}
 
 		private void CreateMenuLabelXButton(string label, UnityAction callback, bool rightSide)
