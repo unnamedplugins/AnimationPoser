@@ -387,6 +387,8 @@ namespace HaremLife
 
 						if (myClock >= myDuration + myTransition.myDuration + myTransitionNoise)
 							ArriveAtState();
+					} else {
+						UpdateState();
 					}
 					// if (myTransition == null)
 						// UpdateState();
