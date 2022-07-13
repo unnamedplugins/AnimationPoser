@@ -19,6 +19,7 @@ namespace HaremLife
 
 		private int myMenuItem = 0;
 		private JSONStorableUrl myDataFile;
+		private JSONStorableUrl myAnimationFile;
 		private JSONStorableUrl myLayerFile;
 		private UIDynamicTabBar myMenuTabBar;
 		private static JSONStorableStringChooser myMainAnimation;
@@ -100,6 +101,7 @@ namespace HaremLife
 			FileManagerSecure.CreateDirectory(BASE_DIRECTORY);
 
 			myDataFile = new JSONStorableUrl("AnimPose", "", UILoadAnimationsJSON, FILE_EXTENSION, true);
+			myAnimationFile = new JSONStorableUrl("AnimPose", "", UILoadAnimationJSON, FILE_EXTENSION, true);
 			myLayerFile = new JSONStorableUrl("AnimPose", "", UILoadJSON, FILE_EXTENSION, true);
 
 			List<string> animationItems = new List<string>();
@@ -722,6 +724,17 @@ namespace HaremLife
 			myMenuElements.Add(button);
 
 			CreateMenuButton("Save All Animations", UISaveAnimationsJSONDialog, false);
+
+			UIDynamicButton buttonn = CreateButton("Load Animation", false);
+			myAnimationFile.setCallbackFunction -= UILoadAnimationJSON;
+			myAnimationFile.allowFullComputerBrowse = false;
+			myAnimationFile.allowBrowseAboveSuggestedPath = true;
+			myAnimationFile.SetFilePath(BASE_DIRECTORY+"/");
+			myAnimationFile.RegisterFileBrowseButton(buttonn.button);
+			myAnimationFile.setCallbackFunction += UILoadAnimationJSON;
+			myMenuElements.Add(buttonn);
+
+			CreateMenuButton("Save Animation", UISaveAnimationJSONDialog, false);
 
 			CreateMenuSpacer(132, true);
 			String animationName = "";
@@ -1822,24 +1835,35 @@ namespace HaremLife
 			sc.sortAtomUIDs = wasSorted;
 			return atomUIDs;
 		}
+
 		private void UILoadAnimationsJSON(string url)
 		{
 			JSONClass jc = LoadJSON(url).AsObject;
 			if (jc != null)
 				LoadAnimations(jc);
 
-			if (myCurrentState != null)
-			{
-				myMainState.valNoCallback = myCurrentState.myName;
+			UIRefreshMenu();
+		}
+
+		private void UILoadAnimationJSON(string url)
+		{
+			JSONClass jc = LoadJSON(url).AsObject;
+			if (jc != null){
+				Animation animation = LoadAnimation(jc);
+				myAnimations[animation.myName] = animation;
+				SetAnimation(animation);
 			}
+
 			if (myCurrentLayer != null)
 			{
 				myMainLayer.valNoCallback = myCurrentLayer.myName;
 			}
-			if (myCurrentAnimation != null)
+
+			if (myCurrentState != null)
 			{
-				myMainAnimation.valNoCallback = myCurrentAnimation.myName;
+				myMainState.valNoCallback = myCurrentState.myName;
 			}
+
 			UIRefreshMenu();
 		}
 
@@ -1852,6 +1876,7 @@ namespace HaremLife
 				myCurrentAnimation.myLayers[layer.myName] = layer;
 				layer.myAnimation = myCurrentAnimation;
 				LoadTransitions(layer, layerObj);
+				SetLayer(layer);
 			}
 
 			if (myCurrentState != null)
@@ -1873,12 +1898,35 @@ namespace HaremLife
 				sc.mediaFileBrowserUI.ActivateFileNameField();
 			}
 		}
+
 		private void UISaveAnimationsJSON(string path)
 		{
 			if (string.IsNullOrEmpty(path))
 				return;
 			path = path.Replace('\\', '/');
 			JSONClass jc = SaveAnimations();
+			SaveJSON(jc, path);
+		}
+
+		private void UISaveAnimationJSONDialog()
+		{
+			SuperController sc = SuperController.singleton;
+			sc.GetMediaPathDialog(UISaveAnimationJSON, FILE_EXTENSION, BASE_DIRECTORY, false, true, false, null, false, null, false, false);
+			sc.mediaFileBrowserUI.SetTextEntry(true);
+			if (sc.mediaFileBrowserUI.fileEntryField != null)
+			{
+				string filename = ((int)(DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalSeconds).ToString();
+				sc.mediaFileBrowserUI.fileEntryField.text = filename + "." + FILE_EXTENSION;
+				sc.mediaFileBrowserUI.ActivateFileNameField();
+			}
+		}
+
+		private void UISaveAnimationJSON(string path)
+		{
+			if (string.IsNullOrEmpty(path))
+				return;
+			path = path.Replace('\\', '/');
+			JSONClass jc = SaveAnimation(myCurrentAnimation);
 			SaveJSON(jc, path);
 		}
 

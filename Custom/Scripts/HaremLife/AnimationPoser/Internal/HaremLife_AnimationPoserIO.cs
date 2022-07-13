@@ -37,75 +37,23 @@ namespace HaremLife
 			jc["Paused"].AsBool = myPlayPaused.val;
 
 			JSONArray anims = new JSONArray();
-
 			foreach(var an in myAnimations)
 			{
-				Animation animation = an.Value;
-				JSONClass anim = new JSONClass();
-				anim["Name"] = animation.myName;
-				anim["Speed"].AsFloat = animation.mySpeed;
-				JSONArray llist = new JSONArray();
-				foreach(var l in animation.myLayers){
-					llist.Add("", SaveLayer(l.Value));
-				}
-				anim["Layers"] = llist;
-
-				anims.Add("", anim);
+				anims.Add("", SaveAnimation(an.Value));
 			}
 
 			// save roles
 			JSONArray rlist = new JSONArray();
 			foreach (var r in myRoles)
 			{
-				Role role = r.Value;
-				JSONClass rclass = new JSONClass();
-				rclass["Name"] = role.myName;
-				if(role.myPerson != null) {
-					rclass["Person"] = role.myPerson.name;
-				} else {
-					rclass["Person"] = "";
-				}
-				// ccclass["Person"] = r.myPerson;
-				rlist.Add("", rclass);
+				rlist.Add("", SaveRole(r.Value));
 			}
 
 			// save messages
 			JSONArray mlist = new JSONArray();
 			foreach(var mm in myMessages)
 			{
-				Message message = mm.Value;
-
-				JSONClass m = new JSONClass();
-
-				m["Name"] = message.myName;
-				m["MessageString"] = message.myMessageString;
-
-				JSONArray srcstlist = new JSONArray();
-				foreach(var srcst in message.mySourceStates) {
-					JSONClass src = new JSONClass();
-					src["AnimationName"] = srcst.Value.myLayer.myAnimation.myName;
-					src["LayerName"] = srcst.Value.myLayer.myName;
-					src["StateName"] = srcst.Value.myName;
-					srcstlist.Add(src);
-				}
-				m["SourceStates"] = srcstlist;
-				m["TargetState"] = message.myTargetState.myName;
-				m["TargetLayer"] = message.myTargetState.myLayer.myName;
-				m["TargetAnimation"] = message.myTargetState.myAnimation().myName;
-
-				m["Duration"].AsFloat = message.myDuration;
-				m["DurationNoise"].AsFloat = message.myDurationNoise;
-				m["EaseInDuration"].AsFloat = message.myEaseInDuration;
-				m["EaseOutDuration"].AsFloat = message.myEaseOutDuration;
-				m["Probability"].AsFloat = message.myProbability;
-
-				JSONClass synct = new JSONClass();
-				foreach (var syncl in message.mySyncTargets) {
-					synct[syncl.Key.myName] = syncl.Value.myName;
-				}
-				m["SyncTargets"] = synct;
-
-				mlist.Add(m);
+				mlist.Add("", SaveMessage(mm.Value));
 			}
 
 			jc["Roles"] = rlist;
@@ -115,76 +63,63 @@ namespace HaremLife
 			return jc;
 		}
 
-		private void LoadAnimations(JSONClass jc)
+		private JSONClass SaveAnimation(Animation animationToSave)
 		{
-			// load info
-			myAnimations.Clear();
-			int version = jc["Info"].AsObject["Version"].AsInt;
-
-			// load captures
-			JSONArray anims = jc["Animations"].AsArray;
-			for (int l=0; l<anims.Count; ++l)
-			{
-				JSONClass anim = anims[l].AsObject;
-				Animation animation = CreateAnimation(anim["Name"]);
-				animation.mySpeed = anim["Speed"].AsFloat;
-
-				JSONArray layers = anim["Layers"].AsArray;
-				for(int m=0; m<layers.Count; m++)
-				{
-					JSONClass layerObj = layers[m].AsObject;
-					Layer layer = LoadLayer(layerObj, false);
-					animation.myLayers[layer.myName] = layer;
-					layer.myAnimation = animation;
-				}
-
-				myAnimations[animation.myName] = animation;
+			JSONClass anim = new JSONClass();
+			anim["Name"] = animationToSave.myName;
+			anim["Speed"].AsFloat = animationToSave.mySpeed;
+			JSONArray llist = new JSONArray();
+			foreach(var l in animationToSave.myLayers){
+				llist.Add("", SaveLayer(l.Value));
 			}
+			anim["Layers"] = llist;
+			return anim;
+		}
 
-			for (int l=0; l<anims.Count; ++l)
-			{
-				JSONClass anim = anims[l].AsObject;
-				Animation animation;
-				if (!myAnimations.TryGetValue(anim["Name"], out animation))
-					continue;
-				JSONArray layers = anim["Layers"].AsArray;
-				for(int m=0; m<layers.Count; m++)
-				{
-					JSONClass layerObj = layers[m].AsObject["Layer"].AsObject;
-
-					Layer layer;
-					if (!animation.myLayers.TryGetValue(layerObj["Name"], out layer))
-						continue;
-
-					LoadTransitions(layer, layerObj);
-				}
+		private JSONClass SaveRole(Role roleToSave) {
+			JSONClass rclass = new JSONClass();
+			rclass["Name"] = roleToSave.myName;
+			if(roleToSave.myPerson != null) {
+				rclass["Person"] = roleToSave.myPerson.name;
+			} else {
+				rclass["Person"] = "";
 			}
+			// ccclass["Person"] = r.myPerson;
+			return rclass;
+		}
 
-			if(myAnimations.Count == 0)
-				return;
-			SetAnimation(myAnimations.Values.ToList()[0]);
+		private JSONClass SaveMessage(Message messageToSave) {
+			JSONClass m = new JSONClass();
 
-			// load settings
-			myPlayPaused.valNoCallback = jc.HasKey("Paused") && jc["Paused"].AsBool;
-			myPlayPaused.setCallbackFunction(myPlayPaused.val);
+			m["Name"] = messageToSave.myName;
+			m["MessageString"] = messageToSave.myMessageString;
 
-			if (myCurrentAnimation != null)
-			{
-				myMainAnimation.valNoCallback = myCurrentAnimation.myName;
-				myMainAnimation.setCallbackFunction(myCurrentAnimation.myName);
+			JSONArray srcstlist = new JSONArray();
+			foreach(var srcst in messageToSave.mySourceStates) {
+				JSONClass src = new JSONClass();
+				src["AnimationName"] = srcst.Value.myLayer.myAnimation.myName;
+				src["LayerName"] = srcst.Value.myLayer.myName;
+				src["StateName"] = srcst.Value.myName;
+				srcstlist.Add(src);
 			}
-			if (myCurrentLayer != null)
-			{
-				myMainLayer.valNoCallback = myCurrentLayer.myName;
-				myMainLayer.setCallbackFunction(myCurrentLayer.myName);
+			m["SourceStates"] = srcstlist;
+			m["TargetState"] = messageToSave.myTargetState.myName;
+			m["TargetLayer"] = messageToSave.myTargetState.myLayer.myName;
+			m["TargetAnimation"] = messageToSave.myTargetState.myAnimation().myName;
+
+			m["Duration"].AsFloat = messageToSave.myDuration;
+			m["DurationNoise"].AsFloat = messageToSave.myDurationNoise;
+			m["EaseInDuration"].AsFloat = messageToSave.myEaseInDuration;
+			m["EaseOutDuration"].AsFloat = messageToSave.myEaseOutDuration;
+			m["Probability"].AsFloat = messageToSave.myProbability;
+
+			JSONClass synct = new JSONClass();
+			foreach (var syncl in messageToSave.mySyncTargets) {
+				synct[syncl.Key.myName] = syncl.Value.myName;
 			}
-			if (myCurrentState != null)
-			{
-				myMainState.valNoCallback = myCurrentState.myName;
-				myMainState.setCallbackFunction(myCurrentState.myName);
-			}
-			LoadRoles(jc);
-			LoadMessages(jc);
+			m["SyncTargets"] = synct;
+
+			return m;
 		}
 
 		private JSONClass SaveLayer(Layer layerToSave)
@@ -337,6 +272,107 @@ namespace HaremLife
 			jc["Layer"] = layer;
 
 			return jc;
+		}
+
+		private void LoadAnimations(JSONClass jc)
+		{
+			// load info
+			myAnimations.Clear();
+			int version = jc["Info"].AsObject["Version"].AsInt;
+
+			// load captures
+			JSONArray anims = jc["Animations"].AsArray;
+			for (int l=0; l<anims.Count; ++l)
+			{
+				JSONClass anim = anims[l].AsObject;
+				Animation animation = CreateAnimation(anim["Name"]);
+				animation.mySpeed = anim["Speed"].AsFloat;
+
+				JSONArray layers = anim["Layers"].AsArray;
+				for(int m=0; m<layers.Count; m++)
+				{
+					JSONClass layerObj = layers[m].AsObject;
+					Layer layer = LoadLayer(layerObj, false);
+					animation.myLayers[layer.myName] = layer;
+					layer.myAnimation = animation;
+				}
+
+				myAnimations[animation.myName] = animation;
+			}
+
+			for (int l=0; l<anims.Count; ++l)
+			{
+				JSONClass anim = anims[l].AsObject;
+				Animation animation;
+				if (!myAnimations.TryGetValue(anim["Name"], out animation))
+					continue;
+				JSONArray layers = anim["Layers"].AsArray;
+				for(int m=0; m<layers.Count; m++)
+				{
+					JSONClass layerObj = layers[m].AsObject["Layer"].AsObject;
+
+					Layer layer;
+					if (!animation.myLayers.TryGetValue(layerObj["Name"], out layer))
+						continue;
+
+					LoadTransitions(layer, layerObj);
+				}
+			}
+
+			if(myAnimations.Count == 0)
+				return;
+			SetAnimation(myAnimations.Values.ToList()[0]);
+
+			// load settings
+			myPlayPaused.valNoCallback = jc.HasKey("Paused") && jc["Paused"].AsBool;
+			myPlayPaused.setCallbackFunction(myPlayPaused.val);
+
+			if (myCurrentAnimation != null)
+			{
+				myMainAnimation.valNoCallback = myCurrentAnimation.myName;
+				myMainAnimation.setCallbackFunction(myCurrentAnimation.myName);
+			}
+			if (myCurrentLayer != null)
+			{
+				myMainLayer.valNoCallback = myCurrentLayer.myName;
+				myMainLayer.setCallbackFunction(myCurrentLayer.myName);
+			}
+			if (myCurrentState != null)
+			{
+				myMainState.valNoCallback = myCurrentState.myName;
+				myMainState.setCallbackFunction(myCurrentState.myName);
+			}
+			LoadRoles(jc);
+			LoadMessages(jc);
+		}
+
+		private Animation LoadAnimation(JSONClass anim)
+		{
+			Animation animation;
+			animation = CreateAnimation(anim["Name"]);
+			animation.mySpeed = anim["Speed"].AsFloat;
+
+			JSONArray layers = anim["Layers"].AsArray;
+			for(int m=0; m<layers.Count; m++)
+			{
+				JSONClass layerObj = layers[m].AsObject;
+				Layer layer = LoadLayer(layerObj, false);
+				animation.myLayers[layer.myName] = layer;
+				layer.myAnimation = animation;
+			}
+
+			for(int m=0; m<layers.Count; m++)
+			{
+				JSONClass layerObj = layers[m].AsObject["Layer"].AsObject;
+
+				Layer layer;
+				if (!animation.myLayers.TryGetValue(layerObj["Name"], out layer))
+					continue;
+
+				LoadTransitions(layer, layerObj);
+			}
+
+			return animation;
 		}
 
 		private FreeControllerV3.PositionState getPositionState(String state) {
