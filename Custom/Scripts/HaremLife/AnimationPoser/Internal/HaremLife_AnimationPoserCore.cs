@@ -24,7 +24,7 @@ namespace HaremLife
 {
 	public partial class AnimationPoser : MVRScript
 	{
-		private const int MAX_STATES = 4;
+		private const int MAX_STATES = 2;
 		private static readonly int[] DISTANCE_SAMPLES = new int[] { 0, 0, 0, 11, 20};
 
 		private const float DEFAULT_TRANSITION_DURATION = 0.5f;
