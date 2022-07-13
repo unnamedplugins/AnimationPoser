@@ -707,23 +707,25 @@ namespace HaremLife
 		{
 			CreateMenuInfoOneLine("<size=30><b>Manage Animations</b></size>", false);
 
-			CreateLoadButton("Load All Animations", UILoadAnimationsJSON, false);
-			CreateMenuButton("Save All Animations", UISaveJSONDialog(UISaveAnimationsJSON), false);
+			CreateMenuInfo("Careful! Loading the plugin instance overwrites everything!", 63, false);
+			CreateLoadButton("Load Plugin Instance", UILoadAnimationsJSON, false);
+			CreateMenuInfo("Saving the plugin instance serves as a backup of the entire plugin state", 63, false);
+			CreateMenuButton("Save Plugin Instance", UISaveJSONDialog(UISaveAnimationsJSON), false);
 
+			CreateMenuInfo("Save and load the current animation:", 35, false);
 			CreateLoadButton("Load Animation", UILoadAnimationJSON, false);
 			CreateMenuButton("Save Animation", UISaveJSONDialog(UISaveAnimationJSON), false);
 
-			CreateMenuSpacer(132, true);
 			String animationName = "";
 			if(myCurrentAnimation != null)
 				animationName = myCurrentAnimation.myName;
 			JSONStorableString name = new JSONStorableString("Animation Name",
 				animationName, UIRenameAnimation);
-			CreateMenuTextInput("Animation Name", name, false);
+			CreateMenuTextInput("Animation Name", name, true);
 
-			CreateMenuButton("Add Animation", UIAddAnimation, false);
+			CreateMenuButton("Add Animation", UIAddAnimation, true);
 
-			CreateMenuButton("Remove Animation", UIRemoveAnimation, false);
+			CreateMenuButton("Remove Animation", UIRemoveAnimation, true);
 		}
 
 		private void CreateLayersMenu()
