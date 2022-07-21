@@ -501,6 +501,12 @@ namespace HaremLife
 						myMorphCaptures[i].SetTransition(stateChain);
 				}
 
+				foreach(var sc in transition.mySyncTargets) {
+					Layer syncLayer = sc.Key;
+					State syncState = sc.Value;
+					syncLayer.SetBlendTransition(syncState);
+				}
+
 				myStateChain.RemoveAt(0);
 
 				myTransition = transition;
@@ -513,30 +519,20 @@ namespace HaremLife
 				myTransition.SendMessages();
 			}
 
-			public void ArriveFromAnotherAnimation(Transition transition, State targetState) {
-				targetState.myLayer.SetBlendTransition(targetState);
-
-				myMainAnimation.valNoCallback = myCurrentAnimation.myName;
-			}
-
 			private void TransitionToAnotherAnimation(Transition transition)
 			{
 				State targetState = transition.myTargetState;
 				Animation animation = targetState.myAnimation();
 				Layer targetLayer = targetState.myLayer;
 				SetAnimation(animation);
-				targetLayer.ArriveFromAnotherAnimation(transition, targetState);
-				foreach(var sc in transition.mySyncTargets) {
-					Layer syncLayer = sc.Key;
-					State syncState = sc.Value;
-					syncLayer.ArriveFromAnotherAnimation(transition, syncState);
-				}
+				targetState.myLayer.SetBlendTransition(targetState);
 
 				// myMainAnimation.valNoCallback = myCurrentAnimation.myName;
 				// myMainLayer.valNoCallback = myCurrentLayer.myName;
 				// myMainState.valNoCallback = myCurrentState.myName;
 			}
 		}
+
 		private class Role : AnimationObject
 		{
 			public Atom myPerson;
