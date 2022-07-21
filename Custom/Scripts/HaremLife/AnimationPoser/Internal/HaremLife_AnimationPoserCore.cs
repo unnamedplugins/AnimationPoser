@@ -302,7 +302,6 @@ namespace HaremLife
 			public float myClock = 0.0f;
 			public float myDuration = 1.0f;
 			private List<TriggerActionDiscrete> myTriggerActionsNeedingUpdate = new List<TriggerActionDiscrete>();
-			private State myBlendState;
 			private List<State> myStateChain = new List<State>();
 
 			public Layer(string name) : base(name)
@@ -430,12 +429,12 @@ namespace HaremLife
 			{
 				if (myCurrentState == null || myCurrentState == state)
 				{
-					myBlendState = State.CreateBlendState();
-					CaptureState(myBlendState);
-					myBlendState.AssignOutTriggers(myCurrentState);
+					State blendState = State.CreateBlendState();
+					CaptureState(blendState);
+					blendState.AssignOutTriggers(myCurrentState);
 
 					myStateChain.Clear();
-					myStateChain.Add(myBlendState);
+					myStateChain.Add(blendState);
 					myStateChain.Add(state);
 				} else {
 					List<State> path = myCurrentState.findPath(state);
@@ -488,18 +487,27 @@ namespace HaremLife
 					transition = new Transition(sourceState, targetState);
 				}
 
-				if(transition.myTargetState.myAnimation() != transition.mySourceState.myAnimation()) {
-					TransitionToAnotherAnimation(transition);
-				} else {
-					List<State> stateChain = new List<State>(2);
-					stateChain.Add(sourceState);
-					stateChain.Add(targetState);
+				if(targetState.myAnimation() != sourceState.myAnimation()) {
+					Animation animation = targetState.myAnimation();
+					Layer targetLayer = targetState.myLayer;
 
-					for (int i=0; i<myControlCaptures.Count; ++i)
-						myControlCaptures[i].SetTransition(stateChain);
-					for (int i=0; i<myMorphCaptures.Count; ++i)
-						myMorphCaptures[i].SetTransition(stateChain);
+					State blendState = State.CreateBlendState();
+					CaptureState(blendState);
+					blendState.AssignOutTriggers(myCurrentState);
+
+					sourceState = blendState;
+
+					SetAnimation(animation);
 				}
+
+				List<State> stateChain = new List<State>(2);
+				stateChain.Add(sourceState);
+				stateChain.Add(targetState);
+
+				for (int i=0; i<myControlCaptures.Count; ++i)
+					myControlCaptures[i].SetTransition(stateChain);
+				for (int i=0; i<myMorphCaptures.Count; ++i)
+					myMorphCaptures[i].SetTransition(stateChain);
 
 				foreach(var sc in transition.mySyncTargets) {
 					Layer syncLayer = sc.Key;
@@ -517,19 +525,6 @@ namespace HaremLife
 					transition.myTargetState.EnterBeginTrigger.Trigger(myTriggerActionsNeedingUpdate);
 
 				myTransition.SendMessages();
-			}
-
-			private void TransitionToAnotherAnimation(Transition transition)
-			{
-				State targetState = transition.myTargetState;
-				Animation animation = targetState.myAnimation();
-				Layer targetLayer = targetState.myLayer;
-				SetAnimation(animation);
-				targetState.myLayer.SetBlendTransition(targetState);
-
-				// myMainAnimation.valNoCallback = myCurrentAnimation.myName;
-				// myMainLayer.valNoCallback = myCurrentLayer.myName;
-				// myMainState.valNoCallback = myCurrentState.myName;
 			}
 		}
 
