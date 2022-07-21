@@ -196,13 +196,18 @@ namespace HaremLife
 		private static void SetLayer(Layer layer)
 		{
 			myCurrentLayer = layer;
-			List<string> states = layer.myStates.Keys.ToList();
-			states.Sort();
-			if(layer.myStates.Count > 0) {
-				State state;
-				layer.myStates.TryGetValue(states[0], out state);
-				layer.myCurrentState = state;
-				layer.SetBlendTransition(state);
+			if(layer.myCurrentState != null) {
+				myMainState.val = layer.myCurrentState.myName;
+			}
+			if(layer.myCurrentState == null) {
+				List<string> states = layer.myStates.Keys.ToList();
+				states.Sort();
+				if(layer.myStates.Count > 0) {
+					State state;
+					layer.myStates.TryGetValue(states[0], out state);
+					layer.myCurrentState = state;
+					layer.SetBlendTransition(state);
+				}
 			}
 		}
 
