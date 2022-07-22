@@ -180,39 +180,31 @@ namespace HaremLife
 
 		private static void SetAnimation(Animation animation)
 		{
-			myCurrentAnimation = animation;
-
-			List<string> layers = animation.myLayers.Keys.ToList();
-			layers.Sort();
-			if(layers.Count > 0) {
-				Layer layer;
-				foreach (var layerKey in layers) {
-					myCurrentAnimation.myLayers.TryGetValue(layerKey, out layer);
-					SetLayer(layer);
+			if(myCurrentAnimation != null) {
+				foreach(var l in myCurrentAnimation.myLayers) {
+					Layer layer = l.Value;
+					layer.myStateChain.Clear();
 				}
 			}
-			myMainLayer.val = layers[0];
+			myCurrentAnimation = animation;
+			myMainAnimation.valNoCallback = animation.myName;
+
+			List<string> layers = myCurrentAnimation.myLayers.Keys.ToList();
+			layers.Sort();
+			myMainLayer.choices = layers;
+			foreach(var l in myCurrentAnimation.myLayers) {
+				SetLayer(l.Value);
+			}
 		}
 
 		private static void SetLayer(Layer layer)
 		{
 			myCurrentLayer = layer;
-			List<string> states = layer.myStates.Keys.ToList();
-			states.Sort();
-			State state = null;
-			if(layer.myCurrentState != null) {
-				state = layer.myCurrentState;
-			} else if (states.Count > 0) {
-				layer.myStates.TryGetValue(states[0], out state);
-				layer.myCurrentState = state;
-			}
-			if(state != null) {
-				if(layer.myStateChain.Count() < 2)
-					layer.SetBlendTransition(state);
-				myMainState.valNoCallback = state.myName;
-			}
-			myMainState.choices = states;
 			myMainLayer.valNoCallback = layer.myName;
+
+			State state = layer.myCurrentState;
+			if(state != null)
+				myMainState.valNoCallback = state.myName;
 		}
 
 		private void setCaptureDefaults(State state, State oldState)
@@ -291,6 +283,12 @@ namespace HaremLife
 				}
 			}
 
+			public void InitAnimationLayers() {
+				foreach(var l in myLayers) {
+					Layer layer = l.Value;
+					layer.GoToAnyState();
+				}
+			}
 		}
 
 		// =======================================================================================
@@ -431,17 +429,29 @@ namespace HaremLife
 					myControlCaptures[i].UpdateControllerStates();
 			}
 
-			public void SetBlendTransition(State state, bool debug = false)
+			public State CreateBlendState()
 			{
-				if (myCurrentState == null || myCurrentState == state)
-				{
-					State blendState = State.CreateBlendState();
-					CaptureState(blendState);
-					blendState.AssignOutTriggers(myCurrentState);
+				return new State("BlendState", this) {
+					myWaitDurationMin = 0.0f,
+					myWaitDurationMax = 0.0f,
+					myDefaultDuration = myGlobalDefaultTransitionDuration.val,
+				};
+			}
 
-					myStateChain.Clear();
-					myStateChain.Add(blendState);
-					myStateChain.Add(state);
+			public void SetBlendTransition(State state, bool debug = false) {
+				State blendState = CreateBlendState();
+				CaptureState(blendState);
+				blendState.AssignOutTriggers(myCurrentState);
+
+				myStateChain.Clear();
+				myStateChain.Add(blendState);
+				myStateChain.Add(state);
+			}
+
+			public void GoTo(State state, bool debug = false)
+			{
+				if (myCurrentState == null || myCurrentState == state) {
+					SetBlendTransition(state);
 				} else {
 					List<State> path = myCurrentState.findPath(state);
 					if(path != null) {
@@ -500,12 +510,19 @@ namespace HaremLife
 					Animation animation = targetState.myAnimation();
 					Layer targetLayer = targetState.myLayer;
 
-					State blendState = State.CreateBlendState();
+					foreach(var l in animation.myLayers) {
+						Layer layer = l.Value;
+						if(layer == targetLayer)
+							continue;
+						layer.GoToAnyState();
+					}
+
+					State blendState = CreateBlendState();
 					CaptureState(blendState);
 					blendState.AssignOutTriggers(myCurrentState);
 
 					sourceState = blendState;
-					targetLayer.myStateChain = myStateChain;
+					targetLayer.myStateChain = new List<State>(myStateChain);
 				}
 
 				List<State> stateChain = new List<State>(2);
@@ -520,7 +537,7 @@ namespace HaremLife
 				foreach(var sc in transition.mySyncTargets) {
 					Layer syncLayer = sc.Key;
 					State syncState = sc.Value;
-					syncLayer.SetBlendTransition(syncState);
+					syncLayer.GoTo(syncState);
 				}
 
 				myTransition = transition;
@@ -532,6 +549,17 @@ namespace HaremLife
 
 				myTransition.SendMessages();
 			}
+
+			public void GoToAnyState() {
+				if(myCurrentState == null) {
+					List<string> states = myStates.Keys.ToList();
+					states.Sort();
+					if(states.Count() > 0)
+						GoTo(myStates[states[0]]);
+				} else
+					GoTo(myCurrentState);
+			}
+
 		}
 
 		private class Role : AnimationObject
@@ -788,15 +816,6 @@ namespace HaremLife
 				for(int i=0; i<myTransitions.Count; i++)
 					if(myTransitions[i].myTargetState == state)
 						myTransitions.RemoveAt(i);
-			}
-
-			public static State CreateBlendState()
-			{
-				return new State("BlendState", myCurrentLayer) {
-					myWaitDurationMin = 0.0f,
-					myWaitDurationMax = 0.0f,
-					myDefaultDuration = myGlobalDefaultTransitionDuration.val,
-				};
 			}
 
 			public void AssignOutTriggers(State other)

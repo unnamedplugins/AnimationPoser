@@ -499,8 +499,11 @@ namespace HaremLife
 				if (objectType!="state") {
 					AnimationObject selection;
 					myChoices.TryGetValue(myMainSelection.val, out selection);
-					if(objectType == "animation")
-						SetAnimation(selection as Animation);
+					if(objectType == "animation") {
+						Animation animation = selection as Animation;
+						SetAnimation(animation);
+						animation.InitAnimationLayers();
+					}
 					else if (objectType == "layer")
 						SetLayer(selection as Layer);
 				}
@@ -586,7 +589,7 @@ namespace HaremLife
 			State state;
 			if (myStateAutoTransition.val && myCurrentLayer.myStates.TryGetValue(myMainState.val, out state))
 			{
-				myCurrentLayer.SetBlendTransition(state, true);
+				myCurrentLayer.GoTo(state, true);
 			}
 		}
 
@@ -599,10 +602,13 @@ namespace HaremLife
 			Animation animation;
 			myAnimations.TryGetValue(myMainAnimation.val, out animation);
 			SetAnimation(animation);
+			animation.InitAnimationLayers();
+
 			myPlayPaused.val = initPlayPaused;
 
 			UIRefreshMenu();
 		}
+
 		private void UISelectLayerAndRefresh(string name)
 		{
 			if(name.Length > 0) {
@@ -1858,6 +1864,7 @@ namespace HaremLife
 				Animation animation = LoadAnimation(jc);
 				myAnimations[animation.myName] = animation;
 				SetAnimation(animation);
+				animation.InitAnimationLayers();
 			}
 
 			if (myCurrentLayer != null)
