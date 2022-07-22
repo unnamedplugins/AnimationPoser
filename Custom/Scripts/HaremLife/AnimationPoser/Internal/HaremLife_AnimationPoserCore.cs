@@ -191,24 +191,28 @@ namespace HaremLife
 					SetLayer(layer);
 				}
 			}
+			myMainLayer.val = layers[0];
 		}
 
 		private static void SetLayer(Layer layer)
 		{
 			myCurrentLayer = layer;
+			List<string> states = layer.myStates.Keys.ToList();
+			states.Sort();
+			State state = null;
 			if(layer.myCurrentState != null) {
-				myMainState.valNoCallback = layer.myCurrentState.myName;
+				state = layer.myCurrentState;
+			} else if (states.Count > 0) {
+				layer.myStates.TryGetValue(states[0], out state);
+				layer.myCurrentState = state;
 			}
-			if(layer.myCurrentState == null) {
-				List<string> states = layer.myStates.Keys.ToList();
-				states.Sort();
-				if(layer.myStates.Count > 0) {
-					State state;
-					layer.myStates.TryGetValue(states[0], out state);
-					layer.myCurrentState = state;
+			if(state != null) {
+				if(layer.myStateChain.Count() < 2)
 					layer.SetBlendTransition(state);
-				}
+				myMainState.valNoCallback = state.myName;
 			}
+			myMainState.choices = states;
+			myMainLayer.valNoCallback = layer.myName;
 		}
 
 		private void setCaptureDefaults(State state, State oldState)
