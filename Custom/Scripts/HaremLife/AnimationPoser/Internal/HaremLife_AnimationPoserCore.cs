@@ -625,14 +625,13 @@ namespace HaremLife
 
 		}
 
-		private class Message
+		private class Message : AnimationObject
 		{
 			public State myTargetState;
 			public String myMessageString;
-			public String myName;
 			public Dictionary<string, State> mySourceStates = new Dictionary<string, State>();
 
-			public Message(string name) {
+			public Message(string name) : base(name) {
 				myName = name;
 			}
 		}
