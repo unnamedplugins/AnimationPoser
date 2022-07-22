@@ -836,12 +836,10 @@ namespace HaremLife
 					// all states no longer allowed because of avoids
 					// need to fall back to another state
 					// this does work (I tested it) but is this the best way? other suggestions?
-					List<string> possibleStates = myCurrentLayer.myStates.Keys.ToList();
-					possibleStates.Sort();
-					if(myCurrentLayer.myStates.Count > 0) {
-						State state;
-						myCurrentLayer.myStates.TryGetValue(possibleStates[0], out state);
-						return state;
+					foreach (var s in myCurrentLayer.myStates) {
+						State state = s.Value;
+						if(!state.myAvoid)
+							return state;
 					}
 				}
 
