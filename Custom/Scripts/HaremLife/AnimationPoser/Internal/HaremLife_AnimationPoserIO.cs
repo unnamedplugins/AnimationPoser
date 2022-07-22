@@ -26,12 +26,15 @@ namespace HaremLife
 			// save info
 			JSONClass info = new JSONClass();
 			info["Format"] = "HaremLife.AnimationPoser";
-			info["Version"].AsInt = 9;
+			info["Version"] = "3.6";
 			string creatorName = UserPreferences.singleton.creatorName;
 			if (string.IsNullOrEmpty(creatorName))
 				creatorName = "Unknown";
 			info["Author"] = creatorName;
 			jc["Info"] = info;
+
+			if (myCurrentAnimation != null)
+				jc["InitialAnimation"] = myCurrentAnimation.myName;
 
 			// save settings
 			jc["Paused"].AsBool = myPlayPaused.val;
@@ -332,7 +335,14 @@ namespace HaremLife
 
 			if(myAnimations.Count == 0)
 				return;
-			SetAnimation(myAnimations.Values.ToList()[0]);
+
+			Animation initial;
+			if (jc.HasKey("InitialAnimation") && myAnimations.TryGetValue(jc["InitialAnimation"].Value, out initial)) {
+			} else {
+				initial = myAnimations.Values.ToList()[0];
+			}
+			SetAnimation(initial);
+			initial.InitAnimationLayers();
 
 			// load settings
 			myPlayPaused.valNoCallback = jc.HasKey("Paused") && jc["Paused"].AsBool;
