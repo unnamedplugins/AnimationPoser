@@ -38,6 +38,7 @@ namespace HaremLife
 		private JSONStorableFloat myAnchorBlendRatio;
 		private JSONStorableFloat myAnchorDampingTime;
 		private JSONStorableStringChooser myMessageList;
+		private JSONStorableStringChooser myAvoidList;
 		private JSONStorableStringChooser myTargetAnimationList;
 		private JSONStorableStringChooser myTargetLayerList;
 		private JSONStorableStringChooser mySourceAnimationList;
@@ -49,6 +50,9 @@ namespace HaremLife
 		private JSONStorableStringChooser mySyncStateList;
 		private JSONStorableStringChooser myRoleList;
 		private JSONStorableStringChooser myPersonList;
+		private JSONStorableStringChooser myAvoidAnimationList;
+		private JSONStorableStringChooser myAvoidLayerList;
+		private JSONStorableStringChooser myAvoidStateList;
 		private JSONStorableBool myOptionsDefaultToWorldAnchor;
 		private JSONStorableBool myDebugShowInfo;
 		private JSONStorableBool myDebugShowPaths;
@@ -85,7 +89,8 @@ namespace HaremLife
 		private const int MENU_ANCHORS     = 6;
 		private const int MENU_ROLES	   = 7;
 		private const int MENU_MESSAGES    = 8;
-		private const int MENU_OPTIONS     = 9;
+		private const int MENU_AVOIDS    = 9;
+		private const int MENU_OPTIONS     = 10;
 
 		private GameObject myLabelWith2BXButtonPrefab;
 		private GameObject myLabelWithMXButtonPrefab;
@@ -238,7 +243,7 @@ namespace HaremLife
 			// switch to the desired tab
 			UISelectMenu(tabIdx);
 		}
-		
+
 		private RectTransform InitBasicRectTransformPrefab(string prefabName, Transform initTransform, Transform instTransform, float[] coordsArray, bool initialCast = true)
 		{
 			RectTransform myTransform = Instantiate(initTransform as RectTransform, instTransform);
@@ -417,7 +422,7 @@ namespace HaremLife
 				yield return entry;
 			}
 		}
-		
+
 		private List<string> GetAvailableOptions(
 			Dictionary<string, AnimationObject> myAnimationObjects,
 			bool singleChoice = false,
@@ -457,7 +462,7 @@ namespace HaremLife
 
 			return myAnimationObjectList;
 		}
-		
+
 		private JSONStorableStringChooser CreateDropDown(
 			Dictionary<string, AnimationObject> myAnimationObjects,
 			JSONStorableStringChooser myAnimationObjectList,
@@ -570,6 +575,7 @@ namespace HaremLife
 				case MENU_ANCHORS:     CreateAnchorsMenu();     break;
 				case MENU_ROLES:       CreateRolesMenu();       break;
 				case MENU_MESSAGES:    CreateMessagesMenu();    break;
+				case MENU_AVOIDS:      CreateAvoidsMenu();      break;
 				case MENU_OPTIONS:     CreateOptionsMenu();     break;
 				case MENU_PLAY:        CreatePlayMenu();        break;
 			}
@@ -631,7 +637,7 @@ namespace HaremLife
 			CreateMenuPopup(myMainState, true);
 			CreateMenuSpacer(172, true);
 
-			CreateTabs(new string[] { "Play", "Animations", "Layers", "States", "Transitions", "Triggers", "Anchors", "Roles", "Messages", "Options" });
+			CreateTabs(new string[] { "Play", "Animations", "Layers", "States", "Transitions", "Triggers", "Anchors", "Roles", "Messages", "Avoids", "Options" });
 
 		}
 
@@ -1244,7 +1250,7 @@ namespace HaremLife
 
 			if(baseTransition != null && baseTransition is Transition) {
 				Transition transition = baseTransition as Transition;
-				
+
 				mySyncRoleList = CreateDropDown(
 					CastDict(myRoles).ToDictionary(entry => (string)entry.Key, entry => (AnimationObject)entry.Value),
 					mySyncRoleList,
@@ -1800,6 +1806,122 @@ namespace HaremLife
 			}
 		}
 
+		private void CreateAvoidsMenu()
+		{
+			CreateMenuInfoOneLine("<size=30><b>Avoids</b></size>", false);
+
+			CreateMenuInfo("Use this to define special exclusion of states while toggled on.", 100, false);
+
+			CreateLoadButton("Load Avoids", UILoadAvoidsJSON, false, "Avoids");
+			CreateMenuButton("Save Avoids", UISaveJSONDialog(UISaveAvoidsJSON, "Avoids"), false);
+
+			List<string> avoids = new List<string>();
+			foreach (var a in myAvoids)
+			{
+				Avoid avoid = a.Value;
+				avoids.Add(avoid.myName);
+			}
+			avoids.Sort();
+
+			string selectedAvoidName;
+			if (avoids.Count == 0)
+				selectedAvoidName = "";
+			else if(myAvoidList != null && avoids.Contains(myAvoidList.val))
+				selectedAvoidName = myAvoidList.val;
+			else
+				selectedAvoidName = avoids[0];
+
+			myAvoidList = new JSONStorableStringChooser("Avoid", avoids, selectedAvoidName, "Avoid");
+			myAvoidList.setCallbackFunction += (string v) => UIRefreshMenu();
+
+			CreateMenuPopup(myAvoidList, false);
+
+			CreateMenuButton("Add Avoid", UIAddAvoid, false);
+			CreateMenuButton("Remove Avoid", UIRemoveAvoid, false);
+
+			Avoid selectedAvoid;
+			myAvoids.TryGetValue(selectedAvoidName, out selectedAvoid);
+
+			if(selectedAvoid == null) {
+				return;
+			}
+
+			JSONStorableString avoidName = new JSONStorableString("Avoid Name",
+				selectedAvoid.myName, (String newName) => {
+					myAvoids.Remove(selectedAvoid.myName);
+					selectedAvoid.myName = newName;
+					myAvoids[newName] = selectedAvoid;
+					UIRefreshMenu();
+				}
+			);
+
+			JSONStorableString avoidString = new JSONStorableString("Avoid String",
+				selectedAvoid.myAvoidString, (String newString) => {
+					selectedAvoid.myAvoidString = newString;
+					UIRefreshMenu();
+				}
+			);
+
+			CreateMenuTextInput("Name", avoidName, false);
+			CreateMenuTextInput("String", avoidString, false);
+
+			myAvoidAnimationList = CreateDropDown(
+				CastDict(myAnimations).ToDictionary(entry => (string)entry.Key, entry => (AnimationObject)entry.Value),
+				myAvoidAnimationList,
+				"Avoid Animation"
+			);
+			Animation avoidAnimation;
+			if(!myAnimations.TryGetValue(myAvoidAnimationList.val, out avoidAnimation)){
+				return;
+			};
+
+			Layer avoidLayer;
+			myAvoidLayerList = CreateDropDown(
+				CastDict(avoidAnimation.myLayers).ToDictionary(entry => (string)entry.Key, entry => (AnimationObject)entry.Value),
+				myAvoidLayerList,
+				"Avoid Layer"
+			);
+			if(!avoidAnimation.myLayers.TryGetValue(myAvoidLayerList.val, out avoidLayer))
+				return;
+
+			myAvoidStateList = CreateDropDown(
+				CastDict(avoidLayer.myStates).ToDictionary(entry => (string)entry.Key, entry => (AnimationObject)entry.Value),
+				myAvoidStateList,
+				"Avoid State"
+			);
+
+			if (myAvoidAnimationList.choices.Count > 0)
+			{
+				CreateMenuPopup(myAvoidAnimationList, false);
+			}
+			if (myAvoidLayerList.choices.Count > 0)
+			{
+				CreateMenuPopup(myAvoidLayerList, false);
+			}
+
+			if (myAvoidStateList.choices.Count > 0)
+			{
+				CreateMenuPopup(myAvoidStateList, false);
+				CreateMenuButton("Add Avoid State", () => {
+					Animation a = myAnimations[myAvoidAnimationList.val];
+					Layer l = a.myLayers[myAvoidLayerList.val];
+					State s = l.myStates[myAvoidStateList.val];
+					string qualStateName = $"{a.myName}.{l.myName}.{s.myName}";
+					selectedAvoid.myAvoidStates[qualStateName] = s;
+					UIRefreshMenu();
+				}, false);
+			}
+			foreach(var s in selectedAvoid.myAvoidStates) {
+				CreateMenuLabelXButton(
+					s.Key,
+					() => {
+						selectedAvoid.myAvoidStates.Remove(s.Key);
+						UIRefreshMenu();
+					}, false
+				);
+			}
+		}
+
 		private void CreateOptionsMenu()
 		{
 			CreateMenuInfoOneLine("<size=30><b>General Options</b></size>", false);
@@ -1838,6 +1960,15 @@ namespace HaremLife
 			JSONClass jc = LoadJSON(url).AsObject;
 			if (jc != null)
 				LoadMessages(jc);
+
+			UIRefreshMenu();
+		}
+
+		private void UILoadAvoidsJSON(string url)
+		{
+			JSONClass jc = LoadJSON(url).AsObject;
+			if (jc != null)
+				LoadAvoids(jc);
 
 			UIRefreshMenu();
 		}
@@ -1925,6 +2056,16 @@ namespace HaremLife
 			path = path.Replace('\\', '/');
 			JSONClass jc = new JSONClass();
 			SaveMessages(jc);
+			SaveJSON(jc, path);
+		}
+
+		private void UISaveAvoidsJSON(string path)
+		{
+			if (string.IsNullOrEmpty(path))
+				return;
+			path = path.Replace('\\', '/');
+			JSONClass jc = new JSONClass();
+			SaveAvoids(jc);
 			SaveJSON(jc, path);
 		}
 
@@ -2233,6 +2374,32 @@ namespace HaremLife
 				myMessageList.val = messages[0];
 			} else {
 				myMessageList.val = "";
+			}
+
+			UIRefreshMenu();
+		}
+
+		private void UIAddAvoid()
+		{
+			string name = FindNewName("Avoid", "avoids", new List<string>(myAvoids.Keys));
+			if (name == null)
+				return;
+
+			myAvoids[name] = new Avoid(name);
+			myAvoidList.val = name;
+			UIRefreshMenu();
+		}
+
+		private void UIRemoveAvoid()
+		{
+			myAvoids.Remove(myAvoidList.val);
+
+			List<string> avoids = myAvoids.Keys.ToList();
+			avoids.Sort();
+			if(avoids.Count > 0) {
+				myAvoidList.val = avoids[0];
+			} else {
+				myAvoidList.val = "";
 			}
 
 			UIRefreshMenu();

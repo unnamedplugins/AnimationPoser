@@ -39,6 +39,7 @@ namespace HaremLife
 
 		private Dictionary<string, Animation> myAnimations = new Dictionary<string, Animation>();
 		private Dictionary<string, Message> myMessages = new Dictionary<string, Message>();
+		private Dictionary<string, Avoid> myAvoids = new Dictionary<string, Avoid>();
 		private Dictionary<string, Role> myRoles = new Dictionary<string, Role>();
 		private static Animation myCurrentAnimation;
 		private static Layer myCurrentLayer;
@@ -50,6 +51,7 @@ namespace HaremLife
 		private bool myWasLoading = true;
 
 		private static JSONStorableString mySendMessage;
+		private static JSONStorableString mySendAvoid;
 		private static JSONStorableString myLoadAnimation;
 		private static JSONStorableBool myPlayPaused;
 
@@ -63,6 +65,10 @@ namespace HaremLife
 			mySendMessage = new JSONStorableString("SendMessage", "", ReceiveMessage);
 			mySendMessage.isStorable = mySendMessage.isRestorable = false;
 			RegisterString(mySendMessage);
+
+			mySendAvoid = new JSONStorableString("SendAvoid", "", ReceiveAvoid);
+			mySendAvoid.isStorable = mySendAvoid.isRestorable = false;
+			RegisterString(mySendAvoid);
 
 			JSONStorableFloat myAnimationSpeed = new JSONStorableFloat("AnimationSpeed", 1.0f, ChangeSpeed, 0.0f, 10.0f, true, true);
 			myAnimationSpeed.isStorable = myAnimationSpeed.isRestorable = false;
@@ -128,6 +134,45 @@ namespace HaremLife
 						State currentState = l.Value.myCurrentState;
 						if(message.mySourceStates.Values.ToList().Contains(currentState)) {
 							myCurrentLayer.SetBlendTransition(message.myTargetState);
+						}
+					}
+				}
+			}
+		}
+
+		public void ReceiveAvoid(String avoidString) {
+			mySendAvoid.valNoCallback = "";
+
+			bool myAvoid=false;
+			string[] avoidStringPieces = avoidString.Split(';');
+			foreach(var piece in avoidStringPieces)
+			// return error if string not formatted correctly
+			if(avoidStringPieces.Count() != 2)
+				return;
+
+			// return if toggle is not 0 or 1
+			if(avoidStringPieces[1] == "0") {
+				myAvoid=false;
+			} else if (avoidStringPieces[1] == "1") {
+				myAvoid=true;
+			}
+			else
+				return;
+
+			// set avoids
+			foreach (var av in myAvoids) {
+				Avoid avoid = av.Value;
+				if(avoid.myName == avoidStringPieces[0]) {
+					foreach (var an in myAnimations) {
+						Animation anim = an.Value;
+						foreach (var l in anim.myLayers) {
+							Layer lyr = l.Value;
+							foreach (var s in lyr.myStates) {
+								State st = s.Value;
+								if (avoid.myAvoidStates.Values.ToList().Contains(st)) {
+									st.myAvoid = myAvoid;
+								}
+							}
 						}
 					}
 				}
@@ -634,6 +679,17 @@ namespace HaremLife
 			}
 		}
 
+		private class Avoid
+		{
+			public String myAvoidString;
+			public String myName;
+			public Dictionary<string, State> myAvoidStates = new Dictionary<string, State>();
+
+			public Avoid(string name) {
+				myName = name;
+			}
+		}
+
 		private class State : AnimationObject
 		{
 			public Layer myLayer;
@@ -644,6 +700,7 @@ namespace HaremLife
 			public float myDefaultEaseOutDuration;
 			public float myDefaultProbability = DEFAULT_PROBABILITY;
 			public bool myIsRootState = false;
+			public bool myAvoid = false;
 			public uint myDebugIndex = 0;
 			public Dictionary<ControlCapture, ControlEntryAnchored> myControlEntries = new Dictionary<ControlCapture, ControlEntryAnchored>();
 			public Dictionary<MorphCapture, float> myMorphEntries = new Dictionary<MorphCapture, float>();
@@ -747,7 +804,13 @@ namespace HaremLife
 			}
 
 			public State sortNextState() {
-				List<State> states = getReachableStates();
+				List<State> reachableStates = getReachableStates();
+				List<State> states = new List<State>();
+				foreach (var s in reachableStates) {
+					if(!s.myAvoid) {
+						states.Add(s);
+					}
+				}
 
 				if(states.Count == 0) {
 					return null;
