@@ -127,7 +127,7 @@ namespace HaremLife
 					foreach (var l in myCurrentAnimation.myLayers) {
 						State currentState = l.Value.myCurrentState;
 						if(message.mySourceStates.Values.ToList().Contains(currentState)) {
-							myCurrentLayer.SetBlendTransition(message.myTargetState);
+							currentState.myLayer.GoTo(message.myTargetState);
 						}
 					}
 				}
