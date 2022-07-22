@@ -564,7 +564,6 @@ namespace HaremLife
 				} else
 					GoTo(myCurrentState);
 			}
-
 		}
 
 		private class Role : AnimationObject
@@ -899,6 +898,7 @@ namespace HaremLife
 						CaptureEntry(stateChain[i]);
 						myCurve[i] = stateChain[i].myControlEntries[this];
 					}
+					myCurve[i].Initialize();
 				}
 			}
 
