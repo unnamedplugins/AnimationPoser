@@ -302,7 +302,7 @@ namespace HaremLife
 			public float myClock = 0.0f;
 			public float myDuration = 1.0f;
 			private List<TriggerActionDiscrete> myTriggerActionsNeedingUpdate = new List<TriggerActionDiscrete>();
-			private List<State> myStateChain = new List<State>();
+			public List<State> myStateChain = new List<State>();
 
 			public Layer(string name) : base(name)
 			{
@@ -413,6 +413,8 @@ namespace HaremLife
 			public void ArriveAtState() {
 				State previousState = myCurrentState;
 				SetState(myTransition.myTargetState);
+				if(myTransition.myTargetState.myAnimation() != myCurrentAnimation)
+					SetAnimation(myTransition.myTargetState.myAnimation());
 
 				if (previousState.ExitEndTrigger != null)
 					previousState.ExitEndTrigger.Trigger(myTriggerActionsNeedingUpdate);
@@ -479,6 +481,9 @@ namespace HaremLife
 
 				State sourceState = myStateChain[0];
 				State targetState = myStateChain[1];
+
+				myStateChain.RemoveAt(0);
+
 				Transition transition;
 
 				if(sourceState.isReachable(targetState)) {
@@ -496,8 +501,7 @@ namespace HaremLife
 					blendState.AssignOutTriggers(myCurrentState);
 
 					sourceState = blendState;
-
-					SetAnimation(animation);
+					targetLayer.myStateChain = myStateChain;
 				}
 
 				List<State> stateChain = new List<State>(2);
@@ -514,8 +518,6 @@ namespace HaremLife
 					State syncState = sc.Value;
 					syncLayer.SetBlendTransition(syncState);
 				}
-
-				myStateChain.RemoveAt(0);
 
 				myTransition = transition;
 				myTransitionNoise = UnityEngine.Random.Range(-transition.myDurationNoise, transition.myDurationNoise);
