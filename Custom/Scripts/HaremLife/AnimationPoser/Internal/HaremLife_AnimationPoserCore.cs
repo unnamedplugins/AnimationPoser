@@ -797,7 +797,14 @@ namespace HaremLife
 					for(int i=0; i<keys.Count(); i++) {
 						State thisState = keys[i];
 
-						List<State> reachable = thisState.getDirectlyReachableStates();
+						List<State> states = thisState.getDirectlyReachableStates();
+						List<State> reachable = new List<State>();
+						foreach (var s in states) {
+							if(!s.myAvoid) {
+								reachable.Add(s);
+							}
+						}
+
 						for(int j=0; j<reachable.Count(); j++) {
 							State state = reachable[j];
 
