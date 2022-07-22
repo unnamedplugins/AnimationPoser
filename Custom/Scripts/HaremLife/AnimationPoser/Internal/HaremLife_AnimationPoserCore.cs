@@ -615,6 +615,7 @@ namespace HaremLife
 			public float myDurationNoise = 0.0f;
 			public Dictionary<Layer, State> mySyncTargets = new Dictionary<Layer, State>();
 			public Dictionary<Role, String> myMessages = new Dictionary<Role, String>();
+			public Dictionary<Role, String> myAvoids = new Dictionary<Role, String>();
 
 
 			public Transition(State sourceState, State targetState)
@@ -647,6 +648,7 @@ namespace HaremLife
 				myDurationNoise = t.myDurationNoise;
 				mySyncTargets = t.mySyncTargets;
 				myMessages = t.myMessages;
+				myAvoids = t.myAvoids;
 			}
 
 			public void SendMessages() {
@@ -662,6 +664,22 @@ namespace HaremLife
 					// if (ReferenceEquals(storable, _plugin)) continue;
 					if (!storable.enabled) continue;
 					storable.SendMessage(nameof(AnimationPoser.ReceiveMessage), message);
+				}
+			}
+
+			public void SendAvoids() {
+				foreach(var a in myAvoids) {
+					Role role = a.Key;
+					String avoid = a.Value;
+					Atom person = role.myPerson;
+					if (person == null) continue;
+					var storableId = person.GetStorableIDs().FirstOrDefault(id => id.EndsWith("HaremLife.AnimationPoser"));
+					if (storableId == null) continue;
+					MVRScript storable = person.GetStorableByID(storableId) as MVRScript;
+					if (storable == null) continue;
+					// if (ReferenceEquals(storable, _plugin)) continue;
+					if (!storable.enabled) continue;
+					storable.SendMessage(nameof(AnimationPoser.ReceiveAvoid), avoid);
 				}
 			}
 

@@ -46,6 +46,7 @@ namespace HaremLife
 		private JSONStorableStringChooser mySourceStateList;
 		private JSONStorableStringChooser myTargetStateList;
 		private JSONStorableStringChooser mySyncRoleList;
+		private JSONStorableStringChooser myAvoidRoleList;
 		private JSONStorableStringChooser mySyncLayerList;
 		private JSONStorableStringChooser mySyncStateList;
 		private JSONStorableStringChooser myRoleList;
@@ -1284,6 +1285,41 @@ namespace HaremLife
 					);
 
 					CreateMenuTextInput("Message string", message, false);
+				}
+
+				myAvoidRoleList = CreateDropDown(
+					CastDict(myRoles).ToDictionary(entry => (string)entry.Key, entry => (AnimationObject)entry.Value),
+					myAvoidRoleList,
+					"Send Avoid To Role"
+				);
+
+				CreateMenuSpacer(10, false);
+				CreateMenuInfoOneLine("<size=30><b>Avoids</b></size>", false);
+				CreateMenuInfo("Use this to send avoids to plugin instances in other person atoms when the transition finishes.", 100, false);
+
+				CreateMenuPopup(myAvoidRoleList, false);
+
+				Role selectedAvoidRole;
+				myRoles.TryGetValue(myAvoidRoleList.val, out selectedAvoidRole);
+
+				if(myAvoidRoleList.val != "") {
+					String avoidString;
+					transition.myAvoids.TryGetValue(selectedAvoidRole, out avoidString);
+					if(avoidString == null) {
+						avoidString = "";
+					}
+					JSONStorableString avoid = new JSONStorableString("Avoid String",
+						avoidString, (String aString) => {
+							if(aString == "") {
+								transition.myAvoids.Remove(selectedAvoidRole);
+							} else {
+								transition.myAvoids[selectedAvoidRole] = aString;
+							}
+							UIRefreshMenu();
+						}
+					);
+
+					CreateMenuTextInput("Avoid string", avoid, false);
 				}
 
 				CreateMenuInfoOneLine("<size=30><b>Transition Settings</b></size>", true);
