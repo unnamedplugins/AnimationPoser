@@ -197,7 +197,7 @@ namespace HaremLife
 		{
 			myCurrentLayer = layer;
 			if(layer.myCurrentState != null) {
-				myMainState.val = layer.myCurrentState.myName;
+				myMainState.valNoCallback = layer.myCurrentState.myName;
 			}
 			if(layer.myCurrentState == null) {
 				List<string> states = layer.myStates.Keys.ToList();
