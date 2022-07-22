@@ -812,8 +812,19 @@ namespace HaremLife
 					}
 				}
 
-				if(states.Count == 0) {
+				if(states.Count == 0 && reachableStates.Count == 0) {
 					return null;
+				} else if(states.Count == 0 && reachableStates.Count > 0) {
+					// all states no longer allowed because of avoids
+					// need to fall back to another state
+					// this does work (I tested it) but is this the best way? other suggestions?
+					List<string> possibleStates = myCurrentLayer.myStates.Keys.ToList();
+					possibleStates.Sort();
+					if(myCurrentLayer.myStates.Count > 0) {
+						State state;
+						myCurrentLayer.myStates.TryGetValue(possibleStates[0], out state);
+						return state;
+					}
 				}
 
 				float sum = 0.0f;
