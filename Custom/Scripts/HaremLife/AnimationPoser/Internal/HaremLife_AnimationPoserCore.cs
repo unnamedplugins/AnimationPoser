@@ -1224,19 +1224,21 @@ namespace HaremLife
 					myAnchorOffset.myRotation = Quaternion.Inverse(root.myRotation) * rotation;
 				}
 
-				State rootState = myCurrentLayer.myStates.Values.ToList().Find(s => s.myIsRootState);
-				if(rootState != null && myState == rootState) {
-					foreach(var s in myCurrentLayer.myStates) {
-						State st = s.Value;
-						if(st != rootState) {
-							ControlCapture cc = st.myControlEntries.Keys.ToList().Find(ccx => ccx.myName == myControlCapture.myName);
-							ControlEntryAnchored ce = st.myControlEntries[cc];
+				if(myCurrentLayer != null) {
+					State rootState = myCurrentLayer.myStates.Values.ToList().FirstOrDefault(s => s.myIsRootState);
+					if(rootState != null && myState == rootState) {
+						foreach(var s in myCurrentLayer.myStates) {
+							State st = s.Value;
+							if(st != rootState) {
+								ControlCapture cc = st.myControlEntries.Keys.ToList().Find(ccx => ccx.myName == myControlCapture.myName);
+								ControlEntryAnchored ce = st.myControlEntries[cc];
 
-							Quaternion transformRotation = myAnchorOffset.myRotation * Quaternion.Inverse(oldRootRotation);
-							Vector3 transformPosition = position - oldRootPosition;
+								Quaternion transformRotation = myAnchorOffset.myRotation * Quaternion.Inverse(oldRootRotation);
+								Vector3 transformPosition = position - oldRootPosition;
 
-							ce.myAnchorOffset.myPosition = myAnchorOffset.myPosition + transformRotation * (ce.myAnchorOffset.myPosition - oldRootPosition);
-							ce.myAnchorOffset.myRotation = transformRotation * ce.myAnchorOffset.myRotation;
+								ce.myAnchorOffset.myPosition = myAnchorOffset.myPosition + transformRotation * (ce.myAnchorOffset.myPosition - oldRootPosition);
+								ce.myAnchorOffset.myRotation = transformRotation * ce.myAnchorOffset.myRotation;
+							}
 						}
 					}
 				}
