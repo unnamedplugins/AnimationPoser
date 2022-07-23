@@ -1066,6 +1066,8 @@ namespace HaremLife
 				myAnchorCaptureList.valNoCallback = captures[0];
 			CreateMenuPopup(myAnchorCaptureList, false);
 
+			CreateMenuButton("Set anchor for all states in this layer", UISetAnchorForAllStates, false);
+
 			ControlCapture controlCapture = myCurrentLayer.myControlCaptures.Find(cc => cc.myName == myAnchorCaptureList.val);
 			if (controlCapture == null)
 				return;
@@ -2480,9 +2482,8 @@ namespace HaremLife
 			UIRefreshMenu();
 		}
 
-		private void UISetAnchors()
+		private void UISetAnchorForState(State state)
 		{
-			State state = UIGetState();
 			if (state == null)
 				return;
 
@@ -2522,7 +2523,19 @@ namespace HaremLife
 			}
 
 			controlEntry.AdjustAnchor();
+		}
 
+		private void UISetAnchors()
+		{
+			State state = UIGetState();
+			UISetAnchorForState(state);
+			UIRefreshMenu();
+		}
+
+		private void UISetAnchorForAllStates()
+		{
+			foreach(var s in myCurrentLayer.myStates)
+				UISetAnchorForState(s.Value);
 			UIRefreshMenu();
 		}
 
