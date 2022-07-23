@@ -580,8 +580,8 @@ namespace HaremLife
 					syncLayer.GoTo(syncState);
 				}
 
-				myTransition.SendMessages();
-				myTransition.SendAvoids();
+				transition.SendMessages();
+				transition.SendAvoids();
 			}
 
 			public void GoToAnyState() {
