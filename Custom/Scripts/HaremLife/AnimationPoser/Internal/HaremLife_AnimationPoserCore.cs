@@ -414,10 +414,7 @@ namespace HaremLife
 
 			public void ArriveAtState() {
 				State previousState = myCurrentState;
-				if(myTransition.myTargetState.myAnimation() != myCurrentAnimation)
-					SetAnimation(myTransition.myTargetState.myAnimation());
-				else
-					SetState(myTransition.myTargetState);
+				SetState(myTransition.myTargetState);
 
 				if (previousState.ExitEndTrigger != null)
 					previousState.ExitEndTrigger.Trigger(myTriggerActionsNeedingUpdate);
