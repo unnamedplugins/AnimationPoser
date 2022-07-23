@@ -691,7 +691,8 @@ namespace HaremLife
 			if(name.Length > 0) {
 				Layer layer;
 				myCurrentAnimation.myLayers.TryGetValue(myMainLayer.val, out layer);
-				SetLayer(layer);
+				if(layer != null)
+					SetLayer(layer);
 			}
 			UIRefreshMenu();
 		}
