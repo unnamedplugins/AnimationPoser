@@ -53,6 +53,7 @@ namespace HaremLife
 
 			SaveRoles(jc);
 			SaveMessages(jc);
+			SaveAvoids(jc);
 			jc["Animations"] = anims;
 
 			return jc;
@@ -80,6 +81,18 @@ namespace HaremLife
 				mlist.Add("", SaveMessage(mm.Value));
 			}
 			jc["Messages"] = mlist;
+		}
+
+		private void SaveAvoids(JSONClass jc, bool withHeader = false) {
+			if(withHeader) {
+				SetHeader(jc, "Avoids");
+			}
+			JSONArray alist = new JSONArray();
+			foreach(var aa in myAvoids)
+			{
+				alist.Add("", SaveAvoid(aa.Value));
+			}
+			jc["Avoids"] = alist;
 		}
 
 		private JSONClass SaveAnimation(Animation animationToSave, bool withHeader = false)
@@ -130,6 +143,25 @@ namespace HaremLife
 			m["TargetAnimation"] = messageToSave.myTargetState.myAnimation().myName;
 
 			return m;
+		}
+
+		private JSONClass SaveAvoid(Avoid avoidToSave) {
+			JSONClass a = new JSONClass();
+
+			a["Name"] = avoidToSave.myName;
+			a["AvoidString"] = avoidToSave.myAvoidString;
+
+			JSONArray avstlist = new JSONArray();
+			foreach(var avst in avoidToSave.myAvoidStates) {
+				JSONClass av = new JSONClass();
+				av["AnimationName"] = avst.Value.myLayer.myAnimation.myName;
+				av["LayerName"] = avst.Value.myLayer.myName;
+				av["StateName"] = avst.Value.myName;
+				avstlist.Add(av);
+			}
+			a["AvoidStates"] = avstlist;
+
+			return a;
 		}
 
 		private JSONClass SaveLayer(Layer layerToSave, bool withHeader = false)
@@ -389,6 +421,7 @@ namespace HaremLife
 				myMainState.setCallbackFunction(myCurrentState.myName);
 			}
 			LoadMessages(jc);
+			LoadAvoids(jc);
 		}
 
 		private Animation LoadAnimation(JSONClass anim)
@@ -744,6 +777,32 @@ namespace HaremLife
 				message.myTargetState = target;
 
 				myMessages[message.myName] = message;
+			}
+		}
+
+		private void LoadAvoids(JSONClass jc)
+		{
+			JSONArray alist = jc["Avoids"].AsArray;
+
+			for (int i=0; i<alist.Count; ++i)
+			{
+				JSONClass aclass = alist[i].AsObject;
+
+				Avoid avoid = new Avoid(aclass["Name"]);
+				avoid.myAvoidString = aclass["AvoidString"];
+
+				JSONArray avstlist = aclass["AvoidStates"].AsArray;
+				for (int j=0; j<avstlist.Count; ++j)
+				{
+					JSONClass av = avstlist[j].AsObject;
+					Animation avan = myAnimations[av["AnimationName"]];
+					Layer avly = avan.myLayers[av["LayerName"]];
+					State avst = avly.myStates[av["StateName"]];
+					string qualStateName = $"{avan.myName}.{avly.myName}.{avst.myName}";
+					avoid.myAvoidStates[qualStateName] = avst;
+				}
+
+				myAvoids[avoid.myName] = avoid;
 			}
 		}
     }
