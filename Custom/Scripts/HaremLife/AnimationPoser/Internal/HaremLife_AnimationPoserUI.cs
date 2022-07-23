@@ -1921,7 +1921,7 @@ namespace HaremLife
 				return;
 			path = path.Replace('\\', '/');
 			JSONClass jc = new JSONClass();
-			SaveRoles(jc);
+			SaveRoles(jc, true);
 			SaveJSON(jc, path);
 		}
 
@@ -1931,7 +1931,7 @@ namespace HaremLife
 				return;
 			path = path.Replace('\\', '/');
 			JSONClass jc = new JSONClass();
-			SaveMessages(jc);
+			SaveMessages(jc, true);
 			SaveJSON(jc, path);
 		}
 
@@ -1949,7 +1949,7 @@ namespace HaremLife
 			if (string.IsNullOrEmpty(path))
 				return;
 			path = path.Replace('\\', '/');
-			JSONClass jc = SaveAnimation(myCurrentAnimation);
+			JSONClass jc = SaveAnimation(myCurrentAnimation, true);
 			SaveJSON(jc, path);
 		}
 
@@ -1958,7 +1958,7 @@ namespace HaremLife
 			if (string.IsNullOrEmpty(path))
 				return;
 			path = path.Replace('\\', '/');
-			JSONClass jc = SaveLayer(myCurrentLayer);
+			JSONClass jc = SaveLayer(myCurrentLayer, true);
 			SaveJSON(jc, path);
 		}
 

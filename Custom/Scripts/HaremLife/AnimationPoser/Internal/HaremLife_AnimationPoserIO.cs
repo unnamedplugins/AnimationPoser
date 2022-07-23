@@ -19,19 +19,25 @@ namespace HaremLife
 {
 	public partial class AnimationPoser : MVRScript
 	{
-		private JSONClass SaveAnimations()
-		{
-			JSONClass jc = new JSONClass();
-
-			// save info
+		private void SetHeader(JSONClass jc, string format = "") {
 			JSONClass info = new JSONClass();
-			info["Format"] = "HaremLife.AnimationPoser";
+			if(format == "") {
+				info["Format"] = "HaremLife.AnimationPoser";
+			} else {
+				info["Format"] = "HaremLife.AnimationPoser." + format;
+			}
 			info["Version"] = "3.6";
 			string creatorName = UserPreferences.singleton.creatorName;
 			if (string.IsNullOrEmpty(creatorName))
 				creatorName = "Unknown";
 			info["Author"] = creatorName;
 			jc["Info"] = info;
+		}
+
+		private JSONClass SaveAnimations()
+		{
+			JSONClass jc = new JSONClass();
+			SetHeader(jc);
 
 			if (myCurrentAnimation != null)
 				jc["InitialAnimation"] = myCurrentAnimation.myName;
@@ -52,7 +58,10 @@ namespace HaremLife
 			return jc;
 		}
 
-		private void SaveRoles(JSONClass jc) {
+		private void SaveRoles(JSONClass jc, bool withHeader = false) {
+			if(withHeader) {
+				SetHeader(jc, "Roles");
+			}
 			JSONArray rlist = new JSONArray();
 			foreach (var r in myRoles)
 			{
@@ -61,7 +70,10 @@ namespace HaremLife
 			jc["Roles"] = rlist;
 		}
 
-		private void SaveMessages(JSONClass jc) {
+		private void SaveMessages(JSONClass jc, bool withHeader = false) {
+			if(withHeader) {
+				SetHeader(jc, "Messages");
+			}
 			JSONArray mlist = new JSONArray();
 			foreach(var mm in myMessages)
 			{
@@ -70,9 +82,12 @@ namespace HaremLife
 			jc["Messages"] = mlist;
 		}
 
-		private JSONClass SaveAnimation(Animation animationToSave)
+		private JSONClass SaveAnimation(Animation animationToSave, bool withHeader = false)
 		{
 			JSONClass anim = new JSONClass();
+			if(withHeader) {
+				SetHeader(anim, "Animation");
+			}
 			anim["Name"] = animationToSave.myName;
 			anim["Speed"].AsFloat = animationToSave.mySpeed;
 			JSONArray llist = new JSONArray();
@@ -117,15 +132,17 @@ namespace HaremLife
 			return m;
 		}
 
-		private JSONClass SaveLayer(Layer layerToSave)
+		private JSONClass SaveLayer(Layer layerToSave, bool withHeader = false)
 		{
-			JSONClass jc = new JSONClass();
-			// save settings
-			if (layerToSave.myCurrentState != null)
-				jc["InitialState"] = layerToSave.myCurrentState.myName;
-
 			JSONClass layer = new JSONClass();
+			if(withHeader) {
+				SetHeader(layer, "Layer");
+			}
+
 			layer["Name"] = layerToSave.myName;
+
+			if (layerToSave.myCurrentState != null)
+				layer["InitialState"] = layerToSave.myCurrentState.myName;
 
 			// save captures
 			if (layerToSave.myControlCaptures.Count > 0)
@@ -281,9 +298,7 @@ namespace HaremLife
 			}
 			layer["States"] = slist;
 
-			jc["Layer"] = layer;
-
-			return jc;
+			return layer;
 		}
 
 		private void LoadAnimations(JSONClass jc)
@@ -323,7 +338,12 @@ namespace HaremLife
 				JSONArray layers = anim["Layers"].AsArray;
 				for(int m=0; m<layers.Count; m++)
 				{
-					JSONClass layerObj = layers[m].AsObject["Layer"].AsObject;
+					JSONClass layerObj;
+					if(layers[m].AsObject.HasKey("Layer")) {
+						layerObj = layers[m].AsObject["Layer"].AsObject;
+					} else {
+						layerObj = layers[m].AsObject;
+					}
 
 					Layer layer;
 					if (!animation.myLayers.TryGetValue(layerObj["Name"], out layer))
@@ -382,7 +402,12 @@ namespace HaremLife
 
 			for(int m=0; m<layers.Count; m++)
 			{
-				JSONClass layerObj = layers[m].AsObject["Layer"].AsObject;
+				JSONClass layerObj;
+				if(layers[m].AsObject.HasKey("Layer")) {
+					layerObj = layers[m].AsObject["Layer"].AsObject;
+				} else {
+					layerObj = layers[m].AsObject;
+				}
 
 				Layer layer;
 				if (!animation.myLayers.TryGetValue(layerObj["Name"], out layer))
@@ -424,7 +449,12 @@ namespace HaremLife
 
 		private Layer LoadLayer(JSONClass jc, bool newName)
 		{
-			JSONClass layerObj = jc["Layer"].AsObject;
+			JSONClass layerObj;
+			if(jc.HasKey("Layer")) {
+				layerObj = jc["Layer"].AsObject;
+			} else {
+				layerObj = jc.AsObject;
+			}
 
 			Layer layer;
 			if(newName)
