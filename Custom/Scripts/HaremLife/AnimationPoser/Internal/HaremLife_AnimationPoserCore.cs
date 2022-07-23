@@ -517,8 +517,6 @@ namespace HaremLife
 					Animation animation = targetState.myAnimation();
 					Layer targetLayer = targetState.myLayer;
 
-					SetAnimation(animation);
-
 					foreach(var l in animation.myLayers) {
 						Layer layer = l.Value;
 						if(layer == targetLayer || transition.mySyncTargets.Keys.Contains(layer))
@@ -528,6 +526,8 @@ namespace HaremLife
 
 					targetLayer.BlendTo(targetState, transition.myDuration, transitionNoise);
 					targetLayer.myStateChain = new List<State>(myStateChain);
+
+					SetAnimation(animation);
 				} else {
 					SetTransition(transition, transitionNoise);
 				}
