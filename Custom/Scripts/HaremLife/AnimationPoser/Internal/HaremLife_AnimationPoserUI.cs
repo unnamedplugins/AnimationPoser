@@ -48,7 +48,6 @@ namespace HaremLife
 		private JSONStorableStringChooser mySourceStateList;
 		private JSONStorableStringChooser myTargetStateList;
 		private JSONStorableStringChooser mySyncRoleList;
-		private JSONStorableStringChooser myAvoidRoleList;
 		private JSONStorableStringChooser mySyncLayerList;
 		private JSONStorableStringChooser mySyncStateList;
 		private JSONStorableStringChooser myRoleList;
@@ -100,6 +99,7 @@ namespace HaremLife
 		private const int MENU_AVOIDS    = 9;
 		private const int MENU_OPTIONS     = 10;
 
+		private GameObject myLabelWith1BXButtonPrefab;
 		private GameObject myLabelWith2BXButtonPrefab;
 		private GameObject myLabelWithMXButtonPrefab;
 
@@ -186,10 +186,13 @@ namespace HaremLife
 
 			Utils.OnDestroyUI();
 
+			if (myLabelWith1BXButtonPrefab != null)
+				Destroy(myLabelWith1BXButtonPrefab);
 			if (myLabelWith2BXButtonPrefab != null)
 				Destroy(myLabelWith2BXButtonPrefab);
 			if (myLabelWithMXButtonPrefab != null)
 				Destroy(myLabelWithMXButtonPrefab);
+			myLabelWith1BXButtonPrefab = null;
 			myLabelWith2BXButtonPrefab = null;
 			myLabelWithMXButtonPrefab = null;
 
@@ -270,6 +273,62 @@ namespace HaremLife
 
 		private void InitPrefabs()
 		{
+			{
+				myLabelWith1BXButtonPrefab = new GameObject("Label1BXButton");
+				myLabelWith1BXButtonPrefab.SetActive(false);
+				RectTransform rt = myLabelWith1BXButtonPrefab.AddComponent<RectTransform>();
+				rt.anchorMax = new Vector2(0, 1);
+				rt.anchorMin = new Vector2(0, 1);
+				rt.offsetMax = new Vector2(535, -500);
+				rt.offsetMin = new Vector2(10, -600);
+				LayoutElement le = myLabelWith1BXButtonPrefab.AddComponent<LayoutElement>();
+				le.flexibleWidth = 1;
+				le.minHeight = 50;
+				le.minWidth = 350;
+				le.preferredHeight = 50;
+				le.preferredWidth = 500;
+
+				RectTransform backgroundTransform = InitBasicRectTransformPrefab(
+					"Background", manager.configurableScrollablePopupPrefab.transform.Find("Background"), myLabelWith1BXButtonPrefab.transform, new float[] {1, 1, 0, 0, 0, 0, 0, -10}
+				);
+				RectTransform xButtonTransform = InitBasicRectTransformPrefab(
+					"ButtonX", manager.configurableScrollablePopupPrefab.transform.Find("Button"), myLabelWith1BXButtonPrefab.transform, new float[] {1, 1, 1, 0, 0, 0, -60, -10}
+				);
+				Button buttonX = xButtonTransform.GetComponent<Button>();
+				Text xButtonText = xButtonTransform.Find("Text").GetComponent<Text>();
+				xButtonText.text = "X";
+				Image xButtonImage = xButtonTransform.GetComponent<Image>();
+
+				RectTransform labelTransform = InitBasicRectTransformPrefab(
+					"Text", xButtonText.rectTransform, myLabelWith1BXButtonPrefab.transform, new float[] {1, 1, 0, 0, -65, 0, 100, -10}
+				);
+				Text labelText = labelTransform.GetComponent<Text>();
+				labelText.verticalOverflow = VerticalWrapMode.Overflow;
+
+				RectTransform toggleBG1Transform = InitBasicRectTransformPrefab(
+					"ToggleBG1", manager.configurableTogglePrefab.transform.Find("Panel"), myLabelWith1BXButtonPrefab.transform, new float[] {0, 1, 0, 0, 100, 0, 0, -10}
+				);
+				Image toggleBG1Image = toggleBG1Transform.GetComponent<Image>();
+				toggleBG1Image.sprite = xButtonImage.sprite;
+				toggleBG1Image.color = xButtonImage.color;
+				Toggle toggle1 = toggleBG1Transform.gameObject.AddComponent<Toggle>();
+				toggle1.isOn = true;
+
+				RectTransform toggle1Label = InitBasicRectTransformPrefab(
+					"Toggle1Label", xButtonText.rectTransform as Transform, toggleBG1Transform, new float[] {1.0f, 1.0f, 0.0f, 0.0f, 0.0f, 4.0f, -4.0f, 4.0f}
+				);
+				Text toggle1Text = toggle1Label.GetComponent<Text>();
+				toggle1Text.fontSize = 20;
+				toggle1Text.text = "POS";
+				toggle1Text.alignment = TextAnchor.MiddleCenter;
+
+				UIDynamicLabel1BXButton uid = myLabelWith1BXButtonPrefab.AddComponent<UIDynamicLabel1BXButton>();
+				uid.label = labelText;
+				uid.toggle1 = toggle1;
+				uid.text1 = toggle1Text;
+				uid.buttonX = buttonX;
+			}
+
 			{
 				myLabelWith2BXButtonPrefab = new GameObject("Label2BXButton");
 				myLabelWith2BXButtonPrefab.SetActive(false);
@@ -1321,7 +1380,7 @@ namespace HaremLife
 				);
 
 				CreateMenuSpacer(10, false);
-				CreateMenuInfoOneLine("<size=30><b>Messages</b></size>", false);
+				CreateMenuInfoOneLine("<size=30><b>Messages and Avoids</b></size>", false);
 				CreateMenuInfo("Use this to send messages to plugin instances in other person atoms when the transition finishes.", 100, false);
 
 				CreateMenuPopup(mySyncRoleList, false);
@@ -1347,41 +1406,46 @@ namespace HaremLife
 					);
 
 					CreateMenuTextInput("Message string", message, false);
-				}
 
-				myAvoidRoleList = CreateDropDown(
-					CastDict(myRoles).ToDictionary(entry => (string)entry.Key, entry => (AnimationObject)entry.Value),
-					myAvoidRoleList,
-					"Send Avoid To Role"
-				);
+					CreateMenuSpacer(10, false);
+					CreateMenuInfo("Use this to send avoids to plugin instances in other person atoms when the transition finishes.", 100, false);
 
-				CreateMenuSpacer(10, false);
-				CreateMenuInfoOneLine("<size=30><b>Avoids</b></size>", false);
-				CreateMenuInfo("Use this to send avoids to plugin instances in other person atoms when the transition finishes.", 100, false);
+					CreateMenuPopup(mySyncRoleList, false);
 
-				CreateMenuPopup(myAvoidRoleList, false);
+					CreateMenuButton("Add Avoid", () => {
+						if(!transition.myAvoids.Keys.Contains(selectedRole))
+							transition.myAvoids[selectedRole] = new Dictionary<string, bool>();
+						transition.myAvoids[selectedRole][""] = true;
+						UIRefreshMenu();
+					}, false);
 
-				Role selectedAvoidRole;
-				myRoles.TryGetValue(myAvoidRoleList.val, out selectedAvoidRole);
+					if(transition.myAvoids.Keys.Contains(selectedRole)) {
+						foreach (var a in transition.myAvoids[selectedRole])
+						{
+							string avoidString = a.Key;
+							CreateMenuLabel1BXButton(
+								avoidString, "PLACE", "LIFT", a.Value,
+								(bool v) => {
+									transition.myAvoids[selectedRole][a.Key] = v;
+									UIRefreshMenu();
+								}, () => {
+									transition.myAvoids[selectedRole].Remove(a.Key);
+									UIRefreshMenu();
+								}, false
+							);
+				
+							JSONStorableString avoid = new JSONStorableString("Avoid String",
+								avoidString, (String newString) => {
+									bool place = transition.myAvoids[selectedRole][avoidString];
+									transition.myAvoids[selectedRole].Remove(avoidString);
+									transition.myAvoids[selectedRole][newString] = place;
+									UIRefreshMenu();
+								}
+							);
 
-				if(myAvoidRoleList.val != "") {
-					String avoidString;
-					transition.myAvoids.TryGetValue(selectedAvoidRole, out avoidString);
-					if(avoidString == null) {
-						avoidString = "";
-					}
-					JSONStorableString avoid = new JSONStorableString("Avoid String",
-						avoidString, (String aString) => {
-							if(aString == "") {
-								transition.myAvoids.Remove(selectedAvoidRole);
-							} else {
-								transition.myAvoids[selectedAvoidRole] = aString;
-							}
-							UIRefreshMenu();
+							CreateMenuTextInput("String", avoid, false);
 						}
-					);
-
-					CreateMenuTextInput("Avoid string", avoid, false);
+					}
 				}
 
 				CreateMenuInfoOneLine("<size=30><b>Transition Settings</b></size>", true);
@@ -1935,7 +1999,6 @@ namespace HaremLife
 			CreateMenuPopup(myAvoidList, false);
 
 			CreateMenuButton("Add Avoid", UIAddAvoid, false);
-			CreateMenuButton("Remove Avoid", UIRemoveAvoid, false);
 
 			Avoid selectedAvoid;
 			myAvoids.TryGetValue(selectedAvoidName, out selectedAvoid);
@@ -1953,15 +2016,19 @@ namespace HaremLife
 				}
 			);
 
-			JSONStorableString avoidString = new JSONStorableString("Avoid String",
-				selectedAvoid.myAvoidString, (String newString) => {
-					selectedAvoid.myAvoidString = newString;
-					UIRefreshMenu();
-				}
-			);
-
 			CreateMenuTextInput("Name", avoidName, false);
-			CreateMenuTextInput("String", avoidString, false);
+			CreateMenuButton("Remove Avoid", UIRemoveAvoid, false);
+
+			JSONStorableBool isPlaced = new JSONStorableBool("Is Placed", selectedAvoid.myIsPlaced);
+			isPlaced.setCallbackFunction = (bool v) => {
+				if(v)
+					selectedAvoid.myIsPlaced = true;
+				else
+					selectedAvoid.myIsPlaced = false;
+				UIRefreshMenu();
+			};
+			CreateMenuToggle(isPlaced, true);
+
 
 			myAvoidAnimationList = CreateDropDown(
 				CastDict(myAnimations).ToDictionary(entry => (string)entry.Key, entry => (AnimationObject)entry.Value),
@@ -1990,16 +2057,16 @@ namespace HaremLife
 
 			if (myAvoidAnimationList.choices.Count > 0)
 			{
-				CreateMenuPopup(myAvoidAnimationList, false);
+				CreateMenuPopup(myAvoidAnimationList, true);
 			}
 			if (myAvoidLayerList.choices.Count > 0)
 			{
-				CreateMenuPopup(myAvoidLayerList, false);
+				CreateMenuPopup(myAvoidLayerList, true);
 			}
 
 			if (myAvoidStateList.choices.Count > 0)
 			{
-				CreateMenuPopup(myAvoidStateList, false);
+				CreateMenuPopup(myAvoidStateList, true);
 				CreateMenuButton("Add Avoid State", () => {
 					Animation a = myAnimations[myAvoidAnimationList.val];
 					Layer l = a.myLayers[myAvoidLayerList.val];
@@ -2007,7 +2074,7 @@ namespace HaremLife
 					string qualStateName = $"{a.myName}.{l.myName}.{s.myName}";
 					selectedAvoid.myAvoidStates[qualStateName] = s;
 					UIRefreshMenu();
-				}, false);
+				}, true);
 			}
 			foreach(var s in selectedAvoid.myAvoidStates) {
 				CreateMenuLabelXButton(
@@ -2977,6 +3044,34 @@ namespace HaremLife
 			myMenuElements.Add(uid);
 		}
 
+		private void CreateMenuLabel1BXButton(string label, string textOn, string textOff, bool value1,
+		                                      UnityAction<bool> callback1, UnityAction callbackX, bool rightSide)
+		{
+			if (myLabelWith1BXButtonPrefab == null)
+				InitPrefabs();
+
+			Transform t = CreateUIElement(myLabelWith1BXButtonPrefab.transform, rightSide);
+			UIDynamicLabel1BXButton uid = t.GetComponent<UIDynamicLabel1BXButton>();
+			uid.label.text = label;
+			uid.toggle1.isOn = value1;
+			if(uid.toggle1.isOn)
+				uid.text1.text = textOn;
+			else
+				uid.text1.text = textOff;
+			uid.toggle1.onValueChanged.AddListener((bool v) => {
+				if(uid.toggle1.isOn)
+					uid.text1.text = textOn;
+				else
+					uid.text1.text = textOff;
+				callback1(v);
+			});
+
+			uid.buttonX.onClick.AddListener(callbackX);
+
+			myMenuElements.Add(uid);
+			t.gameObject.SetActive(true);
+		}
+
 		private void CreateMenuLabel2BXButton(string label, string text1, string text2, bool value1, bool value2,
 		                                      UnityAction<bool> callback1, UnityAction<bool> callback2, UnityAction callbackX, bool rightSide)
 		{
@@ -3146,6 +3241,14 @@ namespace HaremLife
 
 
 		// =======================================================================================
+
+		private class UIDynamicLabel1BXButton : UIDynamicUtils
+		{
+			public Text label;
+			public Toggle toggle1;
+			public Text text1;
+			public Button buttonX;
+		}
 
 		private class UIDynamicLabel2BXButton : UIDynamicUtils
 		{

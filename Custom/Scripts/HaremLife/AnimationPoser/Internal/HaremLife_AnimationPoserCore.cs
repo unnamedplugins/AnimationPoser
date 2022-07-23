@@ -51,7 +51,8 @@ namespace HaremLife
 		private bool myWasLoading = true;
 
 		private static JSONStorableString mySendMessage;
-		private static JSONStorableString mySendAvoid;
+		private static JSONStorableString myPlaceAvoid;
+		private static JSONStorableString myLiftAvoid;
 		private static JSONStorableString myLoadAnimation;
 		private static JSONStorableBool myPlayPaused;
 
@@ -66,9 +67,13 @@ namespace HaremLife
 			mySendMessage.isStorable = mySendMessage.isRestorable = false;
 			RegisterString(mySendMessage);
 
-			mySendAvoid = new JSONStorableString("SendAvoid", "", ReceiveAvoid);
-			mySendAvoid.isStorable = mySendAvoid.isRestorable = false;
-			RegisterString(mySendAvoid);
+			myPlaceAvoid = new JSONStorableString("PlaceAvoid", "", PlaceAvoid);
+			myPlaceAvoid.isStorable = myPlaceAvoid.isRestorable = false;
+			RegisterString(myPlaceAvoid);
+
+			myLiftAvoid = new JSONStorableString("LiftAvoid", "", LiftAvoid);
+			myLiftAvoid.isStorable = myLiftAvoid.isRestorable = false;
+			RegisterString(myLiftAvoid);
 
 			JSONStorableFloat myAnimationSpeed = new JSONStorableFloat("AnimationSpeed", 1.0f, ChangeSpeed, 0.0f, 10.0f, true, true);
 			myAnimationSpeed.isStorable = myAnimationSpeed.isRestorable = false;
@@ -140,41 +145,22 @@ namespace HaremLife
 			}
 		}
 
-		public void ReceiveAvoid(String avoidString) {
-			mySendAvoid.valNoCallback = "";
-
-			bool myAvoid=false;
-			string[] avoidStringPieces = avoidString.Split(';');
-			foreach(var piece in avoidStringPieces)
-			// return error if string not formatted correctly
-			if(avoidStringPieces.Count() != 2)
-				return;
-
-			// return if toggle is not 0 or 1
-			if(avoidStringPieces[1] == "0") {
-				myAvoid=false;
-			} else if (avoidStringPieces[1] == "1") {
-				myAvoid=true;
-			}
-			else
-				return;
-
-			// set avoids
+		public void PlaceAvoid(String avoidString) {
+			myPlaceAvoid.valNoCallback = "";
 			foreach (var av in myAvoids) {
 				Avoid avoid = av.Value;
-				if(avoid.myName == avoidStringPieces[0]) {
-					foreach (var an in myAnimations) {
-						Animation anim = an.Value;
-						foreach (var l in anim.myLayers) {
-							Layer lyr = l.Value;
-							foreach (var s in lyr.myStates) {
-								State st = s.Value;
-								if (avoid.myAvoidStates.Values.ToList().Contains(st)) {
-									st.myAvoid = myAvoid;
-								}
-							}
-						}
-					}
+				if(avoid.myName == avoidString) {
+					avoid.myIsPlaced = true;
+				}
+			}
+		}
+
+		public void LiftAvoid(String avoidString) {
+			myLiftAvoid.valNoCallback = "";
+			foreach (var av in myAvoids) {
+				Avoid avoid = av.Value;
+				if(avoid.myName == avoidString) {
+					avoid.myIsPlaced = false;
 				}
 			}
 		}
@@ -595,6 +581,7 @@ namespace HaremLife
 				}
 
 				myTransition.SendMessages();
+				myTransition.SendAvoids();
 			}
 
 			public void GoToAnyState() {
@@ -647,8 +634,7 @@ namespace HaremLife
 			public float myDurationNoise = 0.0f;
 			public Dictionary<Layer, State> mySyncTargets = new Dictionary<Layer, State>();
 			public Dictionary<Role, String> myMessages = new Dictionary<Role, String>();
-			public Dictionary<Role, String> myAvoids = new Dictionary<Role, String>();
-
+			public Dictionary<Role, Dictionary<String, bool>> myAvoids = new Dictionary<Role, Dictionary<String, bool>>();
 
 			public Transition(State sourceState, State targetState)
 			{
@@ -700,21 +686,25 @@ namespace HaremLife
 			}
 
 			public void SendAvoids() {
-				foreach(var a in myAvoids) {
-					Role role = a.Key;
-					String avoid = a.Value;
-					Atom person = role.myPerson;
-					if (person == null) continue;
-					var storableId = person.GetStorableIDs().FirstOrDefault(id => id.EndsWith("HaremLife.AnimationPoser"));
-					if (storableId == null) continue;
-					MVRScript storable = person.GetStorableByID(storableId) as MVRScript;
-					if (storable == null) continue;
-					// if (ReferenceEquals(storable, _plugin)) continue;
-					if (!storable.enabled) continue;
-					storable.SendMessage(nameof(AnimationPoser.ReceiveAvoid), avoid);
+				foreach(var r in myAvoids) {
+					Role role = r.Key;
+					foreach(var a in r.Value) {
+						String avoidString = a.Key;
+						Atom person = role.myPerson;
+						if (person == null) continue;
+						var storableId = person.GetStorableIDs().FirstOrDefault(id => id.EndsWith("HaremLife.AnimationPoser"));
+						if (storableId == null) continue;
+						MVRScript storable = person.GetStorableByID(storableId) as MVRScript;
+						if (storable == null) continue;
+						// if (ReferenceEquals(storable, _plugin)) continue;
+						if (!storable.enabled) continue;
+						if(a.Value)
+							storable.SendMessage(nameof(AnimationPoser.PlaceAvoid), avoidString);
+						else
+							storable.SendMessage(nameof(AnimationPoser.LiftAvoid), avoidString);
+					}
 				}
 			}
-
 		}
 
 		private class Message : AnimationObject
@@ -728,14 +718,12 @@ namespace HaremLife
 			}
 		}
 
-		private class Avoid
+		private class Avoid : AnimationObject
 		{
-			public String myAvoidString;
-			public String myName;
 			public Dictionary<string, State> myAvoidStates = new Dictionary<string, State>();
+			public bool myIsPlaced = false;
 
-			public Avoid(string name) {
-				myName = name;
+			public Avoid(string name) : base(name) {
 			}
 		}
 
@@ -815,6 +803,23 @@ namespace HaremLife
 				return states.Contains(state);
 			}
 
+			public List<State> filterAvoided(List<State> states) {
+				List<State> notAvoided = new List<State>();
+				foreach(State state in states) {
+					bool avoided = false;
+					foreach(var a in myAvoids) {
+						Avoid avoid = a.Value;
+						if(!avoid.myIsPlaced)
+							continue;
+						if(avoid.myAvoidStates.Values.Contains(state))
+							avoided = true;
+					}
+					if(!avoided)
+						notAvoided.Add(state);
+				}
+				return notAvoided;
+			}
+
 			public List<State> findPath(State target) {
 				Dictionary<State, List<State>> paths = new Dictionary<State, List<State>>();
 
@@ -828,16 +833,9 @@ namespace HaremLife
 					for(int i=0; i<keys.Count(); i++) {
 						State thisState = keys[i];
 
-						List<State> states = thisState.getDirectlyReachableStates();
-						List<State> reachable = new List<State>();
-						foreach (var s in states) {
-							if(!s.myAvoid) {
-								reachable.Add(s);
-							}
-						}
-
-						for(int j=0; j<reachable.Count(); j++) {
-							State state = reachable[j];
+					List<State> states = filterAvoided(thisState.getDirectlyReachableStates());
+					for(int j=0; j<states.Count(); j++) {
+							State state = states[j];
 
 							if(!paths.ContainsKey(state)) {
 								paths[state] = new List<State>(paths[thisState]);
@@ -860,26 +858,9 @@ namespace HaremLife
 			}
 
 			public State sortNextState() {
-				List<State> reachableStates = getReachableStates();
-				List<State> states = new List<State>();
-				foreach (var s in reachableStates) {
-					if(!s.myAvoid) {
-						states.Add(s);
-					}
-				}
-
-				if(states.Count == 0 && reachableStates.Count == 0) {
+				List<State> states = filterAvoided(getReachableStates());
+				if(states.Count == 0)
 					return null;
-				} else if(states.Count == 0 && reachableStates.Count > 0) {
-					// all states no longer allowed because of avoids
-					// need to fall back to another state
-					// this does work (I tested it) but is this the best way? other suggestions?
-					foreach (var s in myCurrentLayer.myStates) {
-						State state = s.Value;
-						if(!state.myAvoid)
-							return state;
-					}
-				}
 
 				float sum = 0.0f;
 				for (int i=0; i<myTransitions.Count; ++i)

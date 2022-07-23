@@ -149,7 +149,7 @@ namespace HaremLife
 			JSONClass a = new JSONClass();
 
 			a["Name"] = avoidToSave.myName;
-			a["AvoidString"] = avoidToSave.myAvoidString;
+			a["IsPlaced"].AsBool = avoidToSave.myIsPlaced;
 
 			JSONArray avstlist = new JSONArray();
 			foreach(var avst in avoidToSave.myAvoidStates) {
@@ -254,6 +254,16 @@ namespace HaremLife
 							msgs[msg.Key.myName] = msg.Value;
 						}
 						t["Messages"] = msgs;
+
+						JSONClass rls = new JSONClass();
+						foreach (var rl in transition.myAvoids) {
+							JSONClass avds = new JSONClass();
+							foreach(var avd in rl.Value) {
+								avds[avd.Key].AsBool = avd.Value;
+							}
+							rls[rl.Key.myName] = avds;
+						}
+						t["Avoids"] = rls;
 					} else {
 						IndirectTransition transition = state.myTransitions[i] as IndirectTransition;
 						t["Type"] = "Indirect";
@@ -710,6 +720,20 @@ namespace HaremLife
 								continue;
 							transition.myMessages[role] = msglist[key];
 						}
+
+						JSONClass rlslist = tclass["Avoids"].AsObject;
+						foreach (string rl in rlslist.Keys) {
+							Role role;
+							if (!myRoles.TryGetValue(rl, out role))
+								continue;
+							JSONClass avdslist = rlslist[rl].AsObject;
+							foreach (string avd in avdslist.Keys) {
+								if(!transition.myAvoids.Keys.Contains(role))
+									transition.myAvoids[role] = new Dictionary<string, bool>();
+								transition.myAvoids[role][avd] = avdslist[avd].AsBool;
+							}
+						}
+
 						source.myTransitions.Add(transition);
 					} else {
 						IndirectTransition transition = new IndirectTransition(source, target);
@@ -789,7 +813,7 @@ namespace HaremLife
 				JSONClass aclass = alist[i].AsObject;
 
 				Avoid avoid = new Avoid(aclass["Name"]);
-				avoid.myAvoidString = aclass["AvoidString"];
+				avoid.myIsPlaced = aclass["IsPlaced"].AsBool;
 
 				JSONArray avstlist = aclass["AvoidStates"].AsArray;
 				for (int j=0; j<avstlist.Count; ++j)
