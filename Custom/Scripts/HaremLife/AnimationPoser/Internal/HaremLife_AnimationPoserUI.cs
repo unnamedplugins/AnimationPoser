@@ -31,7 +31,9 @@ namespace HaremLife
 		private JSONStorableBool myStateAutoTransition;
 		private JSONStorableStringChooser myAnchorCaptureList;
 		private JSONStorableStringChooser myAnchorModeList;
+		private JSONStorableStringChooser myAnchorTypeListA;
 		private JSONStorableStringChooser myAnchorAtomListA;
+		private JSONStorableStringChooser myAnchorTypeListB;
 		private JSONStorableStringChooser myAnchorAtomListB;
 		private JSONStorableStringChooser myAnchorControlListA;
 		private JSONStorableStringChooser myAnchorControlListB;
@@ -67,6 +69,11 @@ namespace HaremLife
 			"World",
 			"Single Anchor",
 			"Blend Anchor"
+		};
+
+		private readonly List<string> myAnchorTypes = new List<string>() {
+			"Object",
+			"Role"
 		};
 
 		private const string FILE_EXTENSION = "animpose";
@@ -139,8 +146,12 @@ namespace HaremLife
 
 			myAnchorModeList = new JSONStorableStringChooser("AnchorMode", myAnchorModes, "", "Anchor Mode");
 			myAnchorModeList.setCallbackFunction += (string v) => UISetAnchors();
+			myAnchorTypeListA = new JSONStorableStringChooser("AnchorTypeA", myAnchorTypes, "", "Anchor Type A");
+			myAnchorTypeListA.setCallbackFunction += (string v) => UISetAnchors();
 			myAnchorAtomListA = new JSONStorableStringChooser("AnchorAtomA", new List<string>(), "", "Anchor Atom A");
 			myAnchorAtomListA.setCallbackFunction += (string v) => UISetAnchors();
+			myAnchorTypeListB = new JSONStorableStringChooser("AnchorTypeB", myAnchorTypes, "", "Anchor Type B");
+			myAnchorTypeListB.setCallbackFunction += (string v) => UISetAnchors();
 			myAnchorAtomListB = new JSONStorableStringChooser("AnchorAtomB", new List<string>(), "", "Anchor Atom B");
 			myAnchorAtomListB.setCallbackFunction += (string v) => UISetAnchors();
 			myAnchorControlListA = new JSONStorableStringChooser("AnchorControlA", new List<string>(), "", "Anchor Control A");
@@ -1071,14 +1082,36 @@ namespace HaremLife
 			{
 				bool isBlendMode = controlEntry.myAnchorMode == ControlEntryAnchored.ANCHORMODE_BLEND;
 
+				myAnchorTypeListA.valNoCallback = myAnchorTypes[controlEntry.myAnchorTypeA];
+				myAnchorTypeListA.label = isBlendMode ? "Anchor Type A" : "Anchor Type";
+				CreateMenuPopup(myAnchorTypeListA, false);
+
+				CreateMenuFilterPopup(myAnchorAtomListA, false);
+
 				List<string> atoms = new List<string>(GetAllAtomUIDs());
 				atoms.Sort();
 				myAnchorAtomListA.label = isBlendMode ? "Anchor Atom A" : "Anchor Atom";
 				myAnchorAtomListA.valNoCallback = controlEntry.myAnchorAAtom;
-				myAnchorAtomListA.choices = atoms;
+				Atom atomA = null;
+				if (controlEntry.myAnchorTypeA == ControlEntryAnchored.ANCHORTYPE_OBJECT) {
+					myAnchorAtomListA.choices = atoms;
+					if(myAnchorAtomListA.choices.Contains(myAnchorAtomListA.val)) {
+						atomA = GetAtomById(myAnchorAtomListA.val);
+					} else {
+						myAnchorAtomListA.valNoCallback = "";
+					}
+				} else {
+					List<string> roles = myRoles.Keys.ToList();
+					roles.Sort();
+					myAnchorAtomListA.choices = roles;
+					if(myAnchorAtomListA.choices.Contains(myAnchorAtomListA.val)) {
+						atomA = myRoles[myAnchorAtomListA.val].myPerson;
+					} else {
+						myAnchorAtomListA.valNoCallback = "";
+					}
+				}
 				CreateMenuFilterPopup(myAnchorAtomListA, false);
 
-				Atom atomA = GetAtomById(myAnchorAtomListA.val);
 				List<string> controls = atomA?.GetStorableIDs() ?? new List<string>();
 				controls.RemoveAll((string control) => {
 					if (atomA == containingAtom && control == myAnchorCaptureList.val)
@@ -1099,11 +1132,32 @@ namespace HaremLife
 
 				if (isBlendMode)
 				{
+					myAnchorTypeListB.valNoCallback = myAnchorTypes[controlEntry.myAnchorTypeB];
+					CreateMenuPopup(myAnchorTypeListB, false);
+
 					myAnchorAtomListB.valNoCallback = controlEntry.myAnchorBAtom;
-					myAnchorAtomListB.choices = atoms;
+
+					Atom atomB = null;
+					if (controlEntry.myAnchorTypeB == ControlEntryAnchored.ANCHORTYPE_OBJECT) {
+						myAnchorAtomListB.choices = atoms;
+						if(myAnchorAtomListB.choices.Contains(myAnchorAtomListB.val)) {
+							atomB = GetAtomById(myAnchorAtomListB.val);
+						} else {
+							myAnchorAtomListB.valNoCallback = "";
+						}
+					} else {
+						List<string> roles = myRoles.Keys.ToList();
+						roles.Sort();
+						myAnchorAtomListB.choices = roles;
+						if(myAnchorAtomListB.choices.Contains(myAnchorAtomListB.val)) {
+							atomB = myRoles[myAnchorAtomListB.val].myPerson;
+						} else {
+							myAnchorAtomListB.valNoCallback = "";
+						}
+					}
+
 					CreateMenuFilterPopup(myAnchorAtomListB, false);
 
-					Atom atomB = GetAtomById(myAnchorAtomListB.val);
 					controls = atomB?.GetStorableIDs() ?? new List<string>();
 					controls.RemoveAll((string control) => {
 						if (atomB == containingAtom && control == myAnchorCaptureList.val)
@@ -2448,6 +2502,9 @@ namespace HaremLife
 			controlEntry.myBlendRatio = myAnchorBlendRatio.val;
 			controlEntry.myDampingTime = myAnchorDampingTime.val;
 
+			int anchorTypeA = myAnchorTypes.FindIndex(m => m == myAnchorTypeListA.val);
+			controlEntry.myAnchorTypeA = anchorTypeA;
+
 			if (anchorMode >= ControlEntryAnchored.ANCHORMODE_SINGLE)
 			{
 				controlEntry.myAnchorAAtom = myAnchorAtomListA.val;
@@ -2455,6 +2512,11 @@ namespace HaremLife
 			}
 			if (anchorMode == ControlEntryAnchored.ANCHORMODE_BLEND)
 			{
+				int anchorTypeB = myAnchorTypes.FindIndex(m => m == myAnchorTypeListB.val);
+				if(anchorTypeB > -1) {
+					controlEntry.myAnchorTypeB = anchorTypeB;
+				}
+
 				controlEntry.myAnchorBAtom = myAnchorAtomListB.val;
 				controlEntry.myAnchorBControl = myAnchorControlListB.val;
 			}

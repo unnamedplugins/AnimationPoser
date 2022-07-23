@@ -884,6 +884,8 @@ namespace HaremLife
 				entry.myAnchorAAtom = oldEntry.myAnchorAAtom;
 				entry.myAnchorAControl = oldEntry.myAnchorAControl;
 				entry.myAnchorMode = oldEntry.myAnchorMode;
+				entry.myAnchorTypeA = oldEntry.myAnchorTypeA;
+				entry.myAnchorTypeB = oldEntry.myAnchorTypeB;
 			}
 
 			public void SetTransition(List<State> stateChain)
@@ -1070,6 +1072,9 @@ namespace HaremLife
 			public const int ANCHORMODE_SINGLE = 1;
 			public const int ANCHORMODE_BLEND = 2;
 
+			public const int ANCHORTYPE_OBJECT = 0;
+			public const int ANCHORTYPE_ROLE = 1;
+
 			public ControlEntry myEntry;
 			public FreeControllerV3.PositionState myPositionState;
 			public FreeControllerV3.RotationState myRotationState;
@@ -1077,6 +1082,8 @@ namespace HaremLife
 			public Transform myAnchorATransform;
 			public Transform myAnchorBTransform;
 			public int myAnchorMode = ANCHORMODE_SINGLE;
+			public int myAnchorTypeA = ANCHORTYPE_OBJECT;
+			public int myAnchorTypeB = ANCHORTYPE_OBJECT;
 			public float myBlendRatio = DEFAULT_ANCHOR_BLEND_RATIO;
 			public float myDampingTime = DEFAULT_ANCHOR_DAMPING_TIME;
 
