@@ -317,7 +317,7 @@ namespace HaremLife
 			public void InitAnimationLayers() {
 				foreach(var l in myLayers) {
 					Layer layer = l.Value;
-					layer.GoToAnyState();
+					layer.GoToAnyState(myGlobalDefaultTransitionDuration.val, 0);
 				}
 			}
 		}
@@ -426,8 +426,6 @@ namespace HaremLife
 					} else {
 						UpdateState();
 					}
-					// if (myTransition == null)
-						// UpdateState();
 				}
 			}
 
@@ -444,49 +442,33 @@ namespace HaremLife
 			}
 
 			public void ArriveAtState() {
-				State previousState = myCurrentState;
 				SetState(myTransition.myTargetState);
-
-				if (previousState.ExitEndTrigger != null)
-					previousState.ExitEndTrigger.Trigger(myTriggerActionsNeedingUpdate);
-				if (myCurrentState.EnterEndTrigger != null)
-					myCurrentState.EnterEndTrigger.Trigger(myTriggerActionsNeedingUpdate);
-
-				for (int i=0; i<myTransition.myTargetState.myLayer.myControlCaptures.Count; ++i)
-					myTransition.myTargetState.myLayer.myControlCaptures[i].UpdateControllerStates();
-
+				myTransition.EndTransition(myTriggerActionsNeedingUpdate);
 				myTransition = null;
 			}
 
 			public State CreateBlendState()
 			{
-				return new State("BlendState", this) {
+				State blendState = new State("BlendState", this) {
 					myWaitDurationMin = 0.0f,
 					myWaitDurationMax = 0.0f,
 					myDefaultDuration = myGlobalDefaultTransitionDuration.val,
 				};
-			}
-
-			public void SetBlendTransition(State state, bool debug = false) {
-				State blendState = CreateBlendState();
 				CaptureState(blendState);
-				blendState.AssignOutTriggers(myCurrentState);
-
-				myStateChain.Clear();
-				myStateChain.Add(blendState);
-				myStateChain.Add(state);
+				return blendState;
 			}
 
-			public void GoTo(State state, bool debug = false)
+			public void GoTo(State state)
 			{
+				myStateChain.Clear();
 				if (myCurrentState == null || myCurrentState == state) {
-					SetBlendTransition(state);
+					myStateChain.Add(CreateBlendState());
+					myStateChain.Add(state);
 				} else {
 					List<State> path = myCurrentState.findPath(state);
 					if(path != null) {
 						myStateChain = path;
 					} else {
-						myStateChain.Clear();
 						myStateChain.Add(myCurrentState);
 						myStateChain.Add(state);
 					}
@@ -494,104 +476,90 @@ namespace HaremLife
 				SetNextTransition();
 			}
 
-			public void SetNextTransition() {
-				if(!myPaused) {
-					while(myStateChain.Count < MAX_STATES) {
-						State state = myStateChain.Last();
-						State nextState = state.sortNextState();
-						if(nextState == null)
-							break;
-						List<State> path = state.findPath(nextState);
-						path.RemoveAt(0);
-						foreach(State s in path) {
-							myStateChain.Add(s);
-						}
+			public void FillStateChain() {
+				while(myStateChain.Count < MAX_STATES) {
+					State state = myStateChain.Last();
+					State nextState = state.sortNextState();
+					if(nextState == null)
+						break;
+					List<State> path = state.findPath(nextState);
+					path.RemoveAt(0);
+					foreach(State s in path) {
+						myStateChain.Add(s);
 					}
 				}
-
-				if(myStateChain.Count > 1) {
-					SetTransition();
-				} else {
-					myTransition = null;
-				}
-
-				myClock = myDuration;
 			}
 
-			public void SetTransition()
-			{
-				myClock = 0.0f;
+			public void SetNextTransition() {
+				if(!myPaused)
+					FillStateChain();
+
+				myClock = myDuration;
+
+				myTransition = null;
+				if(myStateChain.Count < 2)
+					return;
 
 				State sourceState = myStateChain[0];
 				State targetState = myStateChain[1];
-
 				myStateChain.RemoveAt(0);
 
 				Transition transition;
-
 				if(sourceState.isReachable(targetState)) {
 					transition = sourceState.getIncomingTransition(targetState) as Transition;
 				} else {
 					transition = new Transition(sourceState, targetState);
 				}
+				transition.StartTransition(myTriggerActionsNeedingUpdate);
+				float transitionNoise = UnityEngine.Random.Range(-transition.myDurationNoise, transition.myDurationNoise);
 
 				if(targetState.myAnimation() != sourceState.myAnimation()) {
 					Animation animation = targetState.myAnimation();
 					Layer targetLayer = targetState.myLayer;
 
+					SetAnimation(animation);
+
 					foreach(var l in animation.myLayers) {
 						Layer layer = l.Value;
-						if(layer == targetLayer)
+						if(layer == targetLayer || transition.mySyncTargets.Keys.Contains(layer))
 							continue;
-						layer.GoToAnyState();
+						layer.GoToAnyState(transition.myDuration, transitionNoise);
 					}
 
-					State blendState = targetLayer.CreateBlendState();
-					targetLayer.CaptureState(blendState);
-					blendState.AssignOutTriggers(myCurrentState);
-
-					sourceState = blendState;
+					targetLayer.BlendTo(targetState, transition.myDuration, transitionNoise);
 					targetLayer.myStateChain = new List<State>(myStateChain);
-					targetLayer.myStateChain.Insert(0, sourceState);
-
-					SetAnimation(animation);
 				} else {
-					List<State> stateChain = new List<State>(2);
-					stateChain.Add(sourceState);
-					stateChain.Add(targetState);
-
-					for (int i=0; i<myControlCaptures.Count; ++i)
-						myControlCaptures[i].SetTransition(stateChain);
-					for (int i=0; i<myMorphCaptures.Count; ++i)
-						myMorphCaptures[i].SetTransition(stateChain);
-
-					myTransition = transition;
-					myTransitionNoise = UnityEngine.Random.Range(-transition.myDurationNoise, transition.myDurationNoise);
+					SetTransition(transition, transitionNoise);
 				}
-
-				if (transition.mySourceState.ExitBeginTrigger != null)
-					transition.mySourceState.ExitBeginTrigger.Trigger(myTriggerActionsNeedingUpdate);
-				if (transition.myTargetState.EnterBeginTrigger != null)
-					transition.myTargetState.EnterBeginTrigger.Trigger(myTriggerActionsNeedingUpdate);
-
-				foreach(var sc in transition.mySyncTargets) {
-					Layer syncLayer = sc.Key;
-					State syncState = sc.Value;
-					syncLayer.GoTo(syncState);
-				}
-
-				transition.SendMessages();
-				transition.SendAvoids();
 			}
 
-			public void GoToAnyState() {
+			public void GoToAnyState(float transitionDuration, float transitionNoise) {
 				if(myCurrentState == null) {
 					List<string> states = myStates.Keys.ToList();
 					states.Sort();
 					if(states.Count() > 0)
-						GoTo(myStates[states[0]]);
+						BlendTo(myStates[states[0]], transitionDuration, transitionNoise);
 				} else
-					GoTo(myCurrentState);
+					BlendTo(myCurrentState, transitionDuration, transitionNoise);
+			}
+
+			public void BlendTo(State targetState, float transitionDuration, float transitionNoise) {
+				Transition transition = new Transition(CreateBlendState(), targetState, transitionDuration);
+				SetTransition(transition, transitionNoise);
+			}
+
+			public void SetTransition(Transition transition, float transitionNoise) {
+				List<State> stateChain = new List<State>(2);
+				stateChain.Add(transition.mySourceState);
+				stateChain.Add(transition.myTargetState);
+
+				for (int i=0; i<myControlCaptures.Count; ++i)
+					myControlCaptures[i].SetTransition(stateChain);
+				for (int i=0; i<myMorphCaptures.Count; ++i)
+					myMorphCaptures[i].SetTransition(stateChain);
+
+				myTransition = transition;
+				myTransitionNoise = transitionNoise;
 			}
 		}
 
@@ -667,6 +635,40 @@ namespace HaremLife
 				mySyncTargets = t.mySyncTargets;
 				myMessages = t.myMessages;
 				myAvoids = t.myAvoids;
+			}
+
+			public void StartTransition(List<TriggerActionDiscrete> triggerActionsNeedingUpdate) {
+				SendStartTransitionTriggers(triggerActionsNeedingUpdate);
+
+				foreach(var sc in mySyncTargets) {
+					Layer syncLayer = sc.Key;
+					State syncState = sc.Value;
+					syncLayer.GoTo(syncState);
+				}
+
+				SendMessages();
+				SendAvoids();
+			}
+
+			public void EndTransition(List<TriggerActionDiscrete> triggerActionsNeedingUpdate) {
+				SendEndTransitionTriggers(triggerActionsNeedingUpdate);
+
+				for (int i=0; i<myTargetState.myLayer.myControlCaptures.Count; ++i)
+					myTargetState.myLayer.myControlCaptures[i].UpdateControllerStates();
+			}
+
+			public void SendStartTransitionTriggers(List<TriggerActionDiscrete> triggerActionsNeedingUpdate) {
+				if (mySourceState.ExitBeginTrigger != null)
+					mySourceState.ExitBeginTrigger.Trigger(triggerActionsNeedingUpdate);
+				if (myTargetState.EnterBeginTrigger != null)
+					myTargetState.EnterBeginTrigger.Trigger(triggerActionsNeedingUpdate);
+			}
+
+			public void SendEndTransitionTriggers(List<TriggerActionDiscrete> triggerActionsNeedingUpdate) {
+				if (mySourceState.ExitEndTrigger != null)
+					mySourceState.ExitEndTrigger.Trigger(triggerActionsNeedingUpdate);
+				if (myTargetState.EnterEndTrigger != null)
+					myTargetState.EnterEndTrigger.Trigger(triggerActionsNeedingUpdate);
 			}
 
 			public void SendMessages() {

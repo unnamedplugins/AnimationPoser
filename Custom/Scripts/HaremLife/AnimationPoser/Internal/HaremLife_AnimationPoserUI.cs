@@ -666,7 +666,7 @@ namespace HaremLife
 			State state;
 			if (myStateAutoTransition.val && myCurrentLayer.myStates.TryGetValue(myMainState.val, out state))
 			{
-				myCurrentLayer.GoTo(state, true);
+				myCurrentLayer.GoTo(state);
 			}
 		}
 
