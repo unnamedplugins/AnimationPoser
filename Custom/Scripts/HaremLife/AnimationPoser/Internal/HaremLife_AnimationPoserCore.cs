@@ -369,10 +369,7 @@ namespace HaremLife
 				myCurrentState = state;
 
 				myClock = 0.0f;
-				if(!myPaused)
-					myDuration = UnityEngine.Random.Range(state.myWaitDurationMin, state.myWaitDurationMax);
-				else
-					myDuration = 0.0f;
+				myDuration = UnityEngine.Random.Range(state.myWaitDurationMin, state.myWaitDurationMax);
 
 				if (myMainLayer.val == myName) {
 					myMainState.valNoCallback = myCurrentState.myName;
