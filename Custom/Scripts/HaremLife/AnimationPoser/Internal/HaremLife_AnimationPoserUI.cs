@@ -2082,7 +2082,7 @@ namespace HaremLife
 					() => {
 						selectedAvoid.myAvoidStates.Remove(s.Key);
 						UIRefreshMenu();
-					}, false
+					}, true
 				);
 			}
 		}
