@@ -1082,7 +1082,7 @@ namespace HaremLife
 			{
 				bool isBlendMode = controlEntry.myAnchorMode == ControlEntryAnchored.ANCHORMODE_BLEND;
 
-				myAnchorTypeListA.valNoCallback = myAnchorTypes[controlEntry.myAnchorTypeA];
+				myAnchorTypeListA.valNoCallback = myAnchorTypes[controlEntry.myAnchorAType];
 				myAnchorTypeListA.label = isBlendMode ? "Anchor Type A" : "Anchor Type";
 				CreateMenuPopup(myAnchorTypeListA, false);
 
@@ -1093,7 +1093,7 @@ namespace HaremLife
 				myAnchorAtomListA.label = isBlendMode ? "Anchor Atom A" : "Anchor Atom";
 				myAnchorAtomListA.valNoCallback = controlEntry.myAnchorAAtom;
 				Atom atomA = null;
-				if (controlEntry.myAnchorTypeA == ControlEntryAnchored.ANCHORTYPE_OBJECT) {
+				if (controlEntry.myAnchorAType == ControlEntryAnchored.ANCHORTYPE_OBJECT) {
 					myAnchorAtomListA.choices = atoms;
 					if(myAnchorAtomListA.choices.Contains(myAnchorAtomListA.val)) {
 						atomA = GetAtomById(myAnchorAtomListA.val);
@@ -1132,13 +1132,13 @@ namespace HaremLife
 
 				if (isBlendMode)
 				{
-					myAnchorTypeListB.valNoCallback = myAnchorTypes[controlEntry.myAnchorTypeB];
+					myAnchorTypeListB.valNoCallback = myAnchorTypes[controlEntry.myAnchorBType];
 					CreateMenuPopup(myAnchorTypeListB, false);
 
 					myAnchorAtomListB.valNoCallback = controlEntry.myAnchorBAtom;
 
 					Atom atomB = null;
-					if (controlEntry.myAnchorTypeB == ControlEntryAnchored.ANCHORTYPE_OBJECT) {
+					if (controlEntry.myAnchorBType == ControlEntryAnchored.ANCHORTYPE_OBJECT) {
 						myAnchorAtomListB.choices = atoms;
 						if(myAnchorAtomListB.choices.Contains(myAnchorAtomListB.val)) {
 							atomB = GetAtomById(myAnchorAtomListB.val);
@@ -2503,7 +2503,7 @@ namespace HaremLife
 			controlEntry.myDampingTime = myAnchorDampingTime.val;
 
 			int anchorTypeA = myAnchorTypes.FindIndex(m => m == myAnchorTypeListA.val);
-			controlEntry.myAnchorTypeA = anchorTypeA;
+			controlEntry.myAnchorAType = anchorTypeA;
 
 			if (anchorMode >= ControlEntryAnchored.ANCHORMODE_SINGLE)
 			{
@@ -2514,7 +2514,7 @@ namespace HaremLife
 			{
 				int anchorTypeB = myAnchorTypes.FindIndex(m => m == myAnchorTypeListB.val);
 				if(anchorTypeB > -1) {
-					controlEntry.myAnchorTypeB = anchorTypeB;
+					controlEntry.myAnchorBType = anchorTypeB;
 				}
 
 				controlEntry.myAnchorBAtom = myAnchorAtomListB.val;

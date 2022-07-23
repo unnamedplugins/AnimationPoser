@@ -37,9 +37,9 @@ namespace HaremLife
 		private const float DEFAULT_ANCHOR_BLEND_RATIO = 0.5f;
 		private const float DEFAULT_ANCHOR_DAMPING_TIME = 0.2f;
 
-		private Dictionary<string, Animation> myAnimations = new Dictionary<string, Animation>();
-		private Dictionary<string, Message> myMessages = new Dictionary<string, Message>();
-		private Dictionary<string, Role> myRoles = new Dictionary<string, Role>();
+		private static Dictionary<string, Animation> myAnimations = new Dictionary<string, Animation>();
+		private static Dictionary<string, Message> myMessages = new Dictionary<string, Message>();
+		private static Dictionary<string, Role> myRoles = new Dictionary<string, Role>();
 		private static Animation myCurrentAnimation;
 		private static Layer myCurrentLayer;
 		private static State myCurrentState;
@@ -884,8 +884,8 @@ namespace HaremLife
 				entry.myAnchorAAtom = oldEntry.myAnchorAAtom;
 				entry.myAnchorAControl = oldEntry.myAnchorAControl;
 				entry.myAnchorMode = oldEntry.myAnchorMode;
-				entry.myAnchorTypeA = oldEntry.myAnchorTypeA;
-				entry.myAnchorTypeB = oldEntry.myAnchorTypeB;
+				entry.myAnchorAType = oldEntry.myAnchorAType;
+				entry.myAnchorBType = oldEntry.myAnchorBType;
 			}
 
 			public void SetTransition(List<State> stateChain)
@@ -1082,8 +1082,8 @@ namespace HaremLife
 			public Transform myAnchorATransform;
 			public Transform myAnchorBTransform;
 			public int myAnchorMode = ANCHORMODE_SINGLE;
-			public int myAnchorTypeA = ANCHORTYPE_OBJECT;
-			public int myAnchorTypeB = ANCHORTYPE_OBJECT;
+			public int myAnchorAType = ANCHORTYPE_OBJECT;
+			public int myAnchorBType = ANCHORTYPE_OBJECT;
 			public float myBlendRatio = DEFAULT_ANCHOR_BLEND_RATIO;
 			public float myDampingTime = DEFAULT_ANCHOR_DAMPING_TIME;
 
@@ -1132,17 +1132,21 @@ namespace HaremLife
 				}
 				else
 				{
-					myAnchorATransform = GetTransform(myAnchorAAtom, myAnchorAControl);
+					myAnchorATransform = GetTransform(myAnchorAAtom, myAnchorAControl, myAnchorAType);
 					if (myAnchorMode == ANCHORMODE_BLEND)
-						myAnchorBTransform = GetTransform(myAnchorBAtom, myAnchorBControl);
+						myAnchorBTransform = GetTransform(myAnchorBAtom, myAnchorBControl, myAnchorBType);
 					else
 						myAnchorBTransform = null;
 				}
 			}
 
-			private Transform GetTransform(string atomName, string controlName)
+			private Transform GetTransform(string atomName, string controlName, int anchorType)
 			{
-				Atom atom = SuperController.singleton.GetAtomByUid(atomName);
+				Atom atom = null;
+				if (anchorType == ControlEntryAnchored.ANCHORTYPE_OBJECT)
+					atom = SuperController.singleton.GetAtomByUid(atomName);
+				else if(myRoles.Keys.Contains(atomName))
+					atom = myRoles[atomName].myPerson;
 				return atom?.GetStorableByID(controlName)?.transform;
 			}
 

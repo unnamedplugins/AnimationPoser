@@ -262,6 +262,7 @@ namespace HaremLife
 						if (ce.myAnchorMode >= ControlEntryAnchored.ANCHORMODE_SINGLE)
 						{
 							ceclass["DampingTime"].AsFloat = ce.myDampingTime;
+							ceclass["AnchorAType"].AsInt = ce.myAnchorAType;
 							if(ce.myAnchorAAtom == containingAtom.uid)
 								ceclass["AnchorAAtom"] = "[Self]";
 							else
@@ -270,7 +271,11 @@ namespace HaremLife
 						}
 						if (ce.myAnchorMode == ControlEntryAnchored.ANCHORMODE_BLEND)
 						{
-							ceclass["AnchorBAtom"] = ce.myAnchorBAtom;
+							ceclass["AnchorBType"].AsInt = ce.myAnchorBType;
+							if(ce.myAnchorAAtom == containingAtom.uid)
+								ceclass["AnchorBAtom"] = "[Self]";
+							else
+								ceclass["AnchorBAtom"] = ce.myAnchorBAtom;
 							ceclass["AnchorBControl"] = ce.myAnchorBControl;
 							ceclass["BlendRatio"].AsFloat = ce.myBlendRatio;
 						}
@@ -550,19 +555,21 @@ namespace HaremLife
 						if (ce.myAnchorMode >= ControlEntryAnchored.ANCHORMODE_SINGLE)
 						{
 							ce.myDampingTime = ceclass["DampingTime"].AsFloat;
+							ce.myAnchorAType = ceclass["AnchorAType"].AsInt;
 							ce.myAnchorAAtom = ceclass["AnchorAAtom"].Value;
 							ce.myAnchorAControl = ceclass["AnchorAControl"].Value;
 
-							if (ce.myAnchorAAtom == "[Self]") // legacy
+							if (ce.myAnchorAAtom == "[Self]")
 								ce.myAnchorAAtom = containingAtom.uid;
 						}
 						if (ce.myAnchorMode == ControlEntryAnchored.ANCHORMODE_BLEND)
 						{
+							ce.myAnchorBType = ceclass["AnchorBType"].AsInt;
 							ce.myAnchorBAtom = ceclass["AnchorBAtom"].Value;
 							ce.myAnchorBControl = ceclass["AnchorBControl"].Value;
 							ce.myBlendRatio = ceclass["BlendRatio"].AsFloat;
 
-							if (ce.myAnchorBAtom == "[Self]") // legacy
+							if (ce.myAnchorBAtom == "[Self]")
 								ce.myAnchorBAtom = containingAtom.uid;
 						}
 						ce.Initialize();
