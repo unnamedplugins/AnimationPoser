@@ -675,7 +675,7 @@ namespace HaremLife
 			Animation animation;
 			myAnimations.TryGetValue(myMainAnimation.val, out animation);
 
-			if (myStateAutoTransition.val)
+			if (myCurrentAnimation != null && myCurrentAnimation != animation && myStateAutoTransition.val)
 			{
 				List<State> path = myCurrentAnimation.findPath(animation);
 				if(path != null) {
