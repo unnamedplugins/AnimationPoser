@@ -55,6 +55,7 @@ namespace HaremLife
 		private JSONStorableStringChooser myAvoidAnimationList;
 		private JSONStorableStringChooser myAvoidLayerList;
 		private JSONStorableStringChooser myAvoidStateList;
+		private JSONStorableFloat myTimelineTime;
 		private JSONStorableBool myOptionsDefaultToWorldAnchor;
 		private JSONStorableBool myDebugShowInfo;
 		private JSONStorableBool myDebugShowPaths;
@@ -92,12 +93,13 @@ namespace HaremLife
 		private const int MENU_LAYERS	   = 2;
 		private const int MENU_STATES      = 3;
 		private const int MENU_TRANSITIONS = 4;
-		private const int MENU_TRIGGERS    = 5;
-		private const int MENU_ANCHORS     = 6;
-		private const int MENU_ROLES	   = 7;
-		private const int MENU_MESSAGES    = 8;
-		private const int MENU_AVOIDS    = 9;
-		private const int MENU_OPTIONS     = 10;
+		private const int MENU_TIMELINES   = 5;
+		private const int MENU_TRIGGERS    = 6;
+		private const int MENU_ANCHORS     = 7;
+		private const int MENU_ROLES	   = 8;
+		private const int MENU_MESSAGES    = 9;
+		private const int MENU_AVOIDS      = 10;
+		private const int MENU_OPTIONS     = 11;
 
 		private GameObject myLabelWith1BXButtonPrefab;
 		private GameObject myLabelWith2BXButtonPrefab;
@@ -203,12 +205,17 @@ namespace HaremLife
 		{
 			bindings.Add(new Dictionary<string, string>	{{ "Namespace", "HaremLife.AnimationPoser" }});
 			bindings.Add(new JSONStorableAction("Open Play",        () => OpenTab(0)));
-			bindings.Add(new JSONStorableAction("Open Captures",    () => OpenTab(1)));
-			bindings.Add(new JSONStorableAction("Open States",      () => OpenTab(2)));
-			bindings.Add(new JSONStorableAction("Open Transitions", () => OpenTab(3)));
-			bindings.Add(new JSONStorableAction("Open Triggers",    () => OpenTab(4)));
-			bindings.Add(new JSONStorableAction("Open Anchors",     () => OpenTab(5)));
-			bindings.Add(new JSONStorableAction("Open Options",     () => OpenTab(6)));
+			bindings.Add(new JSONStorableAction("Open Animations",  () => OpenTab(1)));
+			bindings.Add(new JSONStorableAction("Open Layers",      () => OpenTab(2)));
+			bindings.Add(new JSONStorableAction("Open States",      () => OpenTab(3)));
+			bindings.Add(new JSONStorableAction("Open Transitions", () => OpenTab(4)));
+			bindings.Add(new JSONStorableAction("Open Timelines",   () => OpenTab(5)));
+			bindings.Add(new JSONStorableAction("Open Triggers",    () => OpenTab(6)));
+			bindings.Add(new JSONStorableAction("Open Anchors",     () => OpenTab(7)));
+			bindings.Add(new JSONStorableAction("Open Roles",       () => OpenTab(8)));
+			bindings.Add(new JSONStorableAction("Open Messages",    () => OpenTab(9)));
+			bindings.Add(new JSONStorableAction("Open Avoids",      () => OpenTab(10)));
+			bindings.Add(new JSONStorableAction("Open Options",     () => OpenTab(11)));
 
 			bindings.Add(new JSONStorableAction("Toggle Animation Paused", () => {
 				myPlayPaused.val = !myPlayPaused.val;
@@ -645,6 +652,7 @@ namespace HaremLife
 				case MENU_ANIMATIONS:  CreateAnimationsMenu();  break;
 				case MENU_STATES:      CreateStateMenu();       break;
 				case MENU_TRANSITIONS: CreateTransitionsMenu(); break;
+				case MENU_TIMELINES:   CreateTimelinesMenu();   break;
 				case MENU_TRIGGERS:    CreateTriggers();        break;
 				case MENU_ANCHORS:     CreateAnchorsMenu();     break;
 				case MENU_ROLES:       CreateRolesMenu();       break;
@@ -724,7 +732,7 @@ namespace HaremLife
 			CreateMenuPopup(myMainState, true);
 			CreateMenuSpacer(172, true);
 
-			CreateTabs(new string[] { "Play", "Animations", "Layers", "States", "Transitions", "Triggers", "Anchors", "Roles", "Messages", "Avoids", "Options" });
+			CreateTabs(new string[] { "Play", "Animations", "Layers", "States", "Transitions", "Timelines", "Triggers", "Anchors", "Roles", "Messages", "Avoids", "Options" });
 
 		}
 
@@ -1259,6 +1267,157 @@ namespace HaremLife
 
 				myAnchorDampingTime.valNoCallback = controlEntry.myDampingTime;
 				CreateMenuSlider(myAnchorDampingTime, false);
+			}
+		}
+
+		private void CreateTimelinesMenu()
+		{
+			CreateMenuInfoOneLine("<size=30><b>Timelines</b></size>", false);
+
+			State state;
+			if (!myCurrentLayer.myStates.TryGetValue(myMainState.val, out state))
+			{
+				CreateMenuInfo("You need to add some states before you can add transitions.", 100, false);
+				return;
+			}
+
+			// collect transitions
+			List<UITransition> transitions = new List<UITransition>(state.myTransitions.Count);
+			for (int i=0; i<state.myTransitions.Count; ++i)
+				transitions.Add(new UITransition(state.myTransitions[i].myTargetState, false, true));
+
+			foreach (var s in myCurrentLayer.myStates)
+			{
+				State target = s.Value;
+				if (state == target || !target.isReachable(state))
+					continue;
+
+				int idx = transitions.FindIndex(t => t.state == target);
+				if (idx >= 0)
+					transitions[idx] = new UITransition(target, true, true);
+				else
+					transitions.Add(new UITransition(target, true, false));
+			}
+			transitions.Sort((UITransition a, UITransition b) => a.state.myName.CompareTo(b.state.myName));
+
+			myTargetAnimationList = CreateDropDown(
+				CastDict(myAnimations).ToDictionary(entry => (string)entry.Key, entry => (AnimationObject)entry.Value),
+				myTargetAnimationList,
+				"Target Animation"
+			);
+			Animation targetAnimation;
+			if(!myAnimations.TryGetValue(myTargetAnimationList.val, out targetAnimation)){
+				return;
+			};
+
+			Layer targetLayer;
+			List<string> availableLayers = new List<string>();
+			bool singleChoice = false;
+			AnimationObject mySingleChoice = null;
+			if(targetAnimation != myCurrentAnimation) {
+				singleChoice = false;
+				mySingleChoice = null;
+			} else {
+				singleChoice = true;
+				mySingleChoice = myCurrentLayer as AnimationObject;
+			}
+			myTargetLayerList = CreateDropDown(
+				CastDict(targetAnimation.myLayers).ToDictionary(entry => (string)entry.Key, entry => (AnimationObject)entry.Value),
+				myTargetLayerList,
+				"Target Layer",
+				singleChoice:singleChoice,
+				mySingleChoice:mySingleChoice
+			);
+			if(!targetAnimation.myLayers.TryGetValue(myTargetLayerList.val, out targetLayer))
+				return;
+
+			List<string> availableStates = new List<string>();
+			foreach (var s in targetLayer.myStates)
+			{
+				State target = s.Value;
+				if (state == target || state.getIncomingTransition(target) == null)
+					continue;
+				availableStates.Add(target.myName);
+			}
+			availableStates.Sort();
+
+			myTargetStateList = PopulateJSONChooserSelection(
+				availableStates,
+				myTargetStateList,
+				"Target State"
+			);
+
+			if(myTargetAnimationList.choices.Count > 0) {
+				CreateMenuPopup(myTargetAnimationList, false);
+			}
+			if(myTargetLayerList.choices.Count > 0) {
+				CreateMenuPopup(myTargetLayerList, false);
+			}
+			if (myTargetStateList.choices.Count > 0)
+			{
+				CreateMenuPopup(myTargetStateList, false);
+			}
+			else if (transitions.Count == 0)
+			{
+				CreateMenuInfo("You need to add a second state before you can add transitions.", 100, false);
+			}
+
+			State targetState;
+			targetLayer.myStates.TryGetValue(myTargetStateList.val, out targetState);
+			BaseTransition baseTransition = state.getIncomingTransition(targetState);
+
+			if(baseTransition != null && baseTransition is Transition) {
+				Transition transition = baseTransition as Transition;
+
+				CreateMenuInfoOneLine("<size=30><b>Transition Settings</b></size>", true);
+
+				List<string> captures = new List<string>(myCurrentLayer.myControlCaptures.Count);
+				for (int i=0; i<myCurrentLayer.myControlCaptures.Count; ++i)
+					captures.Add(myCurrentLayer.myControlCaptures[i].myName);
+				myAnchorCaptureList.choices = captures;
+				if (captures.Count == 0)
+					myAnchorCaptureList.valNoCallback = "";
+				else if (!captures.Contains(myAnchorCaptureList.val))
+					myAnchorCaptureList.valNoCallback = captures[0];
+				CreateMenuPopup(myAnchorCaptureList, false);
+
+				ControlCapture controlCapture = myCurrentLayer.myControlCaptures.Find(cc => cc.myName == myAnchorCaptureList.val);
+				if (controlCapture == null)
+					return;
+
+				CreateMenuSpacer(30, false);
+
+				List<object> myElements = new List<object>();
+
+				myTimelineTime = new JSONStorableFloat("Time", myTimelineTime == null ?
+														0 : myTimelineTime.val, 0.00f, 1.0f, true, true);
+				myTimelineTime.setCallbackFunction = (float v) => {
+					foreach(var ct in transition.myControlTimelines) {
+						Utils.RemoveUIElements(this, myElements);
+						ControlCapture capt = ct.Key;
+						ControlTimeline tmln = ct.Value;
+
+						capt.SetTransition(tmln.myControlKeyframes);
+						capt.UpdateCurve(v);
+
+						ControlTimeline controlTimeline;
+						if(!transition.myControlTimelines.TryGetValue(controlCapture, out controlTimeline))
+							return;
+
+						ControlKeyframe keyframe = controlTimeline.myControlKeyframes.FirstOrDefault(
+							k => Math.Abs(k.myTime - myTimelineTime.val) < 0.01
+						);
+
+						if (keyframe == null) {
+							UIDynamicButton uid = Utils.SetupButton(this, "Add Keyframe", () => {
+
+							}, true);
+							myElements.Add(uid);
+						}
+					}
+				};
+				CreateMenuSlider(myTimelineTime, true);
+				myTimelineTime.val = myTimelineTime.val;
 			}
 		}
 

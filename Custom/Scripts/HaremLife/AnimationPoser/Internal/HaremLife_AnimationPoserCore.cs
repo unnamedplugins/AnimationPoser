@@ -1085,7 +1085,7 @@ namespace HaremLife
 		{
 			public string myName;
 			private AnimationPoser myPlugin;
-			private Transform myTransform;
+			public Transform myTransform;
 			private ControlEntryAnchored[] myCurve = new ControlEntryAnchored[MAX_STATES];
 			private int myEntryCount = 0;
 			public bool myApplyPosition = true;
