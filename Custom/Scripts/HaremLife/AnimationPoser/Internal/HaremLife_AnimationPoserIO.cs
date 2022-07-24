@@ -692,6 +692,9 @@ namespace HaremLife
 					if(!targetLayer.myStates.TryGetValue(tclass["TargetState"], out target))
 						continue;
 
+					if(source.myAnimation() != target.myAnimation())
+						continue;
+
 					if(String.Equals(tclass["Type"], "Direct") || tclass["Type"] == null) {
 						Transition transition = new Transition(source, target);
 						transition.myProbability = tclass["Probability"].AsFloat;
@@ -699,8 +702,7 @@ namespace HaremLife
 						transition.myDurationNoise = tclass["DurationNoise"].AsFloat;
 						transition.myEaseInDuration = tclass["EaseInDuration"].AsFloat;
 						transition.myEaseOutDuration = tclass["EaseOutDuration"].AsFloat;
-						transition.mySourceState = source;
-						transition.myTargetState = target;
+						transition.SetEndpoints(source, target);
 
 						JSONClass synctlist = tclass["SyncTargets"].AsObject;
 						foreach (string key in synctlist.Keys) {

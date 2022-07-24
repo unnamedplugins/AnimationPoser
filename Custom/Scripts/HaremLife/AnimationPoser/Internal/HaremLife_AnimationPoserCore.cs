@@ -565,14 +565,7 @@ namespace HaremLife
 			}
 
 			public void SetTransition(Transition transition, float transitionNoise) {
-				List<State> stateChain = new List<State>(2);
-				stateChain.Add(transition.mySourceState);
-				stateChain.Add(transition.myTargetState);
-
-				for (int i=0; i<myControlCaptures.Count; ++i)
-					myControlCaptures[i].SetTransition(stateChain);
-				for (int i=0; i<myMorphCaptures.Count; ++i)
-					myMorphCaptures[i].SetTransition(stateChain);
+				transition.Set();
 
 				myTransition = transition;
 				myTransitionNoise = transitionNoise;
@@ -610,6 +603,58 @@ namespace HaremLife
 			}
 		}
 
+		private class ControlTimeline {
+			public ControlCapture myControlCapture;
+			public bool myControlPositionOn = true;
+			public bool myControlRotationOn = true;
+			public List<ControlKeyframe> myControlKeyframes = new List<ControlKeyframe>();
+
+			public ControlTimeline(ControlCapture controlCapture) {
+				myControlCapture = controlCapture;
+			}
+
+			public void SetEndpoints(ControlEntryAnchored startControlEntry,
+									 ControlEntryAnchored endControlEntry) {
+				if(myControlKeyframes.Count < 2) {
+					ControlKeyframe keyframe = new ControlKeyframe("first");
+					keyframe.myControlEntry = startControlEntry;
+					myControlKeyframes.Add(keyframe);
+
+					keyframe = new ControlKeyframe("last");
+					keyframe.myControlEntry = endControlEntry;
+					myControlKeyframes.Add(keyframe);
+				} else {
+					myControlKeyframes.First().myControlEntry = startControlEntry;
+					myControlKeyframes.Last().myControlEntry = endControlEntry;
+				}
+			}
+		}
+
+		private class MorphTimeline {
+			public MorphCapture myMorphCapture;
+			public List<MorphKeyframe> myMorphKeyframes = new List<MorphKeyframe>();
+
+			public MorphTimeline(MorphCapture morphCapture) {
+				myMorphCapture = morphCapture;
+			}
+
+			public void SetEndpoints(float startMorphEntry,
+									 float endMorphEntry) {
+				if(myMorphKeyframes.Count < 2) {
+					MorphKeyframe keyframe = new MorphKeyframe("first");
+					keyframe.myMorphEntry = startMorphEntry;
+					myMorphKeyframes.Add(keyframe);
+
+					keyframe = new MorphKeyframe("last");
+					keyframe.myMorphEntry = endMorphEntry;
+					myMorphKeyframes.Add(keyframe);
+				} else {
+					myMorphKeyframes.First().myMorphEntry = startMorphEntry;
+					myMorphKeyframes.Last().myMorphEntry = endMorphEntry;
+				}
+			}
+		}
+
 		private class Transition : BaseTransition
 		{
 			public float myEaseInDuration;
@@ -619,11 +664,12 @@ namespace HaremLife
 			public Dictionary<Layer, State> mySyncTargets = new Dictionary<Layer, State>();
 			public Dictionary<Role, String> myMessages = new Dictionary<Role, String>();
 			public Dictionary<Role, Dictionary<String, bool>> myAvoids = new Dictionary<Role, Dictionary<String, bool>>();
+			public Dictionary<ControlCapture, ControlTimeline> myControlTimelines = new Dictionary<ControlCapture, ControlTimeline>();
+			public Dictionary<MorphCapture, MorphTimeline> myMorphTimelines = new Dictionary<MorphCapture, MorphTimeline>();
 
 			public Transition(State sourceState, State targetState)
 			{
-				mySourceState = sourceState;
-				myTargetState = targetState;
+				SetEndpoints(sourceState, targetState);
 				myProbability = targetState.myDefaultProbability;
 				myEaseInDuration = targetState.myDefaultEaseInDuration;
 				myEaseOutDuration = targetState.myDefaultEaseOutDuration;
@@ -632,8 +678,7 @@ namespace HaremLife
 
 			public Transition(State sourceState, State targetState, float duration)
 			{
-				mySourceState = sourceState;
-				myTargetState = targetState;
+				SetEndpoints(sourceState, targetState);
 				myProbability = targetState.myDefaultProbability;
 				myEaseInDuration = 0.0f;
 				myEaseOutDuration = 0.0f;
@@ -641,8 +686,7 @@ namespace HaremLife
 			}
 
 			public Transition(Transition t) {
-				mySourceState = t.mySourceState;
-				myTargetState = t.myTargetState;
+				SetEndpoints(t.mySourceState, t.myTargetState);
 				myProbability = t.myProbability;
 				myEaseInDuration = t.myEaseInDuration;
 				myEaseOutDuration = t.myEaseOutDuration;
@@ -651,6 +695,27 @@ namespace HaremLife
 				mySyncTargets = t.mySyncTargets;
 				myMessages = t.myMessages;
 				myAvoids = t.myAvoids;
+			}
+
+			public void SetEndpoints(State sourceState, State targetState) {
+				mySourceState = sourceState;
+				myTargetState = targetState;
+
+				foreach(ControlCapture controlCapture in sourceState.myLayer.myControlCaptures) {
+					if(!myControlTimelines.Keys.Contains(controlCapture))
+						myControlTimelines[controlCapture] = new ControlTimeline(controlCapture);
+					ControlTimeline timeline = myControlTimelines[controlCapture];
+					timeline.SetEndpoints(sourceState.myControlEntries[controlCapture],
+										  targetState.myControlEntries[controlCapture]);
+				}
+
+				foreach(MorphCapture morphCapture in sourceState.myLayer.myMorphCaptures) {
+					if(!myMorphTimelines.Keys.Contains(morphCapture))
+						myMorphTimelines[morphCapture] = new MorphTimeline(morphCapture);
+					MorphTimeline timeline = myMorphTimelines[morphCapture];
+					timeline.SetEndpoints(sourceState.myMorphEntries[morphCapture],
+										  targetState.myMorphEntries[morphCapture]);
+				}
 			}
 
 			public void StartTransition(List<TriggerActionDiscrete> triggerActionsNeedingUpdate) {
@@ -723,6 +788,20 @@ namespace HaremLife
 					}
 				}
 			}
+
+			public void Set() {
+				foreach(var t in myControlTimelines) {
+					ControlTimeline timeline = t.Value;
+					ControlCapture capture = t.Key;
+					capture.SetTransition(timeline.myControlKeyframes);
+				}
+
+				foreach(var t in myMorphTimelines) {
+					MorphTimeline timeline = t.Value;
+					MorphCapture capture = t.Key;
+					capture.SetTransition(timeline.myMorphKeyframes);
+				}
+			}
 		}
 
 		private class Message : AnimationObject
@@ -755,7 +834,6 @@ namespace HaremLife
 			public float myDefaultEaseOutDuration;
 			public float myDefaultProbability = DEFAULT_PROBABILITY;
 			public bool myIsRootState = false;
-			public bool myAvoid = false;
 			public uint myDebugIndex = 0;
 			public Dictionary<ControlCapture, ControlEntryAnchored> myControlEntries = new Dictionary<ControlCapture, ControlEntryAnchored>();
 			public Dictionary<MorphCapture, float> myMorphEntries = new Dictionary<MorphCapture, float>();
@@ -944,6 +1022,65 @@ namespace HaremLife
 			}
 		}
 
+		private class ControlKeyframe
+		{
+			public float myTime;
+			public bool myIsFirst = false;
+			public bool myIsLast = false;
+			public ControlCapture myCapture;
+			public ControlEntryAnchored myControlEntry;
+			public ControlEntryAnchored myControlPointIn;
+			public ControlEntryAnchored myControlPointOut;
+
+			public ControlKeyframe(string firstOrLast)
+			{
+				if(String.Equals(firstOrLast, "first")) {
+					myTime = 0;
+					myIsFirst = true;
+				}
+				if(String.Equals(firstOrLast, "last")) {
+					myTime = 1;
+					myIsLast = true;
+				}
+			}
+
+			public ControlKeyframe(MVRScript script, ControlCapture capture, ControlEntryAnchored controlEntry,
+							ControlEntryAnchored controlPointIn, ControlEntryAnchored controlPointOut)
+			{
+				myCapture = capture;
+				myControlEntry = controlEntry;
+				myControlPointIn = controlPointIn;
+				myControlPointOut = controlPointOut;
+			}
+		}
+
+		private class MorphKeyframe
+		{
+			public float myTime;
+			public bool myIsFirst = false;
+			public bool myIsLast = false;
+			public MorphCapture myCapture;
+			public float myMorphEntry;
+
+			public MorphKeyframe(string firstOrLast)
+			{
+				if(String.Equals(firstOrLast, "first")) {
+					myTime = 0;
+					myIsFirst = true;
+				}
+				if(String.Equals(firstOrLast, "last")) {
+					myTime = 1;
+					myIsLast = true;
+				}
+			}
+
+			public MorphKeyframe(MVRScript script, MorphCapture capture, float morphEntry)
+			{
+				myCapture = capture;
+				myMorphEntry = morphEntry;
+			}
+		}
+
 		private class ControlCapture
 		{
 			public string myName;
@@ -1006,15 +1143,11 @@ namespace HaremLife
 				entry.myAnchorBType = oldEntry.myAnchorBType;
 			}
 
-			public void SetTransition(List<State> stateChain)
+			public void SetTransition(List<ControlKeyframe> keyframes)
 			{
-				myEntryCount = stateChain.Count;
+				myEntryCount = keyframes.Count;
 				for(int i=0; i<myEntryCount; i++) {
-					if (!stateChain[i].myControlEntries.TryGetValue(this, out myCurve[i]))
-					{
-						CaptureEntry(stateChain[i]);
-						myCurve[i] = stateChain[i].myControlEntries[this];
-					}
+					myCurve[i] = keyframes[i].myControlEntry;
 					myCurve[i].Initialize();
 				}
 			}
@@ -1432,22 +1565,15 @@ namespace HaremLife
 				state.myMorphEntries[this] = myMorph.morphValue;
 			}
 
-			public void SetTransition(List<State> stateChain)
+			public void SetTransition(List<MorphKeyframe> keyframes)
 			{
-				myEntryCount = stateChain.Count;
+				myEntryCount = keyframes.Count;
 				bool identical = true;
 				float morphValue = myMorph.morphValue;
 
 				for(int i=0; i<myEntryCount; i++) {
-					if (!stateChain[i].myMorphEntries.TryGetValue(this, out myCurve[i]))
-					{
-						CaptureEntry(stateChain[i]);
-						myCurve[i] = morphValue;
-					}
-					else
-					{
-						identical &= (myCurve[i] == morphValue);
-					}
+					myCurve[i] = keyframes[i].myMorphEntry;
+					identical &= (myCurve[i] == morphValue);
 				}
 
 				if (identical)
