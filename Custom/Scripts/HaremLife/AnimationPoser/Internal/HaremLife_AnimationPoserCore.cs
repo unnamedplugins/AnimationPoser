@@ -477,6 +477,8 @@ namespace HaremLife
 			}
 
 			public void FillStateChain() {
+				if(myStateChain.Count == 0)
+					myStateChain.Add(myCurrentState);
 				while(myStateChain.Count < MAX_STATES) {
 					State state = myStateChain.Last();
 					State nextState = state.sortNextState();
