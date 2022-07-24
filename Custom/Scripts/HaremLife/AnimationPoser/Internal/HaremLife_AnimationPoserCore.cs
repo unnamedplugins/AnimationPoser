@@ -320,6 +320,20 @@ namespace HaremLife
 					layer.GoToAnyState(myGlobalDefaultTransitionDuration.val, 0);
 				}
 			}
+
+			public List<State> findPath(Animation target) {
+				List<State> smallestPath = null;
+				foreach(var l in myLayers) {
+					Layer layer = l.Value;
+					State state = layer.myCurrentState;
+					if(state == null)
+						continue;
+					List<State> path = state.findPath(target);
+					if(path != null && (smallestPath == null || path.Count < smallestPath.Count))
+						smallestPath = path;
+				}
+				return smallestPath;
+			}
 		}
 
 		// =======================================================================================
@@ -824,7 +838,7 @@ namespace HaremLife
 				return notAvoided;
 			}
 
-			public List<State> findPath(State target) {
+			public Dictionary<State, List<State>> getPaths() {
 				Dictionary<State, List<State>> paths = new Dictionary<State, List<State>>();
 
 				paths[this] = new List<State>();
@@ -853,12 +867,34 @@ namespace HaremLife
 					}
 				}
 
+				return paths;
+			}
+
+			public List<State> findPath(State target) {
+				Dictionary<State, List<State>> paths = getPaths();
+
 				if(paths.ContainsKey(target)) {
 					List<State> path = paths[target];
 					return path;
 				} else {
 					return null;
 				}
+			}
+
+			public List<State> findPath(Animation target) {
+				Dictionary<State, List<State>> paths = getPaths();
+
+				List<State> smallestPath = null;
+				foreach(var s in paths) {
+					State state = s.Key;
+					if(state.myAnimation() == target) {
+						List<State> path = paths[state];
+						if(smallestPath == null || path.Count < smallestPath.Count)
+							smallestPath = path;
+					}
+				}
+
+				return smallestPath;
 			}
 
 			public State sortNextState() {

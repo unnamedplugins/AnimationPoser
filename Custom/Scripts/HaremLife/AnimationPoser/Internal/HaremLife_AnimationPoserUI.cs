@@ -672,15 +672,24 @@ namespace HaremLife
 
 		private void UISelectAnimationAndRefresh(string name)
 		{
+			Animation animation;
+			myAnimations.TryGetValue(myMainAnimation.val, out animation);
+
+			if (myStateAutoTransition.val)
+			{
+				List<State> path = myCurrentAnimation.findPath(animation);
+				if(path != null) {
+					path.First().myLayer.GoTo(path.Last());
+					return;
+				}
+			}
+
 			bool initPlayPaused = myPlayPaused.val;
 			myCurrentAnimation = null;
 			myCurrentLayer = null;
 			myCurrentState = null;
-			Animation animation;
-			myAnimations.TryGetValue(myMainAnimation.val, out animation);
 			SetAnimation(animation);
 			animation.InitAnimationLayers();
-
 			myPlayPaused.val = initPlayPaused;
 
 			UIRefreshMenu();
