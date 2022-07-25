@@ -700,6 +700,9 @@ namespace HaremLife
 				mySourceState = sourceState;
 				myTargetState = targetState;
 
+				if(sourceState.myAnimation() != targetState.myAnimation())
+					return;
+
 				foreach(ControlCapture controlCapture in sourceState.myLayer.myControlCaptures) {
 					if(!myControlTimelines.Keys.Contains(controlCapture))
 						myControlTimelines[controlCapture] = new ControlTimeline(controlCapture);
