@@ -1391,6 +1391,11 @@ namespace HaremLife
 
 				myTimelineTime = new JSONStorableFloat("Time", myTimelineTime == null ?
 														0 : myTimelineTime.val, 0.00f, 1.0f, true, true);
+
+				ControlTimeline controlTimeline;
+				if(!transition.myControlTimelines.TryGetValue(controlCapture, out controlTimeline))
+					return;
+
 				myTimelineTime.setCallbackFunction = (float v) => {
 					foreach(var ct in transition.myControlTimelines) {
 						Utils.RemoveUIElements(this, myElements);
@@ -1400,10 +1405,6 @@ namespace HaremLife
 						capt.SetTransition(tmln.myControlKeyframes);
 						capt.UpdateCurve(v);
 					}
-
-					ControlTimeline controlTimeline;
-					if(!transition.myControlTimelines.TryGetValue(controlCapture, out controlTimeline))
-						return;
 
 					ControlKeyframe keyframe = controlTimeline.myControlKeyframes.FirstOrDefault(
 						k => Math.Abs(k.myTime - myTimelineTime.val) < 0.01
@@ -1422,10 +1423,38 @@ namespace HaremLife
 						}, true);
 						myElements.Add(uid);
 						myMenuElements.Add(uid);
+					} else if(!keyframe.myIsFirst && !keyframe.myIsLast) {
+						UIDynamicButton uid = Utils.SetupButton(this, "Remove Keyframe", () => {
+							controlTimeline.myControlKeyframes.Remove(keyframe);
+							UIRefreshMenu();
+						}, true);
+						myElements.Add(uid);
+						myMenuElements.Add(uid);
 					}
 				};
+
 				CreateMenuSlider(myTimelineTime, true);
-				myTimelineTime.val = myTimelineTime.val;
+				myTimelineTime.val = 0;
+
+				List <ControlKeyframe> keyframes = new List<ControlKeyframe>(
+					controlTimeline.myControlKeyframes.OrderBy(k => k.myTime)
+				);
+
+				CreateMenuButton("Go To Next Keyframe", () => {
+					ControlKeyframe nextKeyframe = keyframes.FirstOrDefault(
+						k => k.myTime > myTimelineTime.val
+					);
+
+					myTimelineTime.val = nextKeyframe.myTime;
+				}, true);
+
+				CreateMenuButton("Go To Previous Keyframe", () => {
+					ControlKeyframe previousKeyframe = keyframes.LastOrDefault(
+						k => k.myTime < myTimelineTime.val
+					);
+
+					myTimelineTime.val = previousKeyframe.myTime;
+				}, true);
 			}
 		}
 
