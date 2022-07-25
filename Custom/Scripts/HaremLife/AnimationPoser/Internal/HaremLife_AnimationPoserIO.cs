@@ -243,6 +243,61 @@ namespace HaremLife
 						t["EaseOutDuration"].AsFloat = transition.myEaseOutDuration;
 						t["Probability"].AsFloat = transition.myProbability;
 
+						JSONClass ctltmls = new JSONClass();
+						foreach (var c in transition.myControlTimelines) {
+							JSONArray ctlkfms = new JSONArray();
+							ControlTimeline timeline = c.Value;
+							for(int j=0; j<timeline.myControlKeyframes.Count; j++) {
+								JSONClass ctlkfm = new JSONClass();
+								ControlKeyframe keyframe = timeline.myControlKeyframes[j];
+								ctlkfm["Time"].AsFloat = keyframe.myTime;
+								ctlkfm["IsFirst"].AsBool = keyframe.myIsFirst;
+								ctlkfm["IsLast"].AsBool = keyframe.myIsLast;
+
+								ControlEntryAnchored ce = keyframe.myControlEntry;
+
+								JSONClass ceclass = new JSONClass();
+								ceclass["PositionState"] = ce.myPositionState.ToString();
+								ceclass["RotationState"] = ce.myRotationState.ToString();
+								ceclass["PX"].AsFloat = ce.myAnchorOffset.myPosition.x;
+								ceclass["PY"].AsFloat = ce.myAnchorOffset.myPosition.y;
+								ceclass["PZ"].AsFloat = ce.myAnchorOffset.myPosition.z;
+								Vector3 rotation = ce.myAnchorOffset.myRotation.eulerAngles;
+								ceclass["RX"].AsFloat = rotation.x;
+								ceclass["RY"].AsFloat = rotation.y;
+								ceclass["RZ"].AsFloat = rotation.z;
+								ceclass["AnchorMode"].AsInt = ce.myAnchorMode;
+								if (ce.myAnchorMode >= ControlEntryAnchored.ANCHORMODE_SINGLE)
+								{
+									ceclass["DampingTime"].AsFloat = ce.myDampingTime;
+									ceclass["AnchorAType"].AsInt = ce.myAnchorAType;
+									if(ce.myAnchorAAtom == containingAtom.uid)
+										ceclass["AnchorAAtom"] = "[Self]";
+									else
+										ceclass["AnchorAAtom"] = ce.myAnchorAAtom;
+									ceclass["AnchorAControl"] = ce.myAnchorAControl;
+								}
+								if (ce.myAnchorMode == ControlEntryAnchored.ANCHORMODE_BLEND)
+								{
+									ceclass["AnchorBType"].AsInt = ce.myAnchorBType;
+									if(ce.myAnchorAAtom == containingAtom.uid)
+										ceclass["AnchorBAtom"] = "[Self]";
+									else
+										ceclass["AnchorBAtom"] = ce.myAnchorBAtom;
+									ceclass["AnchorBControl"] = ce.myAnchorBControl;
+									ceclass["BlendRatio"].AsFloat = ce.myBlendRatio;
+								}
+								ctlkfm["ControlEntry"] = ceclass;
+
+								ctlkfms.Add("", ctlkfm);
+							}
+
+							JSONClass ctltml = new JSONClass();
+							ctltml["ControlKeyframes"] = ctlkfms;
+							ctltmls[c.Key.myName] = ctltml;
+						}
+						t["ControlTimelines"] = ctltmls;
+
 						JSONClass synct = new JSONClass();
 						foreach (var syncl in transition.mySyncTargets) {
 							synct[syncl.Key.myName] = syncl.Value.myName;
@@ -703,6 +758,74 @@ namespace HaremLife
 						transition.myEaseInDuration = tclass["EaseInDuration"].AsFloat;
 						transition.myEaseOutDuration = tclass["EaseOutDuration"].AsFloat;
 						transition.SetEndpoints(source, target);
+
+						if(tclass.HasKey("ControlTimelines")) {
+							JSONClass ctltmls = tclass["ControlTimelines"].AsObject;
+							foreach (string key in ctltmls.Keys) {
+								JSONClass ctltml = ctltmls[key].AsObject;
+
+								ControlCapture capture = layer.myControlCaptures.FirstOrDefault(cc => cc.myName == key);
+								if(capture == null)
+									continue;
+
+								ControlTimeline timeline = new ControlTimeline(capture);
+
+								JSONArray kfms = ctltml["ControlKeyframes"].AsArray;
+
+								for (int k=0; k<kfms.Count; ++k)
+								{
+									JSONClass kfm = kfms[k].AsObject;
+
+									JSONClass ceclass = kfm["ControlEntry"].AsObject;
+									ControlEntryAnchored ce = new ControlEntryAnchored(capture);
+									ce.myPositionState = getPositionState(ceclass["PositionState"]);
+									ce.myRotationState = getRotationState(ceclass["RotationState"]);
+									ce.myAnchorOffset.myPosition.x = ceclass["PX"].AsFloat;
+									ce.myAnchorOffset.myPosition.y = ceclass["PY"].AsFloat;
+									ce.myAnchorOffset.myPosition.z = ceclass["PZ"].AsFloat;
+									Vector3 rotation;
+									rotation.x = ceclass["RX"].AsFloat;
+									rotation.y = ceclass["RY"].AsFloat;
+									rotation.z = ceclass["RZ"].AsFloat;
+									ce.myAnchorOffset.myRotation.eulerAngles = rotation;
+									ce.myAnchorMode = ceclass["AnchorMode"].AsInt;
+									if (ce.myAnchorMode >= ControlEntryAnchored.ANCHORMODE_SINGLE)
+									{
+										ce.myDampingTime = ceclass["DampingTime"].AsFloat;
+										ce.myAnchorAType = ceclass["AnchorAType"].AsInt;
+										ce.myAnchorAAtom = ceclass["AnchorAAtom"].Value;
+										ce.myAnchorAControl = ceclass["AnchorAControl"].Value;
+
+										if (ce.myAnchorAAtom == "[Self]")
+											ce.myAnchorAAtom = containingAtom.uid;
+									}
+									if (ce.myAnchorMode == ControlEntryAnchored.ANCHORMODE_BLEND)
+									{
+										ce.myAnchorBType = ceclass["AnchorBType"].AsInt;
+										ce.myAnchorBAtom = ceclass["AnchorBAtom"].Value;
+										ce.myAnchorBControl = ceclass["AnchorBControl"].Value;
+										ce.myBlendRatio = ceclass["BlendRatio"].AsFloat;
+
+										if (ce.myAnchorBAtom == "[Self]")
+											ce.myAnchorBAtom = containingAtom.uid;
+									}
+									ce.Initialize();
+
+									ControlKeyframe keyframe;
+									if(kfm["IsFirst"].AsBool) {
+										keyframe = new ControlKeyframe("first", ce);
+									} else if(kfm["IsLast"].AsBool) {
+										keyframe = new ControlKeyframe("last", ce);
+									} else {
+										SuperController.LogError(kfm["Time"]);
+										keyframe = new ControlKeyframe(kfm["Time"].AsFloat, ce);
+									}
+
+									timeline.myControlKeyframes.Add(keyframe);
+								}
+								transition.myControlTimelines[capture] = timeline;
+							}
+						}
 
 						JSONClass synctlist = tclass["SyncTargets"].AsObject;
 						foreach (string key in synctlist.Keys) {

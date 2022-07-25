@@ -608,8 +608,6 @@ namespace HaremLife
 
 		private class ControlTimeline {
 			public ControlCapture myControlCapture;
-			public bool myControlPositionOn = true;
-			public bool myControlRotationOn = true;
 			public List<ControlKeyframe> myControlKeyframes = new List<ControlKeyframe>();
 
 			public ControlTimeline(ControlCapture controlCapture) {
