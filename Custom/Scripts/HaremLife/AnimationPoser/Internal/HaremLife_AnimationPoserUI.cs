@@ -1418,14 +1418,14 @@ namespace HaremLife
 							controlCapture.CaptureEntry(entry);
 
 							keyframe = new ControlKeyframe(v, entry);
-							controlTimeline.myControlKeyframes.Add(keyframe);
+							controlTimeline.AddKeyframe(keyframe);
 							UIRefreshMenu();
 						}, true);
 						myElements.Add(uid);
 						myMenuElements.Add(uid);
 					} else if(!keyframe.myIsFirst && !keyframe.myIsLast) {
 						UIDynamicButton uid = Utils.SetupButton(this, "Remove Keyframe", () => {
-							controlTimeline.myControlKeyframes.Remove(keyframe);
+							controlTimeline.RemoveKeyframe(keyframe);
 							UIRefreshMenu();
 						}, true);
 						myElements.Add(uid);

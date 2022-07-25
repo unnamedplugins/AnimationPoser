@@ -616,15 +616,65 @@ namespace HaremLife
 
 			public void SetEndpoints(ControlEntryAnchored startControlEntry,
 									 ControlEntryAnchored endControlEntry) {
-				if(myControlKeyframes.Count < 2) {
-					ControlKeyframe keyframe = new ControlKeyframe("first", startControlEntry);
-					myControlKeyframes.Add(keyframe);
+				myControlKeyframes.Add(new ControlKeyframe("first", startControlEntry));
+				myControlKeyframes.Add(new ControlKeyframe("last", endControlEntry));
+				ComputeControlPoints();
+			}
 
-					keyframe = new ControlKeyframe("last", endControlEntry);
-					myControlKeyframes.Add(keyframe);
-				} else {
-					myControlKeyframes.First().myControlEntry = startControlEntry;
-					myControlKeyframes.Last().myControlEntry = endControlEntry;
+			public void AddKeyframe(ControlKeyframe keyframe) {
+				myControlKeyframes.Add(keyframe);
+				ComputeControlPoints();
+			}
+
+			public void RemoveKeyframe(ControlKeyframe keyframe) {
+				myControlKeyframes.Remove(keyframe);
+				ComputeControlPoints();
+			}
+
+			public void ComputeControlPoints() {
+				List<float> ts = new List<float>();
+				List<float> xs = new List<float>();
+				List<float> ys = new List<float>();
+				List<float> zs = new List<float>();
+				List<ControlKeyframe> keyframes = new List<ControlKeyframe>(myControlKeyframes.OrderBy(k => k.myTime));
+				if(keyframes.Count < 3)
+					return;
+				for(int i=0; i<keyframes.Count; i++) {
+					ControlEntry ce = keyframes[i].myControlEntry.myAnchorOffset;
+					ts.Add(keyframes[i].myTime);
+					xs.Add(ce.myPosition.x);
+					ys.Add(ce.myPosition.y);
+					zs.Add(ce.myPosition.z);
+				}
+
+				List<ControlPoint> xControlPoints = AutoComputeControlPoints(xs, ts);
+				List<ControlPoint> yControlPoints = AutoComputeControlPoints(ys, ts);
+				List<ControlPoint> zControlPoints = AutoComputeControlPoints(zs, ts);
+
+				for(int i=0; i<keyframes.Count; i++) {
+					ControlEntryAnchored controlPointIn = keyframes[i].myControlPointIn;
+					if(controlPointIn == null) {
+						controlPointIn = new ControlEntryAnchored(myControlCapture);
+						controlPointIn.setDefaults(keyframes[i].myControlEntry);
+						controlPointIn.Initialize();
+						myControlCapture.CaptureEntry(controlPointIn);
+					}
+
+					controlPointIn.myAnchorOffset.myPosition.x = xControlPoints[i].In;
+					controlPointIn.myAnchorOffset.myPosition.y = yControlPoints[i].In;
+					controlPointIn.myAnchorOffset.myPosition.z = zControlPoints[i].In;
+
+					ControlEntryAnchored controlPointOut = keyframes[i].myControlPointOut;
+					if(controlPointOut == null) {
+						controlPointOut = new ControlEntryAnchored(myControlCapture);
+						controlPointOut.setDefaults(keyframes[i].myControlEntry);
+						controlPointOut.Initialize();
+						myControlCapture.CaptureEntry(controlPointOut);
+					}
+
+					controlPointOut.myAnchorOffset.myPosition.x = xControlPoints[i].Out;
+					controlPointOut.myAnchorOffset.myPosition.y = yControlPoints[i].Out;
+					controlPointOut.myAnchorOffset.myPosition.z = zControlPoints[i].Out;
 				}
 			}
 		}
@@ -1046,18 +1096,10 @@ namespace HaremLife
 				myControlEntry = entry;
 			}
 
-			public ControlKeyframe(float time, ControlEntryAnchored controlEntry)
+			public ControlKeyframe(float time, ControlEntryAnchored entry)
 			{
 				myTime = time;
-				myControlEntry = controlEntry;
-			}
-
-			public ControlKeyframe(MVRScript script, ControlCapture capture, ControlEntryAnchored controlEntry,
-							ControlEntryAnchored controlPointIn, ControlEntryAnchored controlPointOut)
-			{
-				myControlEntry = controlEntry;
-				myControlPointIn = controlPointIn;
-				myControlPointOut = controlPointOut;
+				myControlEntry = entry;
 			}
 		}
 
@@ -1093,7 +1135,6 @@ namespace HaremLife
 			public string myName;
 			public Transform myTransform;
 			private List<ControlKeyframe> myCurve = new List<ControlKeyframe>();
-			private int myEntryCount = 2;
 			public bool myApplyPosition = true;
 			public bool myApplyRotation = true;
 			FreeControllerV3 myController;
@@ -1168,11 +1209,7 @@ namespace HaremLife
 					return;
 				if (!oldState.myControlEntries.TryGetValue(this, out oldEntry))
 					return;
-				entry.myAnchorAAtom = oldEntry.myAnchorAAtom;
-				entry.myAnchorAControl = oldEntry.myAnchorAControl;
-				entry.myAnchorMode = oldEntry.myAnchorMode;
-				entry.myAnchorAType = oldEntry.myAnchorAType;
-				entry.myAnchorBType = oldEntry.myAnchorBType;
+				entry.setDefaults(oldEntry);
 			}
 
 			public void SetTransition(List<ControlKeyframe> keyframes)
@@ -1180,6 +1217,10 @@ namespace HaremLife
 				myCurve = new List<ControlKeyframe>(keyframes.OrderBy(k => k.myTime));
 				for(int i=0; i<keyframes.Count; i++) {
 					keyframes[i].myControlEntry.Initialize();
+					if(keyframes[i].myControlPointIn != null)
+						keyframes[i].myControlPointIn.Initialize();
+					if(keyframes[i].myControlPointOut != null)
+						keyframes[i].myControlPointOut.Initialize();
 				}
 			}
 
@@ -1209,9 +1250,13 @@ namespace HaremLife
 
 				t = (t-k1.myTime)/(k2.myTime-k1.myTime);
 
+				int entryCount = 2;
+				if(k1.myControlPointOut != null && k2.myControlPointIn != null)
+					entryCount = 4;
+
 				if (myApplyPosition && k2.myControlEntry.myPositionState != FreeControllerV3.PositionState.Off)
 				{
-					switch (myEntryCount)
+					switch (entryCount)
 					{
 						case 4:	myTransform.position = EvalBezierCubicPosition(t, k1, k2); break;
 						// case 3: myTransform.position = EvalBezierQuadraticPosition(t, k1, k2); break;
@@ -1221,7 +1266,7 @@ namespace HaremLife
 				}
 				if (myApplyRotation && k2.myControlEntry.myRotationState != FreeControllerV3.RotationState.Off)
 				{
-					switch (myEntryCount)
+					switch (entryCount)
 					{
 						case 4: myTransform.rotation = EvalBezierCubicRotation(t, k1, k2); break;
 						// case 3: myTransform.rotation = EvalBezierQuadraticRotation(t, k1, k2); break;
@@ -1311,7 +1356,7 @@ namespace HaremLife
 				ControlEntryAnchored c1 = k1.myControlEntry;
 				ControlEntryAnchored c2 = k2.myControlEntry;
 				ControlEntryAnchored o = k1.myControlPointOut;
-				ControlEntryAnchored i = k1.myControlPointIn;
+				ControlEntryAnchored i = k2.myControlPointIn;
 				// evaluating cubic Bézier curve using Bernstein polynomials
 				float s = 1.0f - t;
 				float t2 = t*t;
@@ -1342,7 +1387,7 @@ namespace HaremLife
 				ControlEntryAnchored c1 = k1.myControlEntry;
 				ControlEntryAnchored c2 = k2.myControlEntry;
 				ControlEntryAnchored o = k1.myControlPointOut;
-				ControlEntryAnchored i = k1.myControlPointIn;
+				ControlEntryAnchored i = k2.myControlPointIn;
 				// evaluating cubic Bézier curve using de Casteljau's algorithm
 				ourTempQuaternions[0] = Quaternion.SlerpUnclamped(c1.myEntry.myRotation, o.myEntry.myRotation, t);
 				ourTempQuaternions[1] = Quaternion.SlerpUnclamped(o.myEntry.myRotation, i.myEntry.myRotation, t);
@@ -1413,7 +1458,17 @@ namespace HaremLife
 					myAnchorMode = ANCHORMODE_WORLD;
 				myAnchorAAtom = myAnchorBAtom = containingAtom.uid;
 				myControlCapture = controlCapture;
-				myAnchorAAtom = myAnchorBAtom = containingAtom.uid;
+
+				Initialize();
+			}
+
+			public void setDefaults(ControlEntryAnchored entry)
+			{
+				myAnchorAAtom = entry.myAnchorAAtom;
+				myAnchorAControl = entry.myAnchorAControl;
+				myAnchorMode = entry.myAnchorMode;
+				myAnchorAType = entry.myAnchorAType;
+				myAnchorBType = entry.myAnchorBType;
 			}
 
 			public ControlEntryAnchored Clone()
@@ -1515,9 +1570,6 @@ namespace HaremLife
 
 				myEntry.myPosition = position;
 				myEntry.myRotation = rotation;
-
-				Quaternion oldRootRotation = myAnchorOffset.myRotation;
-				Vector3 oldRootPosition = myAnchorOffset.myPosition;
 
 				if (myAnchorMode == ANCHORMODE_WORLD)
 				{

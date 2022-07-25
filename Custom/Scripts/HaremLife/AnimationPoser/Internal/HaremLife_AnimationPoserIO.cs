@@ -799,7 +799,7 @@ namespace HaremLife
 										keyframe = new ControlKeyframe(kfm["T"].AsFloat, ce);
 									}
 
-									timeline.myControlKeyframes.Add(keyframe);
+									timeline.AddKeyframe(keyframe);
 								}
 								transition.myControlTimelines[capture] = timeline;
 							}
