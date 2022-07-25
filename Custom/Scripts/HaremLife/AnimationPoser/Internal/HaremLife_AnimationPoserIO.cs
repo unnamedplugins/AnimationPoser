@@ -247,47 +247,29 @@ namespace HaremLife
 						foreach (var c in transition.myControlTimelines) {
 							JSONArray ctlkfms = new JSONArray();
 							ControlTimeline timeline = c.Value;
+							List<ControlKeyframe> keyframes = new List<ControlKeyframe>();
+
+							ControlKeyframe firstKeyframe = timeline.myControlKeyframes.Find(k => k.myIsFirst);
+							keyframes.Add(firstKeyframe);
+							for(int j=0; j<timeline.myControlKeyframes.Count; j++) {
+								ControlKeyframe keyframe = timeline.myControlKeyframes[j];
+								if(!keyframe.myIsFirst && !keyframe.myIsLast)
+									keyframes.Add(keyframe);
+							}
+							ControlKeyframe lastKeyframe = timeline.myControlKeyframes.Find(k => k.myIsLast);
+							keyframes.Add(lastKeyframe);
+
 							for(int j=0; j<timeline.myControlKeyframes.Count; j++) {
 								JSONClass ctlkfm = new JSONClass();
 								ControlKeyframe keyframe = timeline.myControlKeyframes[j];
-								ctlkfm["Time"].AsFloat = keyframe.myTime;
-								ctlkfm["IsFirst"].AsBool = keyframe.myIsFirst;
-								ctlkfm["IsLast"].AsBool = keyframe.myIsLast;
-
-								ControlEntryAnchored ce = keyframe.myControlEntry;
-
-								JSONClass ceclass = new JSONClass();
-								ceclass["PositionState"] = ce.myPositionState.ToString();
-								ceclass["RotationState"] = ce.myRotationState.ToString();
-								ceclass["PX"].AsFloat = ce.myAnchorOffset.myPosition.x;
-								ceclass["PY"].AsFloat = ce.myAnchorOffset.myPosition.y;
-								ceclass["PZ"].AsFloat = ce.myAnchorOffset.myPosition.z;
-								Vector3 rotation = ce.myAnchorOffset.myRotation.eulerAngles;
-								ceclass["RX"].AsFloat = rotation.x;
-								ceclass["RY"].AsFloat = rotation.y;
-								ceclass["RZ"].AsFloat = rotation.z;
-								ceclass["AnchorMode"].AsInt = ce.myAnchorMode;
-								if (ce.myAnchorMode >= ControlEntryAnchored.ANCHORMODE_SINGLE)
-								{
-									ceclass["DampingTime"].AsFloat = ce.myDampingTime;
-									ceclass["AnchorAType"].AsInt = ce.myAnchorAType;
-									if(ce.myAnchorAAtom == containingAtom.uid)
-										ceclass["AnchorAAtom"] = "[Self]";
-									else
-										ceclass["AnchorAAtom"] = ce.myAnchorAAtom;
-									ceclass["AnchorAControl"] = ce.myAnchorAControl;
-								}
-								if (ce.myAnchorMode == ControlEntryAnchored.ANCHORMODE_BLEND)
-								{
-									ceclass["AnchorBType"].AsInt = ce.myAnchorBType;
-									if(ce.myAnchorAAtom == containingAtom.uid)
-										ceclass["AnchorBAtom"] = "[Self]";
-									else
-										ceclass["AnchorBAtom"] = ce.myAnchorBAtom;
-									ceclass["AnchorBControl"] = ce.myAnchorBControl;
-									ceclass["BlendRatio"].AsFloat = ce.myBlendRatio;
-								}
-								ctlkfm["ControlEntry"] = ceclass;
+								ctlkfm["T"].AsFloat = keyframe.myTime;
+								ctlkfm["X"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myPosition.x;
+								ctlkfm["Y"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myPosition.y;
+								ctlkfm["Z"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myPosition.z;
+								Vector3 rotation = keyframe.myControlEntry.myAnchorOffset.myRotation.eulerAngles;
+								ctlkfm["RX"].AsFloat = rotation.x;
+								ctlkfm["RY"].AsFloat = rotation.y;
+								ctlkfm["RZ"].AsFloat = rotation.z;
 
 								ctlkfms.Add("", ctlkfm);
 							}
@@ -776,35 +758,36 @@ namespace HaremLife
 								{
 									JSONClass kfm = kfms[k].AsObject;
 
-									JSONClass ceclass = kfm["ControlEntry"].AsObject;
 									ControlEntryAnchored ce = new ControlEntryAnchored(capture);
-									ce.myPositionState = getPositionState(ceclass["PositionState"]);
-									ce.myRotationState = getRotationState(ceclass["RotationState"]);
-									ce.myAnchorOffset.myPosition.x = ceclass["PX"].AsFloat;
-									ce.myAnchorOffset.myPosition.y = ceclass["PY"].AsFloat;
-									ce.myAnchorOffset.myPosition.z = ceclass["PZ"].AsFloat;
+									ce.myAnchorOffset.myPosition.x = kfm["X"].AsFloat;
+									ce.myAnchorOffset.myPosition.y = kfm["Y"].AsFloat;
+									ce.myAnchorOffset.myPosition.z = kfm["Z"].AsFloat;
 									Vector3 rotation;
-									rotation.x = ceclass["RX"].AsFloat;
-									rotation.y = ceclass["RY"].AsFloat;
-									rotation.z = ceclass["RZ"].AsFloat;
+									rotation.x = kfm["RX"].AsFloat;
+									rotation.y = kfm["RY"].AsFloat;
+									rotation.z = kfm["RZ"].AsFloat;
 									ce.myAnchorOffset.myRotation.eulerAngles = rotation;
-									ce.myAnchorMode = ceclass["AnchorMode"].AsInt;
+
+									ControlEntryAnchored firstCe = transition.mySourceState.myControlEntries[capture];
+									ce.myPositionState = firstCe.myPositionState;
+									ce.myRotationState = firstCe.myRotationState;
+									ce.myAnchorMode = firstCe.myAnchorMode;
 									if (ce.myAnchorMode >= ControlEntryAnchored.ANCHORMODE_SINGLE)
 									{
-										ce.myDampingTime = ceclass["DampingTime"].AsFloat;
-										ce.myAnchorAType = ceclass["AnchorAType"].AsInt;
-										ce.myAnchorAAtom = ceclass["AnchorAAtom"].Value;
-										ce.myAnchorAControl = ceclass["AnchorAControl"].Value;
+										ce.myDampingTime = firstCe.myDampingTime;
+										ce.myAnchorAType = firstCe.myAnchorAType;
+										ce.myAnchorAAtom = firstCe.myAnchorAAtom;
+										ce.myAnchorAControl = firstCe.myAnchorAControl;
 
 										if (ce.myAnchorAAtom == "[Self]")
 											ce.myAnchorAAtom = containingAtom.uid;
 									}
 									if (ce.myAnchorMode == ControlEntryAnchored.ANCHORMODE_BLEND)
 									{
-										ce.myAnchorBType = ceclass["AnchorBType"].AsInt;
-										ce.myAnchorBAtom = ceclass["AnchorBAtom"].Value;
-										ce.myAnchorBControl = ceclass["AnchorBControl"].Value;
-										ce.myBlendRatio = ceclass["BlendRatio"].AsFloat;
+										ce.myAnchorBType = firstCe.myAnchorBType;
+										ce.myAnchorBAtom = firstCe.myAnchorBAtom;
+										ce.myAnchorBControl = firstCe.myAnchorBControl;
+										ce.myBlendRatio = firstCe.myBlendRatio;
 
 										if (ce.myAnchorBAtom == "[Self]")
 											ce.myAnchorBAtom = containingAtom.uid;
@@ -817,8 +800,7 @@ namespace HaremLife
 									} else if(kfm["IsLast"].AsBool) {
 										keyframe = new ControlKeyframe("last", ce);
 									} else {
-										SuperController.LogError(kfm["Time"]);
-										keyframe = new ControlKeyframe(kfm["Time"].AsFloat, ce);
+										keyframe = new ControlKeyframe(kfm["T"].AsFloat, ce);
 									}
 
 									timeline.myControlKeyframes.Add(keyframe);
