@@ -259,9 +259,9 @@ namespace HaremLife
 							ControlKeyframe lastKeyframe = timeline.myControlKeyframes.Find(k => k.myIsLast);
 							keyframes.Add(lastKeyframe);
 
-							for(int j=0; j<timeline.myControlKeyframes.Count; j++) {
+							for(int j=0; j<keyframes.Count; j++) {
 								JSONClass ctlkfm = new JSONClass();
-								ControlKeyframe keyframe = timeline.myControlKeyframes[j];
+								ControlKeyframe keyframe = keyframes[j];
 								ctlkfm["T"].AsFloat = keyframe.myTime;
 								ctlkfm["X"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myPosition.x;
 								ctlkfm["Y"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myPosition.y;
@@ -795,9 +795,9 @@ namespace HaremLife
 									ce.Initialize();
 
 									ControlKeyframe keyframe;
-									if(kfm["IsFirst"].AsBool) {
+									if(k==0) {
 										keyframe = new ControlKeyframe("first", ce);
-									} else if(kfm["IsLast"].AsBool) {
+									} else if(k==kfms.Count-1) {
 										keyframe = new ControlKeyframe("last", ce);
 									} else {
 										keyframe = new ControlKeyframe(kfm["T"].AsFloat, ce);
