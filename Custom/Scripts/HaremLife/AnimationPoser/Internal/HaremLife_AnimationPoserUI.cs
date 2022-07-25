@@ -1399,21 +1399,29 @@ namespace HaremLife
 
 						capt.SetTransition(tmln.myControlKeyframes);
 						capt.UpdateCurve(v);
+					}
 
-						ControlTimeline controlTimeline;
-						if(!transition.myControlTimelines.TryGetValue(controlCapture, out controlTimeline))
-							return;
+					ControlTimeline controlTimeline;
+					if(!transition.myControlTimelines.TryGetValue(controlCapture, out controlTimeline))
+						return;
 
-						ControlKeyframe keyframe = controlTimeline.myControlKeyframes.FirstOrDefault(
-							k => Math.Abs(k.myTime - myTimelineTime.val) < 0.01
-						);
+					ControlKeyframe keyframe = controlTimeline.myControlKeyframes.FirstOrDefault(
+						k => Math.Abs(k.myTime - myTimelineTime.val) < 0.01
+					);
 
-						if (keyframe == null) {
-							UIDynamicButton uid = Utils.SetupButton(this, "Add Keyframe", () => {
+					if (keyframe == null) {
+						UIDynamicButton uid = Utils.SetupButton(this, "Add Keyframe", () => {
+							ControlEntryAnchored entry;
+							entry = new ControlEntryAnchored(controlCapture);
+							entry.Initialize();
+							controlCapture.CaptureEntry(entry);
 
-							}, true);
-							myElements.Add(uid);
-						}
+							keyframe = new ControlKeyframe(v, entry);
+							controlTimeline.myControlKeyframes.Add(keyframe);
+							UIRefreshMenu();
+						}, true);
+						myElements.Add(uid);
+						myMenuElements.Add(uid);
 					}
 				};
 				CreateMenuSlider(myTimelineTime, true);

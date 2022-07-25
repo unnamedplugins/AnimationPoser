@@ -583,7 +583,7 @@ namespace HaremLife
 							continue;
 
 						JSONClass ceclass = celist[ccname].AsObject;
-						ControlEntryAnchored ce = new ControlEntryAnchored(this, ccname, state, cc);
+						ControlEntryAnchored ce = new ControlEntryAnchored(cc);
 						ce.myPositionState = getPositionState(ceclass["PositionState"]);
 						ce.myRotationState = getRotationState(ceclass["RotationState"]);
 						ce.myAnchorOffset.myPosition.x = ceclass["PX"].AsFloat;

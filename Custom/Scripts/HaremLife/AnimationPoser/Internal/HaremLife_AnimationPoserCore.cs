@@ -24,6 +24,7 @@ namespace HaremLife
 {
 	public partial class AnimationPoser : MVRScript
 	{
+		private static AnimationPoser myPlugin;
 		private const int MAX_STATES = 2;
 		private static readonly int[] DISTANCE_SAMPLES = new int[] { 0, 0, 0, 11, 20};
 
@@ -58,6 +59,8 @@ namespace HaremLife
 
 		public override void Init()
 		{
+			myPlugin = this;
+
 			myWasLoading = true;
 
 			InitUI();
@@ -616,12 +619,10 @@ namespace HaremLife
 			public void SetEndpoints(ControlEntryAnchored startControlEntry,
 									 ControlEntryAnchored endControlEntry) {
 				if(myControlKeyframes.Count < 2) {
-					ControlKeyframe keyframe = new ControlKeyframe("first");
-					keyframe.myControlEntry = startControlEntry;
+					ControlKeyframe keyframe = new ControlKeyframe("first", startControlEntry);
 					myControlKeyframes.Add(keyframe);
 
-					keyframe = new ControlKeyframe("last");
-					keyframe.myControlEntry = endControlEntry;
+					keyframe = new ControlKeyframe("last", endControlEntry);
 					myControlKeyframes.Add(keyframe);
 				} else {
 					myControlKeyframes.First().myControlEntry = startControlEntry;
@@ -1027,12 +1028,11 @@ namespace HaremLife
 			public float myTime;
 			public bool myIsFirst = false;
 			public bool myIsLast = false;
-			public ControlCapture myCapture;
 			public ControlEntryAnchored myControlEntry;
 			public ControlEntryAnchored myControlPointIn;
 			public ControlEntryAnchored myControlPointOut;
 
-			public ControlKeyframe(string firstOrLast)
+			public ControlKeyframe(string firstOrLast, ControlEntryAnchored entry)
 			{
 				if(String.Equals(firstOrLast, "first")) {
 					myTime = 0;
@@ -1042,12 +1042,18 @@ namespace HaremLife
 					myTime = 1;
 					myIsLast = true;
 				}
+				myControlEntry = entry;
+			}
+
+			public ControlKeyframe(float time, ControlEntryAnchored controlEntry)
+			{
+				myTime = time;
+				myControlEntry = controlEntry;
 			}
 
 			public ControlKeyframe(MVRScript script, ControlCapture capture, ControlEntryAnchored controlEntry,
 							ControlEntryAnchored controlPointIn, ControlEntryAnchored controlPointOut)
 			{
-				myCapture = capture;
 				myControlEntry = controlEntry;
 				myControlPointIn = controlPointIn;
 				myControlPointOut = controlPointOut;
@@ -1084,10 +1090,9 @@ namespace HaremLife
 		private class ControlCapture
 		{
 			public string myName;
-			private AnimationPoser myPlugin;
 			public Transform myTransform;
-			private ControlEntryAnchored[] myCurve = new ControlEntryAnchored[MAX_STATES];
-			private int myEntryCount = 0;
+			private List<ControlKeyframe> myCurve = new List<ControlKeyframe>();
+			private int myEntryCount = 2;
 			public bool myApplyPosition = true;
 			public bool myApplyRotation = true;
 			FreeControllerV3 myController;
@@ -1097,7 +1102,6 @@ namespace HaremLife
 
 			public ControlCapture(AnimationPoser plugin, string control)
 			{
-				myPlugin = plugin;
 				myName = control;
 				FreeControllerV3 controller = plugin.containingAtom.GetStorableByID(control) as FreeControllerV3;
 				if (controller != null)
@@ -1111,10 +1115,37 @@ namespace HaremLife
 				ControlEntryAnchored entry;
 				if (!state.myControlEntries.TryGetValue(this, out entry))
 				{
-					entry = new ControlEntryAnchored(myPlugin, myName, state, this);
+					entry = new ControlEntryAnchored(this);
 					entry.Initialize();
 					state.myControlEntries[this] = entry;
 				}
+
+				Quaternion oldRotation = entry.myAnchorOffset.myRotation;
+				Vector3 oldPosition = entry.myAnchorOffset.myPosition;
+
+				CaptureEntry(entry);
+
+				if(state.myIsRootState)
+					TransformLayer(state, state.myLayer, oldPosition, oldRotation);
+			}
+
+			public void TransformLayer(State rootState, Layer layer, Vector3 oldRootPosition, Quaternion oldRootRotation) {
+				foreach(var s in layer.myStates) {
+					State st = s.Value;
+					if(st != rootState) {
+						ControlEntryAnchored rootCe = rootState.myControlEntries[this];
+						ControlEntryAnchored ce = st.myControlEntries[this];
+
+						Quaternion transformRotation = rootCe.myAnchorOffset.myRotation * Quaternion.Inverse(oldRootRotation);
+						Vector3 transformPosition = myTransform.position - oldRootPosition;
+
+						ce.myAnchorOffset.myPosition = rootCe.myAnchorOffset.myPosition + transformRotation * (ce.myAnchorOffset.myPosition - oldRootPosition);
+						ce.myAnchorOffset.myRotation = transformRotation * ce.myAnchorOffset.myRotation;
+					}
+				}
+			}
+
+			public void CaptureEntry(ControlEntryAnchored entry) {
 				FreeControllerV3.PositionState positionState;
 				FreeControllerV3.RotationState rotationState;
 				if(myController.name == "control") {
@@ -1145,150 +1176,180 @@ namespace HaremLife
 
 			public void SetTransition(List<ControlKeyframe> keyframes)
 			{
-				myEntryCount = keyframes.Count;
-				for(int i=0; i<myEntryCount; i++) {
-					myCurve[i] = keyframes[i].myControlEntry;
-					myCurve[i].Initialize();
+				myCurve = new List<ControlKeyframe>(keyframes.OrderBy(k => k.myTime));
+				for(int i=0; i<keyframes.Count; i++) {
+					keyframes[i].myControlEntry.Initialize();
 				}
 			}
 
 			public void UpdateControllerStates() {
-				myController.currentPositionState = myCurve[1].myPositionState;
-				myController.currentRotationState = myCurve[1].myRotationState;
+				ControlEntryAnchored entry = myCurve.Last().myControlEntry;
+				myController.currentPositionState = entry.myPositionState;
+				myController.currentRotationState = entry.myRotationState;
 			}
 
 			public void UpdateCurve(float t)
 			{
-				for (int i=0; i<myEntryCount; ++i)
-					myCurve[i].Update();
+				for (int i=0; i<myCurve.Count; ++i)
+					myCurve[i].myControlEntry.Update();
 
 				//t = ArcLengthParametrization(t);
 
-				if (myApplyPosition && myCurve[1].myPositionState != FreeControllerV3.PositionState.Off)
+				ControlKeyframe k1 = myCurve[0];
+				ControlKeyframe k2 = myCurve[1];
+				for (int i=1; i<myCurve.Count; ++i) {
+					if(k2.myTime < t) {
+						k1 = myCurve[i];
+						k2 = myCurve[i+1];
+					} else {
+						break;
+					}
+				}
+
+				t = (t-k1.myTime)/(k2.myTime-k1.myTime);
+
+				if (myApplyPosition && k2.myControlEntry.myPositionState != FreeControllerV3.PositionState.Off)
 				{
 					switch (myEntryCount)
 					{
-						case 4:	myTransform.position = EvalBezierCubicPosition(t);          break;
-						case 3: myTransform.position = EvalBezierQuadraticPosition(t);      break;
-						case 2: myTransform.position = EvalBezierLinearPosition(t);         break;
-						default: myTransform.position = myCurve[0].myEntry.myPosition; break;
+						case 4:	myTransform.position = EvalBezierCubicPosition(t, k1, k2); break;
+						// case 3: myTransform.position = EvalBezierQuadraticPosition(t, k1, k2); break;
+						case 2: myTransform.position = EvalBezierLinearPosition(t, k1, k2); break;
+						default: myTransform.position = k1.myControlEntry.myEntry.myPosition; break;
 					}
 				}
-				if (myApplyRotation && myCurve[1].myRotationState != FreeControllerV3.RotationState.Off)
+				if (myApplyRotation && k2.myControlEntry.myRotationState != FreeControllerV3.RotationState.Off)
 				{
 					switch (myEntryCount)
 					{
-						case 4: myTransform.rotation = EvalBezierCubicRotation(t);          break;
-						case 3: myTransform.rotation = EvalBezierQuadraticRotation(t);      break;
-						case 2: myTransform.rotation = EvalBezierLinearRotation(t);         break;
-						default: myTransform.rotation = myCurve[0].myEntry.myRotation; break;
+						case 4: myTransform.rotation = EvalBezierCubicRotation(t, k1, k2); break;
+						// case 3: myTransform.rotation = EvalBezierQuadraticRotation(t, k1, k2); break;
+						case 2: myTransform.rotation = EvalBezierLinearRotation(t, k1, k2); break;
+						default: myTransform.rotation = k1.myControlEntry.myEntry.myRotation; break;
 					}
 				}
 			}
 
-			private float ArcLengthParametrization(float t)
+			// private float ArcLengthParametrization(float t)
+			// {
+			// 	if (myEntryCount <= 2 || myEntryCount > 4){
+			// 		return t;
+			// 	}
+
+			// 	int numSamples = DISTANCE_SAMPLES[myEntryCount];
+			// 	float numLines = (float)(numSamples+1);
+			// 	float distance = 0.0f;
+			// 	Vector3 previous = myCurve[0].myEntry.myPosition;
+			// 	ourTempDistances[0] = 0.0f;
+
+			// 	if (myEntryCount == 3)
+			// 	{
+			// 		for (int i=1; i<=numSamples; ++i)
+			// 		{
+			// 			Vector3 current = EvalBezierQuadraticPosition(i / numLines);
+			// 			distance += Vector3.Distance(previous, current);
+			// 			ourTempDistances[i] = distance;
+			// 			previous = current;
+			// 		}
+			// 	}
+			// 	else
+			// 	{
+			// 		for (int i=1; i<=numSamples; ++i)
+			// 		{
+			// 			Vector3 current = EvalBezierCubicPosition(i / numLines);
+			// 			distance += Vector3.Distance(previous, current);
+			// 			ourTempDistances[i] = distance;
+			// 			previous = current;
+			// 		}
+			// 	}
+
+			// 	distance += Vector3.Distance(previous, myCurve[myEntryCount-1].myEntry.myPosition);
+			// 	ourTempDistances[numSamples+1] = distance;
+
+			// 	t *= distance;
+
+			// 	int idx = Array.BinarySearch(ourTempDistances, 0, numSamples+2, t);
+			// 	if (idx < 0)
+			// 	{
+			// 		idx = ~idx;
+			// 		if (idx == 0){
+			// 			return 0.0f;
+			// 		}
+			// 		else if (idx >= numSamples+2){
+			// 			return 1.0f;
+			// 		}
+			// 		t = Mathf.InverseLerp(ourTempDistances[idx-1], ourTempDistances[idx], t);
+			// 		return Mathf.LerpUnclamped((idx-1) / numLines, idx / numLines, t);
+			// 	}
+			// 	else
+			// 	{
+			// 		return idx / numLines;
+			// 	}
+			// }
+
+			private Vector3 EvalBezierLinearPosition(float t, ControlKeyframe k1, ControlKeyframe k2)
 			{
-				if (myEntryCount <= 2 || myEntryCount > 4){
-					return t;
-				}
-
-				int numSamples = DISTANCE_SAMPLES[myEntryCount];
-				float numLines = (float)(numSamples+1);
-				float distance = 0.0f;
-				Vector3 previous = myCurve[0].myEntry.myPosition;
-				ourTempDistances[0] = 0.0f;
-
-				if (myEntryCount == 3)
-				{
-					for (int i=1; i<=numSamples; ++i)
-					{
-						Vector3 current = EvalBezierQuadraticPosition(i / numLines);
-						distance += Vector3.Distance(previous, current);
-						ourTempDistances[i] = distance;
-						previous = current;
-					}
-				}
-				else
-				{
-					for (int i=1; i<=numSamples; ++i)
-					{
-						Vector3 current = EvalBezierCubicPosition(i / numLines);
-						distance += Vector3.Distance(previous, current);
-						ourTempDistances[i] = distance;
-						previous = current;
-					}
-				}
-
-				distance += Vector3.Distance(previous, myCurve[myEntryCount-1].myEntry.myPosition);
-				ourTempDistances[numSamples+1] = distance;
-
-				t *= distance;
-
-				int idx = Array.BinarySearch(ourTempDistances, 0, numSamples+2, t);
-				if (idx < 0)
-				{
-					idx = ~idx;
-					if (idx == 0){
-						return 0.0f;
-					}
-					else if (idx >= numSamples+2){
-						return 1.0f;
-					}
-					t = Mathf.InverseLerp(ourTempDistances[idx-1], ourTempDistances[idx], t);
-					return Mathf.LerpUnclamped((idx-1) / numLines, idx / numLines, t);
-				}
-				else
-				{
-					return idx / numLines;
-				}
+				ControlEntryAnchored c1 = k1.myControlEntry;
+				ControlEntryAnchored c2 = k2.myControlEntry;
+				return Vector3.LerpUnclamped(c1.myEntry.myPosition, c2.myEntry.myPosition, t);
 			}
 
-			private Vector3 EvalBezierLinearPosition(float t)
-			{
-				return Vector3.LerpUnclamped(myCurve[0].myEntry.myPosition, myCurve[1].myEntry.myPosition, t);
-			}
+			// private Vector3 EvalBezierQuadraticPosition(float t, ControlKeyframe k1, ControlKeyframe k2)
+			// {
+			// 	ControlEntryAnchored c1 = k1.myControlEntry;
+			// 	ControlEntryAnchored c2 = k2.myControlEntry;
+			// 	evaluating quadratic Bézier curve using Bernstein polynomials
+			// 	float s = 1.0f - t;
+			// 	return      (s*s) * myCurve[0].myEntry.myPosition
+			// 		 + (2.0f*s*t) * myCurve[1].myEntry.myPosition
+			// 		 +      (t*t) * myCurve[2].myEntry.myPosition;
+			// }
 
-			private Vector3 EvalBezierQuadraticPosition(float t)
+			private Vector3 EvalBezierCubicPosition(float t, ControlKeyframe k1, ControlKeyframe k2)
 			{
-				// evaluating quadratic Bézier curve using Bernstein polynomials
-				float s = 1.0f - t;
-				return      (s*s) * myCurve[0].myEntry.myPosition
-					 + (2.0f*s*t) * myCurve[1].myEntry.myPosition
-					 +      (t*t) * myCurve[2].myEntry.myPosition;
-			}
-
-			private Vector3 EvalBezierCubicPosition(float t)
-			{
+				ControlEntryAnchored c1 = k1.myControlEntry;
+				ControlEntryAnchored c2 = k2.myControlEntry;
+				ControlEntryAnchored o = k1.myControlPointOut;
+				ControlEntryAnchored i = k1.myControlPointIn;
 				// evaluating cubic Bézier curve using Bernstein polynomials
 				float s = 1.0f - t;
 				float t2 = t*t;
 				float s2 = s*s;
-				return      (s*s2) * myCurve[0].myEntry.myPosition
-					 + (3.0f*s2*t) * myCurve[1].myEntry.myPosition
-					 + (3.0f*s*t2) * myCurve[2].myEntry.myPosition
-					 +      (t*t2) * myCurve[3].myEntry.myPosition;
+				return      (s*s2) * c1.myEntry.myPosition
+					 + (3.0f*s2*t) * o.myEntry.myPosition
+					 + (3.0f*s*t2) * i.myEntry.myPosition
+					 +      (t*t2) * c2.myEntry.myPosition;
 			}
 
-			private Quaternion EvalBezierLinearRotation(float t)
+			private Quaternion EvalBezierLinearRotation(float t, ControlKeyframe k1, ControlKeyframe k2)
 			{
-				return Quaternion.SlerpUnclamped(myCurve[0].myEntry.myRotation, myCurve[1].myEntry.myRotation, t);
+				ControlEntryAnchored c1 = k1.myControlEntry;
+				ControlEntryAnchored c2 = k2.myControlEntry;
+				return Quaternion.SlerpUnclamped(c1.myEntry.myRotation, c2.myEntry.myRotation, t);
 			}
 
-			private Quaternion EvalBezierQuadraticRotation(float t)
-			{
-				// evaluating quadratic Bézier curve using de Casteljau's algorithm
-				ourTempQuaternions[0] = Quaternion.SlerpUnclamped(myCurve[0].myEntry.myRotation, myCurve[1].myEntry.myRotation, t);
-				ourTempQuaternions[1] = Quaternion.SlerpUnclamped(myCurve[1].myEntry.myRotation, myCurve[2].myEntry.myRotation, t);
-				return Quaternion.SlerpUnclamped(ourTempQuaternions[0], ourTempQuaternions[1], t);
-			}
+			// private Quaternion EvalBezierQuadraticRotation(float t, ControlKeyframe k1, ControlKeyframe k2)
+			// {
+			// 	evaluating quadratic Bézier curve using de Casteljau's algorithm
+			// 	ourTempQuaternions[0] = Quaternion.SlerpUnclamped(myCurve[0].myEntry.myRotation, myCurve[1].myEntry.myRotation, t);
+			// 	ourTempQuaternions[1] = Quaternion.SlerpUnclamped(myCurve[1].myEntry.myRotation, myCurve[2].myEntry.myRotation, t);
+			// 	return Quaternion.SlerpUnclamped(ourTempQuaternions[0], ourTempQuaternions[1], t);
+			// }
 
-			private Quaternion EvalBezierCubicRotation(float t)
+			private Quaternion EvalBezierCubicRotation(float t, ControlKeyframe k1, ControlKeyframe k2)
 			{
+				ControlEntryAnchored c1 = k1.myControlEntry;
+				ControlEntryAnchored c2 = k2.myControlEntry;
+				ControlEntryAnchored o = k1.myControlPointOut;
+				ControlEntryAnchored i = k1.myControlPointIn;
 				// evaluating cubic Bézier curve using de Casteljau's algorithm
-				for (int i=0; i<3; ++i)
-					ourTempQuaternions[i] = Quaternion.SlerpUnclamped(myCurve[i].myEntry.myRotation, myCurve[i+1].myEntry.myRotation, t);
-				for (int i=0; i<2; ++i)
-					ourTempQuaternions[i] = Quaternion.SlerpUnclamped(ourTempQuaternions[i], ourTempQuaternions[i+1], t);
+				ourTempQuaternions[0] = Quaternion.SlerpUnclamped(c1.myEntry.myRotation, o.myEntry.myRotation, t);
+				ourTempQuaternions[1] = Quaternion.SlerpUnclamped(o.myEntry.myRotation, i.myEntry.myRotation, t);
+				ourTempQuaternions[2] = Quaternion.SlerpUnclamped(i.myEntry.myRotation, c2.myEntry.myRotation, t);
+
+				ourTempQuaternions[0] = Quaternion.SlerpUnclamped(ourTempQuaternions[0], ourTempQuaternions[1], t);
+				ourTempQuaternions[1] = Quaternion.SlerpUnclamped(ourTempQuaternions[1], ourTempQuaternions[2], t);
+
 				return Quaternion.SlerpUnclamped(ourTempQuaternions[0], ourTempQuaternions[1], t);
 			}
 
@@ -1343,13 +1404,11 @@ namespace HaremLife
 			public string myAnchorAControl = "control";
 			public string myAnchorBControl = "control";
 			public ControlCapture myControlCapture;
-			public State myState;
 
-			public ControlEntryAnchored(AnimationPoser plugin, string control, State state, ControlCapture controlCapture)
+			public ControlEntryAnchored(ControlCapture controlCapture)
 			{
-				myState = state;
-				Atom containingAtom = plugin.GetContainingAtom();
-				if (containingAtom.type != "Person" || control == "control")
+				Atom containingAtom = myPlugin.GetContainingAtom();
+				if (containingAtom.type != "Person" || controlCapture.myName == "control")
 					myAnchorMode = ANCHORMODE_WORLD;
 				myAnchorAAtom = myAnchorBAtom = containingAtom.uid;
 				myControlCapture = controlCapture;
@@ -1484,25 +1543,6 @@ namespace HaremLife
 
 					myAnchorOffset.myPosition = Quaternion.Inverse(root.myRotation) * (position - root.myPosition);
 					myAnchorOffset.myRotation = Quaternion.Inverse(root.myRotation) * rotation;
-				}
-
-				if(myCurrentLayer != null) {
-					State rootState = myCurrentLayer.myStates.Values.ToList().FirstOrDefault(s => s.myIsRootState);
-					if(rootState != null && myState == rootState) {
-						foreach(var s in myCurrentLayer.myStates) {
-							State st = s.Value;
-							if(st != rootState) {
-								ControlCapture cc = st.myControlEntries.Keys.ToList().Find(ccx => ccx.myName == myControlCapture.myName);
-								ControlEntryAnchored ce = st.myControlEntries[cc];
-
-								Quaternion transformRotation = myAnchorOffset.myRotation * Quaternion.Inverse(oldRootRotation);
-								Vector3 transformPosition = position - oldRootPosition;
-
-								ce.myAnchorOffset.myPosition = myAnchorOffset.myPosition + transformRotation * (ce.myAnchorOffset.myPosition - oldRootPosition);
-								ce.myAnchorOffset.myRotation = transformRotation * ce.myAnchorOffset.myRotation;
-							}
-						}
-					}
 				}
 			}
 		}
