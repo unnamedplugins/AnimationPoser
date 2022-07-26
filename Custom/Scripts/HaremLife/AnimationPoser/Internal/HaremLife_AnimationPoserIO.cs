@@ -1008,5 +1008,150 @@ namespace HaremLife
 				transition.myControlTimelines[capture] = timeline;
 			}
 		}
+
+		private JSONClass SaveToVamTimeline(Transition transition) {
+			JSONClass jc = new JSONClass();
+			JSONArray clips = new JSONArray();
+			JSONClass clip = new JSONClass();
+
+			clip["AnimationName"] = "AnimationPoser Export";
+			clip["AnimationLength"] = "1";
+			clip["BlendDuration"] = "0.75";
+			clip["Loop"] = "0";
+			clip["NextAnimationRandomizeWeight"] = "1";
+			clip["AutoTransitionPrevious"] = "0";
+			clip["AutoTransitionNext"] = "0";
+			clip["SyncTransitionTime"] = "0";
+			clip["SyncTransitionTimeNL"] = "0";
+			clip["EnsureQuaternionContinuity"] = "1";
+			clip["AnimationLayer"] = "Main Layer";
+			clip["Speed"] = "1";
+			clip["Weight"] = "1";
+			clip["Uninterruptible"] = "0";
+
+			JSONArray ctllist = new JSONArray();
+			foreach (var c in transition.myControlTimelines) {
+				JSONClass ctl = new JSONClass();
+
+				ctl["Controller"] = c.Key.myName;
+				ctl["ControlPosition"] = "1";
+				ctl["ControlRotation"] = "1";
+
+				ControlTimeline timeline = c.Value;
+				List<ControlKeyframe> keyframes = new List<ControlKeyframe>();
+				ControlKeyframe firstKeyframe = timeline.myControlKeyframes.Find(k => k.myIsFirst);
+				keyframes.Add(firstKeyframe);
+				for(int j=0; j<timeline.myControlKeyframes.Count; j++) {
+					ControlKeyframe keyframe = timeline.myControlKeyframes[j];
+					if(!keyframe.myIsFirst && !keyframe.myIsLast)
+						keyframes.Add(keyframe);
+				}
+				ControlKeyframe lastKeyframe = timeline.myControlKeyframes.Find(k => k.myIsLast);
+				keyframes.Add(lastKeyframe);
+
+				JSONArray xlist = new JSONArray();
+				JSONArray ylist = new JSONArray();
+				JSONArray zlist = new JSONArray();
+				JSONArray rxlist = new JSONArray();
+				JSONArray rylist = new JSONArray();
+				JSONArray rzlist = new JSONArray();
+				JSONArray rwlist = new JSONArray();
+				for(int j=0; j<keyframes.Count; j++) {
+					JSONClass xentry = new JSONClass();
+					JSONClass yentry = new JSONClass();
+					JSONClass zentry = new JSONClass();
+					JSONClass rxentry = new JSONClass();
+					JSONClass ryentry = new JSONClass();
+					JSONClass rzentry = new JSONClass();
+					JSONClass rwentry = new JSONClass();
+
+					ControlKeyframe keyframe = keyframes[j];
+
+					xentry["t"].AsFloat = keyframe.myTime;
+					yentry["t"].AsFloat = keyframe.myTime;
+					zentry["t"].AsFloat = keyframe.myTime;
+					rxentry["t"].AsFloat = keyframe.myTime;
+					ryentry["t"].AsFloat = keyframe.myTime;
+					rzentry["t"].AsFloat = keyframe.myTime;
+					rwentry["t"].AsFloat = keyframe.myTime;
+
+					xentry["c"] = "3";
+					yentry["c"] = "3";
+					zentry["c"] = "3";
+					rxentry["c"] = "3";
+					ryentry["c"] = "3";
+					rzentry["c"] = "3";
+					rwentry["c"] = "3";
+
+					xentry["v"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myPosition.x;
+					yentry["v"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myPosition.y;
+					zentry["v"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myPosition.z;
+					rxentry["v"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myRotation.x;
+					ryentry["v"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myRotation.y;
+					rzentry["v"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myRotation.z;
+					rwentry["v"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myRotation.w;
+
+					if(keyframe.myControlPointIn != null) {
+						xentry["i"].AsFloat = keyframe.myControlPointIn.myAnchorOffset.myPosition.x;
+						yentry["i"].AsFloat = keyframe.myControlPointIn.myAnchorOffset.myPosition.y;
+						zentry["i"].AsFloat = keyframe.myControlPointIn.myAnchorOffset.myPosition.z;
+						rxentry["i"].AsFloat = keyframe.myControlPointIn.myAnchorOffset.myRotation.x;
+						ryentry["i"].AsFloat = keyframe.myControlPointIn.myAnchorOffset.myRotation.y;
+						rzentry["i"].AsFloat = keyframe.myControlPointIn.myAnchorOffset.myRotation.z;
+						rwentry["i"].AsFloat = keyframe.myControlPointIn.myAnchorOffset.myRotation.w;
+					} else {
+						xentry["i"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myPosition.x;
+						yentry["i"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myPosition.y;
+						zentry["i"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myPosition.z;
+						rxentry["i"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myRotation.x;
+						ryentry["i"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myRotation.y;
+						rzentry["i"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myRotation.z;
+						rwentry["i"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myRotation.w;
+					}
+
+					if(keyframe.myControlPointOut != null) {
+						xentry["o"].AsFloat = keyframe.myControlPointOut.myAnchorOffset.myPosition.x;
+						yentry["o"].AsFloat = keyframe.myControlPointOut.myAnchorOffset.myPosition.y;
+						zentry["o"].AsFloat = keyframe.myControlPointOut.myAnchorOffset.myPosition.z;
+						rxentry["o"].AsFloat = keyframe.myControlPointOut.myAnchorOffset.myRotation.x;
+						ryentry["o"].AsFloat = keyframe.myControlPointOut.myAnchorOffset.myRotation.y;
+						rzentry["o"].AsFloat = keyframe.myControlPointOut.myAnchorOffset.myRotation.z;
+						rwentry["o"].AsFloat = keyframe.myControlPointOut.myAnchorOffset.myRotation.w;
+					} else {
+						xentry["o"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myPosition.x;
+						yentry["o"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myPosition.y;
+						zentry["o"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myPosition.z;
+						rxentry["o"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myRotation.x;
+						ryentry["o"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myRotation.y;
+						rzentry["o"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myRotation.z;
+						rwentry["o"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myRotation.w;
+					}
+
+					xlist.Add(xentry);
+					ylist.Add(yentry);
+					zlist.Add(zentry);
+					rxlist.Add(rxentry);
+					rylist.Add(ryentry);
+					rzlist.Add(rzentry);
+					rwlist.Add(rwentry);
+				}
+
+				ctl["X"] = xlist;
+				ctl["Y"] = ylist;
+				ctl["Z"] = zlist;
+				ctl["RotX"] = rxlist;
+				ctl["RotY"] = rylist;
+				ctl["RotZ"] = rzlist;
+				ctl["RotW"] = rwlist;
+
+				ctllist.Add(ctl);
+			}
+			clip["Controllers"] = ctllist;
+
+			clips.Add(clip);
+			jc["Clips"] = clips;
+			jc["AtomType"] = "Person";
+			return jc;
+		}
     }
 }
