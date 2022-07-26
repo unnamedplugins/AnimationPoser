@@ -83,6 +83,7 @@ namespace HaremLife
 
 		private const string FILE_EXTENSION = "animpose";
 		private const string BASE_DIRECTORY = "Saves/PluginData/AnimationPoser";
+		private const string TIMELINE_DIRECTORY = "Saves/PluginData/animations/";
 		private const string COLORTAG_INTERMEDIATE = "<color=#804b00>";
 		private const string COLORTAG_CONTROLPOINT = "<color=#005780>";
 
@@ -812,12 +813,12 @@ namespace HaremLife
 			CreateMenuInfoOneLine("<size=30><b>Manage Animations</b></size>", false);
 
 			CreateMenuInfo("Careful! Loading the plugin instance overwrites everything!", 63, false);
-			CreateLoadButton("Load Plugin Instance", UILoadAnimationsJSON, false, "Instances");
+			CreateLoadButtonFromRootDir("Load Plugin Instance", UILoadAnimationsJSON, false, "Instances");
 			CreateMenuInfo("Saving the plugin instance serves as a backup of the entire plugin state", 63, false);
 			CreateMenuButton("Save Plugin Instance", UISaveJSONDialog(UISaveAnimationsJSON, "Instances"), false);
 
 			CreateMenuInfo("Save and load the current animation:", 35, false);
-			CreateLoadButton("Load Animation", UILoadAnimationJSON, false, "Animations");
+			CreateLoadButtonFromRootDir("Load Animation", UILoadAnimationJSON, false, "Animations");
 			CreateMenuButton("Save Animation", UISaveJSONDialog(UISaveAnimationJSON, "Animations"), false);
 
 			String animationName = "";
@@ -837,7 +838,7 @@ namespace HaremLife
 			// control captures
 			CreateMenuInfoOneLine("<size=30><b>Manage Layers</b></size>", false);
 
-			CreateLoadButton("Load Layer", UILoadJSON, false, "Layers");
+			CreateLoadButtonFromRootDir("Load Layer", UILoadJSON, false, "Layers");
 			CreateMenuButton("Save Layer As", UISaveJSONDialog(UISaveLayerJSON, "Layers"), false);
 
 			String layerName = "";
@@ -1366,8 +1367,12 @@ namespace HaremLife
 			targetLayer.myStates.TryGetValue(myTargetStateList.val, out targetState);
 			BaseTransition baseTransition = state.getIncomingTransition(targetState);
 
-			if(baseTransition != null && baseTransition is Transition) {
+			if(baseTransition != null && baseTransition is Transition && transition.mySourceState.myAnimation() == transition.myTargetState.myAnimation()) {
 				Transition transition = baseTransition as Transition;
+
+				CreateLoadButton("Load Timeline", (string url) => {
+					UILoadTimelineJSON(url, transition);
+				}, true, TIMELINE_DIRECTORY, "json");
 
 				CreateMenuInfoOneLine("<size=30><b>Transition Settings</b></size>", true);
 
@@ -1825,7 +1830,7 @@ namespace HaremLife
 		{
 			CreateMenuInfo("The Roles tab allows you to define roles for a layer. Each role can be assigned to a person, and used in the transitions tab to sync the layers of that person. Like in a play, the roles can be assigned and switched between different persons with minimal work to the script writer :)", 230, false);
 
-			CreateLoadButton("Load Roles", UILoadRolesJSON, false, "Roles");
+			CreateLoadButtonFromRootDir("Load Roles", UILoadRolesJSON, false, "Roles");
 			CreateMenuButton("Save Roles", UISaveJSONDialog(UISaveRolesJSON, "Roles"), false);
 
 			CreateMenuSpacer(132, true);
@@ -1921,7 +1926,7 @@ namespace HaremLife
 
 			CreateMenuInfo("Use this to define special transitions that only take place when a given message is received.", 100, false);
 
-			CreateLoadButton("Load Messages", UILoadMessagesJSON, false, "Messages");
+			CreateLoadButtonFromRootDir("Load Messages", UILoadMessagesJSON, false, "Messages");
 			CreateMenuButton("Save Messages", UISaveJSONDialog(UISaveMessagesJSON, "Messages"), false);
 
 			List<string> messages = new List<string>();
@@ -2180,7 +2185,7 @@ namespace HaremLife
 
 			CreateMenuInfo("Use this to define special exclusion of states while toggled on.", 100, false);
 
-			CreateLoadButton("Load Avoids", UILoadAvoidsJSON, false, "Avoids");
+			CreateLoadButtonFromRootDir("Load Avoids", UILoadAvoidsJSON, false, "Avoids");
 			CreateMenuButton("Save Avoids", UISaveJSONDialog(UISaveAvoidsJSON, "Avoids"), false);
 
 			List<string> avoids = new List<string>();
@@ -2315,6 +2320,16 @@ namespace HaremLife
 			List<string> atomUIDs = sc.GetAtomUIDs();
 			sc.sortAtomUIDs = wasSorted;
 			return atomUIDs;
+		}
+
+		private void UILoadTimelineJSON(string url, Transition transition)
+		{
+			JSONClass jc = LoadJSON(url).AsObject;
+			if (jc != null){
+				LoadFromVamTimeline(jc, transition);
+			}
+
+			UIRefreshMenu();
 		}
 
 		private void UILoadRolesJSON(string url)
@@ -3230,18 +3245,24 @@ namespace HaremLife
 			myMenuElements.Add(uid);
 		}
 
-		private void CreateLoadButton(string label, JSONStorableString.SetStringCallback callback, bool rightSide, string path = "")
+		private void CreateLoadButton(string label, JSONStorableString.SetStringCallback callback,
+													bool rightSide, string path, string fileExtension)
 		{
 			JSONStorableUrl myDataFile;
-			myDataFile = new JSONStorableUrl("AnimPose", "", callback, FILE_EXTENSION, true);
+			myDataFile = new JSONStorableUrl("AnimPose", "", callback, fileExtension, true);
 			UIDynamicButton button = CreateButton(label, rightSide);
 			myDataFile.setCallbackFunction -= callback;
 			myDataFile.allowFullComputerBrowse = false;
 			myDataFile.allowBrowseAboveSuggestedPath = true;
-			myDataFile.SetFilePath(BASE_DIRECTORY+"/"+path+"/");
+			myDataFile.SetFilePath(path);
 			myDataFile.RegisterFileBrowseButton(button.button);
 			myDataFile.setCallbackFunction += callback;
 			myMenuElements.Add(button);
+		}
+
+		private void CreateLoadButtonFromRootDir(string label, JSONStorableString.SetStringCallback callback, bool rightSide, string path = "")
+		{
+			CreateLoadButton(label, callback, rightSide, BASE_DIRECTORY+"/"+path+"/", FILE_EXTENSION);
 		}
 
 		private void CreateMenuLabelXButton(string label, UnityAction callback, bool rightSide)

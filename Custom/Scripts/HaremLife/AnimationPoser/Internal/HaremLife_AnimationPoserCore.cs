@@ -639,6 +639,7 @@ namespace HaremLife
 				List<ControlKeyframe> keyframes = new List<ControlKeyframe>(myControlKeyframes.OrderBy(k => k.myTime));
 				if(keyframes.Count < 3)
 					return;
+
 				for(int i=0; i<keyframes.Count; i++) {
 					ControlEntry ce = keyframes[i].myControlEntry.myAnchorOffset;
 					ts.Add(keyframes[i].myTime);
@@ -658,6 +659,7 @@ namespace HaremLife
 						controlPointIn.setDefaults(keyframes[i].myControlEntry);
 						controlPointIn.Initialize();
 						myControlCapture.CaptureEntry(controlPointIn);
+						keyframes[i].myControlPointIn = controlPointIn;
 					}
 
 					controlPointIn.myAnchorOffset.myPosition.x = xControlPoints[i].In;
@@ -670,6 +672,7 @@ namespace HaremLife
 						controlPointOut.setDefaults(keyframes[i].myControlEntry);
 						controlPointOut.Initialize();
 						myControlCapture.CaptureEntry(controlPointOut);
+						keyframes[i].myControlPointOut = controlPointOut;
 					}
 
 					controlPointOut.myAnchorOffset.myPosition.x = xControlPoints[i].Out;
@@ -1139,7 +1142,7 @@ namespace HaremLife
 			public bool myApplyRotation = true;
 			FreeControllerV3 myController;
 
-			private static Quaternion[] ourTempQuaternions = new Quaternion[MAX_STATES-1];
+			private static Quaternion[] ourTempQuaternions = new Quaternion[3];
 			private static float[] ourTempDistances = new float[DISTANCE_SAMPLES[DISTANCE_SAMPLES.Length-1] + 2];
 
 			public ControlCapture(AnimationPoser plugin, string control)
@@ -1264,6 +1267,7 @@ namespace HaremLife
 						default: myTransform.position = k1.myControlEntry.myEntry.myPosition; break;
 					}
 				}
+
 				if (myApplyRotation && k2.myControlEntry.myRotationState != FreeControllerV3.RotationState.Off)
 				{
 					switch (entryCount)

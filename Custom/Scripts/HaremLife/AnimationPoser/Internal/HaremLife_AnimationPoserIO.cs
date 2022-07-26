@@ -932,5 +932,81 @@ namespace HaremLife
 				myAvoids[avoid.myName] = avoid;
 			}
 		}
+
+		private void LoadFromVamTimeline(JSONClass jc, Transition transition) {
+			Layer layer = transition.mySourceState.myLayer;
+
+			JSONArray ctllist = jc["Clips"].AsArray[0]["Controllers"].AsArray;
+			for (int i=0; i<ctllist.Count; ++i)
+			{
+				JSONClass ctl = ctllist[i].AsObject;
+
+				ControlCapture capture = layer.myControlCaptures.FirstOrDefault(cc => String.Equals(cc.myName, ctl["Controller"]));
+				if(capture == null)
+					continue;
+
+				ControlTimeline timeline = new ControlTimeline(capture);
+
+				JSONArray xlist = ctl["X"].AsArray;
+				JSONArray ylist = ctl["Y"].AsArray;
+				JSONArray zlist = ctl["Z"].AsArray;
+				JSONArray rxlist = ctl["RotX"].AsArray;
+				JSONArray rylist = ctl["RotY"].AsArray;
+				JSONArray rzlist = ctl["RotZ"].AsArray;
+				JSONArray rwlist = ctl["RotW"].AsArray;
+
+				for (int j=0; j<xlist.Count; ++j)
+				{
+					ControlEntryAnchored ce = new ControlEntryAnchored(capture);
+					ce.myAnchorOffset.myPosition.x = xlist[j]["v"].AsFloat;
+					ce.myAnchorOffset.myPosition.y = ylist[j]["v"].AsFloat;
+					ce.myAnchorOffset.myPosition.z = zlist[j]["v"].AsFloat;
+					Quaternion rotation;
+					ce.myAnchorOffset.myRotation.x = rxlist[j]["v"].AsFloat;
+					ce.myAnchorOffset.myRotation.y = rylist[j]["v"].AsFloat;
+					ce.myAnchorOffset.myRotation.z = rzlist[j]["v"].AsFloat;
+					ce.myAnchorOffset.myRotation.w = rwlist[j]["v"].AsFloat;
+
+					ControlEntryAnchored firstCe = transition.mySourceState.myControlEntries[capture];
+					ce.myPositionState = firstCe.myPositionState;
+					ce.myRotationState = firstCe.myRotationState;
+					ce.myAnchorMode = firstCe.myAnchorMode;
+					if (ce.myAnchorMode >= ControlEntryAnchored.ANCHORMODE_SINGLE)
+					{
+						ce.myDampingTime = firstCe.myDampingTime;
+						ce.myAnchorAType = firstCe.myAnchorAType;
+						ce.myAnchorAAtom = firstCe.myAnchorAAtom;
+						ce.myAnchorAControl = firstCe.myAnchorAControl;
+
+						if (ce.myAnchorAAtom == "[Self]")
+							ce.myAnchorAAtom = containingAtom.uid;
+					}
+					if (ce.myAnchorMode == ControlEntryAnchored.ANCHORMODE_BLEND)
+					{
+						ce.myAnchorBType = firstCe.myAnchorBType;
+						ce.myAnchorBAtom = firstCe.myAnchorBAtom;
+						ce.myAnchorBControl = firstCe.myAnchorBControl;
+						ce.myBlendRatio = firstCe.myBlendRatio;
+
+						if (ce.myAnchorBAtom == "[Self]")
+							ce.myAnchorBAtom = containingAtom.uid;
+					}
+					ce.Initialize();
+
+					ControlKeyframe keyframe;
+					if(j==0) {
+						keyframe = new ControlKeyframe("first", ce);
+					} else if(j==xlist.Count-1) {
+						keyframe = new ControlKeyframe("last", ce);
+					} else {
+						float t = xlist[j]["t"].AsFloat/xlist[xlist.Count-1]["t"].AsFloat;
+						keyframe = new ControlKeyframe(t, ce);
+					}
+
+					timeline.AddKeyframe(keyframe);
+				}
+				transition.myControlTimelines[capture] = timeline;
+			}
+		}
     }
 }
