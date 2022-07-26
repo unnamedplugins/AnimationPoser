@@ -41,8 +41,6 @@ namespace HaremLife
                 _w = new float[n + 1];
                 _p1 = new float[n + 1];
                 _p2 = new float[n];
-                // rhs vector
-                // TODO: *2 only for non-looping?
                 _a = new float[n * 2];
                 _b = new float[n * 2];
                 _c = new float[n * 2];
@@ -168,6 +166,143 @@ namespace HaremLife
 
             return controlPoints;
         }
-    }
 
+		private static float EvalBezier(float t, float c1, float? c2, float? c3, float c4) {
+            if(c2 != null && c3 != null)
+                return EvalBezierCubic(t, c1, c2 ??0, c3 ??0, c4);
+            return EvalBezierLinear(t, c1, c4);
+        }
+
+		private static Vector3 EvalBezier(float t, Vector3 c1, Vector3? c2, Vector3? c3, Vector3 c4) {
+            if(c2 != null && c3 != null)
+                return EvalBezierCubic(t, c1, c2 ??new Vector3(), c3 ??new Vector3(), c4);
+            return EvalBezierLinear(t, c1, c4);
+        }
+
+		private static Quaternion EvalBezier(float t, Quaternion c1, Quaternion? c2, Quaternion? c3, Quaternion c4) {
+            if(c2 != null && c3 != null)
+                return EvalBezierCubic(t, c1, c2 ??new Quaternion(), c3 ??new Quaternion(), c4);
+            return EvalBezierLinear(t, c1, c4);
+        }
+
+        private static float EvalBezierLinear(float t, float c1, float c2) {
+            return Mathf.LerpUnclamped(c1, c2, t);
+        }
+
+        private static Vector3 EvalBezierLinear(float t, Vector3 c1, Vector3 c2) {
+            return Vector3.LerpUnclamped(c1, c2, t);
+        }
+
+        private static Quaternion EvalBezierLinear(float t, Quaternion c1, Quaternion c2) {
+            return Quaternion.SlerpUnclamped(c1, c2, t);
+        }
+
+        // evaluating using Bernstein polynomials
+        private static float EvalBezierQuadratic(float t, float c1, float c2, float c3)
+        {
+            float s = 1.0f - t;
+            return (s*s) * c1 + (2.0f*s*t) * c2 + (t*t) * c3;
+        }
+
+        private static Vector3 EvalBezierQuadratic(float t, Vector3 c1, Vector3 c2, Vector3 c3)
+        {
+            float s = 1.0f - t;
+            return (s*s) * c1 + (2.0f*s*t) * c2 + (t*t) * c3;
+        }
+
+        // evaluating quadratic Bézier curve using de Casteljau's algorithm
+        private static Quaternion EvalBezierQuadratic(float t, Quaternion c1, Quaternion c2, Quaternion c3)
+        {
+            Quaternion temp1 = Quaternion.SlerpUnclamped(c1, c2, t);
+            Quaternion temp2 = Quaternion.SlerpUnclamped(c2, c3, t);
+            return Quaternion.SlerpUnclamped(temp1, temp2, t);
+        }
+
+        // evaluating cubic Bézier curve using Bernstein polynomials
+        private static float EvalBezierCubic(float t, float c1, float c2, float c3, float c4)
+        {
+            float s = 1.0f - t;
+            float t2 = t*t;
+            float s2 = s*s;
+            return (s*s2) * c1 + (3.0f*s2*t) * c2 + (3.0f*s*t2) * c3 + (t*t2) * c4;
+        }
+
+        private static Vector3 EvalBezierCubic(float t, Vector3 c1, Vector3 c2, Vector3 c3, Vector3 c4)
+        {
+            float s = 1.0f - t;
+            float t2 = t*t;
+            float s2 = s*s;
+            return (s*s2) * c1 + (3.0f*s2*t) * c2 + (3.0f*s*t2) * c3 + (t*t2) * c4;
+        }
+
+        // evaluating cubic Bézier curve using de Casteljau's algorithm
+        private static Quaternion EvalBezierCubic(float t, Quaternion c1, Quaternion c2, Quaternion c3, Quaternion c4)
+        {
+            Quaternion temp1 = Quaternion.SlerpUnclamped(c1, c2, t);
+            Quaternion temp2 = Quaternion.SlerpUnclamped(c2, c3, t);
+            Quaternion temp3 = Quaternion.SlerpUnclamped(c3, c4, t);
+
+            temp1 = Quaternion.SlerpUnclamped(temp1, temp2, t);
+            temp2 = Quaternion.SlerpUnclamped(temp2, temp3, t);
+
+            return Quaternion.SlerpUnclamped(temp1, temp2, t);
+        }
+
+        // private static float ArcLengthParametrization(float t)
+        // {
+        // 	if (myEntryCount <= 2 || myEntryCount > 4){
+        // 		return t;
+        // 	}
+
+        // 	int numSamples = DISTANCE_SAMPLES[myEntryCount];
+        // 	float numLines = (float)(numSamples+1);
+        // 	float distance = 0.0f;
+        // 	Vector3 previous = myCurve[0].myEntry.myPosition;
+        // 	ourTempDistances[0] = 0.0f;
+
+        // 	if (myEntryCount == 3)
+        // 	{
+        // 		for (int i=1; i<=numSamples; ++i)
+        // 		{
+        // 			Vector3 current = EvalBezierQuadraticPosition(i / numLines);
+        // 			distance += Vector3.Distance(previous, current);
+        // 			ourTempDistances[i] = distance;
+        // 			previous = current;
+        // 		}
+        // 	}
+        // 	else
+        // 	{
+        // 		for (int i=1; i<=numSamples; ++i)
+        // 		{
+        // 			Vector3 current = EvalBezierCubicPosition(i / numLines);
+        // 			distance += Vector3.Distance(previous, current);
+        // 			ourTempDistances[i] = distance;
+        // 			previous = current;
+        // 		}
+        // 	}
+
+        // 	distance += Vector3.Distance(previous, myCurve[myEntryCount-1].myEntry.myPosition);
+        // 	ourTempDistances[numSamples+1] = distance;
+
+        // 	t *= distance;
+
+        // 	int idx = Array.BinarySearch(ourTempDistances, 0, numSamples+2, t);
+        // 	if (idx < 0)
+        // 	{
+        // 		idx = ~idx;
+        // 		if (idx == 0){
+        // 			return 0.0f;
+        // 		}
+        // 		else if (idx >= numSamples+2){
+        // 			return 1.0f;
+        // 		}
+        // 		t = Mathf.InverseLerp(ourTempDistances[idx-1], ourTempDistances[idx], t);
+        // 		return Mathf.LerpUnclamped((idx-1) / numLines, idx / numLines, t);
+        // 	}
+        // 	else
+        // 	{
+        // 		return idx / numLines;
+        // 	}
+        // }
+    }
 }

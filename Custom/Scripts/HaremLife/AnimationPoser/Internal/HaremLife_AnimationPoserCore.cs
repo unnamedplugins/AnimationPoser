@@ -1269,8 +1269,7 @@ namespace HaremLife
 				ControlKeyframe k2 = myCurve[1];
 				for (int i=1; i<myCurve.Count; ++i) {
 					if(k2.myTime < t) {
-						k1 = myCurve[i];
-						k2 = myCurve[i+1];
+						k1 = myCurve[i]; k2 = myCurve[i+1];
 					} else {
 						break;
 					}
@@ -1278,154 +1277,28 @@ namespace HaremLife
 
 				t = (t-k1.myTime)/(k2.myTime-k1.myTime);
 
-				int entryCount = 2;
-				if(k1.myControlPointOut != null && k2.myControlPointIn != null)
-					entryCount = 4;
+				Vector3 c1, c4; Vector3? c2, c3;
+				Quaternion rc1, rc4; Quaternion? rc2, rc3;
+				c2=c3=null; rc2=rc3=null;
 
-				if (myApplyPosition && k2.myControlEntry.myPositionState != FreeControllerV3.PositionState.Off)
-				{
-					switch (entryCount)
-					{
-						case 4:	myTransform.position = EvalBezierCubicPosition(t, k1, k2); break;
-						// case 3: myTransform.position = EvalBezierQuadraticPosition(t, k1, k2); break;
-						case 2: myTransform.position = EvalBezierLinearPosition(t, k1, k2); break;
-						default: myTransform.position = k1.myControlEntry.myEntry.myPosition; break;
-					}
+				c1 = k1.myControlEntry.myEntry.myPosition;
+				rc1 = k1.myControlEntry.myEntry.myRotation;
+				c4 = k2.myControlEntry.myEntry.myPosition;
+				rc4 = k2.myControlEntry.myEntry.myRotation;
+				if(k1.myControlPointOut != null) {
+					c2 = k1.myControlPointOut.myEntry.myPosition;
+					rc2 = k1.myControlPointOut.myEntry.myRotation;
 				}
+				if(k2.myControlPointIn != null) {
+					c3 = k2.myControlPointIn.myEntry.myPosition;
+					rc3 = k2.myControlPointIn.myEntry.myRotation;
+				}
+	
+				if (myApplyPosition && k2.myControlEntry.myPositionState != FreeControllerV3.PositionState.Off)
+					myTransform.position = EvalBezier(t, c1, c2, c3, c4);
 
 				if (myApplyRotation && k2.myControlEntry.myRotationState != FreeControllerV3.RotationState.Off)
-				{
-					switch (entryCount)
-					{
-						case 4: myTransform.rotation = EvalBezierCubicRotation(t, k1, k2); break;
-						// case 3: myTransform.rotation = EvalBezierQuadraticRotation(t, k1, k2); break;
-						case 2: myTransform.rotation = EvalBezierLinearRotation(t, k1, k2); break;
-						default: myTransform.rotation = k1.myControlEntry.myEntry.myRotation; break;
-					}
-				}
-			}
-
-			// private float ArcLengthParametrization(float t)
-			// {
-			// 	if (myEntryCount <= 2 || myEntryCount > 4){
-			// 		return t;
-			// 	}
-
-			// 	int numSamples = DISTANCE_SAMPLES[myEntryCount];
-			// 	float numLines = (float)(numSamples+1);
-			// 	float distance = 0.0f;
-			// 	Vector3 previous = myCurve[0].myEntry.myPosition;
-			// 	ourTempDistances[0] = 0.0f;
-
-			// 	if (myEntryCount == 3)
-			// 	{
-			// 		for (int i=1; i<=numSamples; ++i)
-			// 		{
-			// 			Vector3 current = EvalBezierQuadraticPosition(i / numLines);
-			// 			distance += Vector3.Distance(previous, current);
-			// 			ourTempDistances[i] = distance;
-			// 			previous = current;
-			// 		}
-			// 	}
-			// 	else
-			// 	{
-			// 		for (int i=1; i<=numSamples; ++i)
-			// 		{
-			// 			Vector3 current = EvalBezierCubicPosition(i / numLines);
-			// 			distance += Vector3.Distance(previous, current);
-			// 			ourTempDistances[i] = distance;
-			// 			previous = current;
-			// 		}
-			// 	}
-
-			// 	distance += Vector3.Distance(previous, myCurve[myEntryCount-1].myEntry.myPosition);
-			// 	ourTempDistances[numSamples+1] = distance;
-
-			// 	t *= distance;
-
-			// 	int idx = Array.BinarySearch(ourTempDistances, 0, numSamples+2, t);
-			// 	if (idx < 0)
-			// 	{
-			// 		idx = ~idx;
-			// 		if (idx == 0){
-			// 			return 0.0f;
-			// 		}
-			// 		else if (idx >= numSamples+2){
-			// 			return 1.0f;
-			// 		}
-			// 		t = Mathf.InverseLerp(ourTempDistances[idx-1], ourTempDistances[idx], t);
-			// 		return Mathf.LerpUnclamped((idx-1) / numLines, idx / numLines, t);
-			// 	}
-			// 	else
-			// 	{
-			// 		return idx / numLines;
-			// 	}
-			// }
-
-			private Vector3 EvalBezierLinearPosition(float t, ControlKeyframe k1, ControlKeyframe k2)
-			{
-				ControlEntryAnchored c1 = k1.myControlEntry;
-				ControlEntryAnchored c2 = k2.myControlEntry;
-				return Vector3.LerpUnclamped(c1.myEntry.myPosition, c2.myEntry.myPosition, t);
-			}
-
-			// private Vector3 EvalBezierQuadraticPosition(float t, ControlKeyframe k1, ControlKeyframe k2)
-			// {
-			// 	ControlEntryAnchored c1 = k1.myControlEntry;
-			// 	ControlEntryAnchored c2 = k2.myControlEntry;
-			// 	evaluating quadratic Bézier curve using Bernstein polynomials
-			// 	float s = 1.0f - t;
-			// 	return      (s*s) * myCurve[0].myEntry.myPosition
-			// 		 + (2.0f*s*t) * myCurve[1].myEntry.myPosition
-			// 		 +      (t*t) * myCurve[2].myEntry.myPosition;
-			// }
-
-			private Vector3 EvalBezierCubicPosition(float t, ControlKeyframe k1, ControlKeyframe k2)
-			{
-				ControlEntryAnchored c1 = k1.myControlEntry;
-				ControlEntryAnchored c2 = k2.myControlEntry;
-				ControlEntryAnchored o = k1.myControlPointOut;
-				ControlEntryAnchored i = k2.myControlPointIn;
-				// evaluating cubic Bézier curve using Bernstein polynomials
-				float s = 1.0f - t;
-				float t2 = t*t;
-				float s2 = s*s;
-				return      (s*s2) * c1.myEntry.myPosition
-					 + (3.0f*s2*t) * o.myEntry.myPosition
-					 + (3.0f*s*t2) * i.myEntry.myPosition
-					 +      (t*t2) * c2.myEntry.myPosition;
-			}
-
-			private Quaternion EvalBezierLinearRotation(float t, ControlKeyframe k1, ControlKeyframe k2)
-			{
-				ControlEntryAnchored c1 = k1.myControlEntry;
-				ControlEntryAnchored c2 = k2.myControlEntry;
-				return Quaternion.SlerpUnclamped(c1.myEntry.myRotation, c2.myEntry.myRotation, t);
-			}
-
-			// private Quaternion EvalBezierQuadraticRotation(float t, ControlKeyframe k1, ControlKeyframe k2)
-			// {
-			// 	evaluating quadratic Bézier curve using de Casteljau's algorithm
-			// 	ourTempQuaternions[0] = Quaternion.SlerpUnclamped(myCurve[0].myEntry.myRotation, myCurve[1].myEntry.myRotation, t);
-			// 	ourTempQuaternions[1] = Quaternion.SlerpUnclamped(myCurve[1].myEntry.myRotation, myCurve[2].myEntry.myRotation, t);
-			// 	return Quaternion.SlerpUnclamped(ourTempQuaternions[0], ourTempQuaternions[1], t);
-			// }
-
-			private Quaternion EvalBezierCubicRotation(float t, ControlKeyframe k1, ControlKeyframe k2)
-			{
-				ControlEntryAnchored c1 = k1.myControlEntry;
-				ControlEntryAnchored c2 = k2.myControlEntry;
-				ControlEntryAnchored o = k1.myControlPointOut;
-				ControlEntryAnchored i = k2.myControlPointIn;
-				// evaluating cubic Bézier curve using de Casteljau's algorithm
-				ourTempQuaternions[0] = Quaternion.SlerpUnclamped(c1.myEntry.myRotation, o.myEntry.myRotation, t);
-				ourTempQuaternions[1] = Quaternion.SlerpUnclamped(o.myEntry.myRotation, i.myEntry.myRotation, t);
-				ourTempQuaternions[2] = Quaternion.SlerpUnclamped(i.myEntry.myRotation, c2.myEntry.myRotation, t);
-
-				ourTempQuaternions[0] = Quaternion.SlerpUnclamped(ourTempQuaternions[0], ourTempQuaternions[1], t);
-				ourTempQuaternions[1] = Quaternion.SlerpUnclamped(ourTempQuaternions[1], ourTempQuaternions[2], t);
-
-				return Quaternion.SlerpUnclamped(ourTempQuaternions[0], ourTempQuaternions[1], t);
+					myTransform.rotation = EvalBezier(t, rc1, rc2, rc3, rc4);
 			}
 
 			public void UpdateState(State state)
@@ -1698,74 +1571,25 @@ namespace HaremLife
 
 			public void UpdateCurve(float t)
 			{
-				if (!myApply){
+				if (!myApply)
 					return;
-				}
 
 				MorphKeyframe k1 = myCurve[0];
 				MorphKeyframe k2 = myCurve[1];
 				for (int i=1; i<myCurve.Count; ++i) {
 					if(k2.myTime < t) {
-						k1 = myCurve[i];
-						k2 = myCurve[i+1];
+						k1 = myCurve[i]; k2 = myCurve[i+1];
 					} else {
 						break;
 					}
 				}
 
 				t = (t-k1.myTime)/(k2.myTime-k1.myTime);
-
-				int entryCount = 2;
-				if(k1.myControlPointOut != null && k2.myControlPointIn != null)
-					entryCount = 4;
-
-				switch (entryCount)
-				{
-					case 4:
-						myMorph.morphValue = EvalBezierCubic(t, k1, k2);
-						break;
-					// case 3:
-					// 	myMorph.morphValue = EvalBezierQuadratic(t);
-					// 	break;
-					case 2:
-						myMorph.morphValue = EvalBezierLinear(t, k1, k2);
-						break;
-					default:
-						myMorph.morphValue = myCurve[0].myMorphEntry;
-						break;
-				}
-			}
-
-			private float EvalBezierLinear(float t, MorphKeyframe k1, MorphKeyframe k2) {
 				float c1 = k1.myMorphEntry;
-				float c2 = k2.myMorphEntry;
-				return Mathf.LerpUnclamped(c1, c2, t);
-			}
-
-			// private float EvalBezierQuadratic(float t)
-			// {
-			// 	// evaluating using Bernstein polynomials
-			// 	float s = 1.0f - t;
-			// 	return      (s*s) * myCurve[0]
-			// 		 + (2.0f*s*t) * myCurve[1]
-			// 		 +      (t*t) * myCurve[2];
-			// }
-
-			private float EvalBezierCubic(float t, MorphKeyframe k1, MorphKeyframe k2)
-			{
-				float c1 = k1.myMorphEntry;
-				float c2 = k2.myMorphEntry;
-				float o = k1.myControlPointOut;
-				float i = k2.myControlPointIn;
-
-				// evaluating cubic Bézier curve using Bernstein polynomials
-				float s = 1.0f - t;
-				float t2 = t*t;
-				float s2 = s*s;
-				return      (s*s2) * c1
-					 + (3.0f*s2*t) * o
-					 + (3.0f*s*t2) * i
-					 +      (t*t2) * c2;
+				float c2 = k1.myControlPointOut;
+				float c3 = k2.myControlPointIn;
+				float c4 = k2.myMorphEntry;
+				myMorph.morphValue = EvalBezier(t, c1, c2, c3, c4);
 			}
 
 			public bool IsValid()
