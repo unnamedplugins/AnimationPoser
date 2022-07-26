@@ -249,14 +249,14 @@ namespace HaremLife
 							ControlTimeline timeline = c.Value;
 							List<ControlKeyframe> keyframes = new List<ControlKeyframe>();
 
-							ControlKeyframe firstKeyframe = timeline.myControlKeyframes.Find(k => k.myIsFirst);
+							ControlKeyframe firstKeyframe = timeline.myKeyframes.Find(k => k.myIsFirst) as ControlKeyframe;
 							keyframes.Add(firstKeyframe);
-							for(int j=0; j<timeline.myControlKeyframes.Count; j++) {
-								ControlKeyframe keyframe = timeline.myControlKeyframes[j];
+							for(int j=0; j<timeline.myKeyframes.Count; j++) {
+								ControlKeyframe keyframe = timeline.myKeyframes[j] as ControlKeyframe;
 								if(!keyframe.myIsFirst && !keyframe.myIsLast)
 									keyframes.Add(keyframe);
 							}
-							ControlKeyframe lastKeyframe = timeline.myControlKeyframes.Find(k => k.myIsLast);
+							ControlKeyframe lastKeyframe = timeline.myKeyframes.Find(k => k.myIsLast) as ControlKeyframe;
 							keyframes.Add(lastKeyframe);
 
 							for(int j=0; j<keyframes.Count; j++) {
@@ -279,6 +279,37 @@ namespace HaremLife
 							ctltmls[c.Key.myName] = ctltml;
 						}
 						t["ControlTimelines"] = ctltmls;
+
+						JSONClass mphtmls = new JSONClass();
+						foreach (var c in transition.myMorphTimelines) {
+							JSONArray mphkfms = new JSONArray();
+							MorphTimeline timeline = c.Value;
+							List<MorphKeyframe> keyframes = new List<MorphKeyframe>();
+
+							MorphKeyframe firstKeyframe = timeline.myKeyframes.Find(k => k.myIsFirst) as MorphKeyframe;
+							keyframes.Add(firstKeyframe);
+							for(int j=0; j<timeline.myKeyframes.Count; j++) {
+								MorphKeyframe keyframe = timeline.myKeyframes[j] as MorphKeyframe;
+								if(!keyframe.myIsFirst && !keyframe.myIsLast)
+									keyframes.Add(keyframe);
+							}
+							MorphKeyframe lastKeyframe = timeline.myKeyframes.Find(k => k.myIsLast) as MorphKeyframe;
+							keyframes.Add(lastKeyframe);
+
+							for(int j=0; j<keyframes.Count; j++) {
+								JSONClass mphkfm = new JSONClass();
+								MorphKeyframe keyframe = keyframes[j];
+								mphkfm["T"].AsFloat = keyframe.myTime;
+								mphkfm["V"].AsFloat = keyframe.myMorphEntry;
+
+								mphkfms.Add("", mphkfm);
+							}
+
+							JSONClass mphtml = new JSONClass();
+							mphtml["MorphKeyframes"] = mphkfms;
+							mphtmls[c.Key.mySID] = mphtml;
+						}
+						t["MorphTimelines"] = mphtmls;
 
 						JSONClass synct = new JSONClass();
 						foreach (var syncl in transition.mySyncTargets) {
@@ -805,6 +836,38 @@ namespace HaremLife
 							}
 						}
 
+						if(tclass.HasKey("MorphTimelines")) {
+							JSONClass mphtmls = tclass["MorphTimelines"].AsObject;
+							foreach (string key in mphtmls.Keys) {
+								JSONClass mphtml = mphtmls[key].AsObject;
+
+								MorphCapture capture = layer.myMorphCaptures.FirstOrDefault(cc => cc.mySID == key);
+								if(capture == null)
+									continue;
+
+								MorphTimeline timeline = new MorphTimeline(capture);
+
+								JSONArray kfms = mphtml["MorphKeyframes"].AsArray;
+
+								for (int k=0; k<kfms.Count; ++k)
+								{
+									JSONClass kfm = kfms[k].AsObject;
+
+									MorphKeyframe keyframe;
+									if(k==0) {
+										keyframe = new MorphKeyframe("first", kfm["V"].AsFloat);
+									} else if(k==kfms.Count-1) {
+										keyframe = new MorphKeyframe("last", kfm["V"].AsFloat);
+									} else {
+										keyframe = new MorphKeyframe(kfm["T"].AsFloat, kfm["V"].AsFloat);
+									}
+
+									timeline.AddKeyframe(keyframe);
+								}
+								transition.myMorphTimelines[capture] = timeline;
+							}
+						}
+
 						JSONClass synctlist = tclass["SyncTargets"].AsObject;
 						foreach (string key in synctlist.Keys) {
 							Layer syncLayer;
@@ -1007,6 +1070,35 @@ namespace HaremLife
 				}
 				transition.myControlTimelines[capture] = timeline;
 			}
+
+			JSONArray mphlist = jc["Clips"].AsArray[0]["FloatParams"].AsArray;
+			for (int i=0; i<mphlist.Count; ++i)
+			{
+				JSONClass mph = mphlist[i].AsObject;
+
+				MorphCapture capture = layer.myMorphCaptures.FirstOrDefault(cc => String.Equals(cc.myMorph.resolvedDisplayName, mph["Name"]));
+				if(capture == null)
+					continue;
+
+				MorphTimeline timeline = new MorphTimeline(capture);
+
+				JSONArray vlist = mph["Value"].AsArray;
+				for (int j=0; j<vlist.Count; ++j)
+				{
+					MorphKeyframe keyframe;
+					if(j==0) {
+						keyframe = new MorphKeyframe("first", vlist[j]["Value"].AsFloat);
+					} else if(j==vlist.Count-1) {
+						keyframe = new MorphKeyframe("last", vlist[j]["Value"].AsFloat);
+					} else {
+						float t = vlist[j]["t"].AsFloat/vlist[vlist.Count-1]["t"].AsFloat;
+						keyframe = new MorphKeyframe(t, vlist[j]["Value"].AsFloat);
+					}
+
+					timeline.AddKeyframe(keyframe);
+				}
+				transition.myMorphTimelines[capture] = timeline;
+			}
 		}
 
 		private JSONClass SaveToVamTimeline(Transition transition) {
@@ -1039,14 +1131,14 @@ namespace HaremLife
 
 				ControlTimeline timeline = c.Value;
 				List<ControlKeyframe> keyframes = new List<ControlKeyframe>();
-				ControlKeyframe firstKeyframe = timeline.myControlKeyframes.Find(k => k.myIsFirst);
+				ControlKeyframe firstKeyframe = timeline.myKeyframes.Find(k => k.myIsFirst) as ControlKeyframe;
 				keyframes.Add(firstKeyframe);
-				for(int j=0; j<timeline.myControlKeyframes.Count; j++) {
-					ControlKeyframe keyframe = timeline.myControlKeyframes[j];
+				for(int j=0; j<timeline.myKeyframes.Count; j++) {
+					ControlKeyframe keyframe = timeline.myKeyframes[j] as ControlKeyframe;
 					if(!keyframe.myIsFirst && !keyframe.myIsLast)
 						keyframes.Add(keyframe);
 				}
-				ControlKeyframe lastKeyframe = timeline.myControlKeyframes.Find(k => k.myIsLast);
+				ControlKeyframe lastKeyframe = timeline.myKeyframes.Find(k => k.myIsLast) as ControlKeyframe;
 				keyframes.Add(lastKeyframe);
 
 				JSONArray xlist = new JSONArray();
@@ -1147,6 +1239,56 @@ namespace HaremLife
 				ctllist.Add(ctl);
 			}
 			clip["Controllers"] = ctllist;
+
+			JSONArray mphlist = new JSONArray();
+			foreach (var c in transition.myMorphTimelines) {
+				JSONClass mph = new JSONClass();
+
+				mph["Storable"] = "geometry";
+				mph["Name"] = c.Key.myMorph.resolvedDisplayName;
+
+				MorphTimeline timeline = c.Value;
+				List<MorphKeyframe> keyframes = new List<MorphKeyframe>();
+				MorphKeyframe firstKeyframe = timeline.myKeyframes.Find(k => k.myIsFirst) as MorphKeyframe;
+				keyframes.Add(firstKeyframe);
+				for(int j=0; j<timeline.myKeyframes.Count; j++) {
+					MorphKeyframe keyframe = timeline.myKeyframes[j] as MorphKeyframe;
+					if(!keyframe.myIsFirst && !keyframe.myIsLast)
+						keyframes.Add(keyframe);
+				}
+				MorphKeyframe lastKeyframe = timeline.myKeyframes.Find(k => k.myIsLast) as MorphKeyframe;
+				keyframes.Add(lastKeyframe);
+
+				JSONArray vlist = new JSONArray();
+				for(int j=0; j<keyframes.Count; j++) {
+					JSONClass entry = new JSONClass();
+
+					MorphKeyframe keyframe = keyframes[j];
+
+					entry["t"].AsFloat = keyframe.myTime;
+					entry["c"] = "3";
+					entry["v"].AsFloat = keyframe.myMorphEntry;
+
+					if(keyframe.myControlPointIn != null) {
+						entry["i"].AsFloat = keyframe.myControlPointIn;
+					} else {
+						entry["i"].AsFloat = keyframe.myMorphEntry;
+					}
+
+					if(keyframe.myControlPointOut != null) {
+						entry["o"].AsFloat = keyframe.myControlPointOut;
+					} else {
+						entry["o"].AsFloat = keyframe.myMorphEntry;
+					}
+
+					vlist.Add(entry);
+				}
+
+				mph["Value"] = vlist;
+
+				mphlist.Add(mph);
+			}
+			clip["FloatParams"] = mphlist;
 
 			clips.Add(clip);
 			jc["Clips"] = clips;

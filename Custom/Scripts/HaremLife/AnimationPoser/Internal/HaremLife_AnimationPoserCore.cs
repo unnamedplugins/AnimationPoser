@@ -606,9 +606,25 @@ namespace HaremLife
 			}
 		}
 
-		private class ControlTimeline {
+		private class Timeline {
+			public List<Keyframe> myKeyframes = new List<Keyframe>();
+
+			public void AddKeyframe(Keyframe keyframe) {
+				myKeyframes.Add(keyframe);
+				ComputeControlPoints();
+			}
+
+			public void RemoveKeyframe(Keyframe keyframe) {
+				myKeyframes.Remove(keyframe);
+				ComputeControlPoints();
+			}
+
+			public virtual void ComputeControlPoints() {
+			}
+		}
+
+		private class ControlTimeline : Timeline {
 			public ControlCapture myControlCapture;
-			public List<ControlKeyframe> myControlKeyframes = new List<ControlKeyframe>();
 
 			public ControlTimeline(ControlCapture controlCapture) {
 				myControlCapture = controlCapture;
@@ -616,33 +632,24 @@ namespace HaremLife
 
 			public void SetEndpoints(ControlEntryAnchored startControlEntry,
 									 ControlEntryAnchored endControlEntry) {
-				myControlKeyframes.Add(new ControlKeyframe("first", startControlEntry));
-				myControlKeyframes.Add(new ControlKeyframe("last", endControlEntry));
+				myKeyframes.Add(new ControlKeyframe("first", startControlEntry));
+				myKeyframes.Add(new ControlKeyframe("last", endControlEntry));
 				ComputeControlPoints();
 			}
 
-			public void AddKeyframe(ControlKeyframe keyframe) {
-				myControlKeyframes.Add(keyframe);
-				ComputeControlPoints();
-			}
-
-			public void RemoveKeyframe(ControlKeyframe keyframe) {
-				myControlKeyframes.Remove(keyframe);
-				ComputeControlPoints();
-			}
-
-			public void ComputeControlPoints() {
+			public override void ComputeControlPoints() {
 				List<float> ts = new List<float>();
 				List<float> xs = new List<float>();
 				List<float> ys = new List<float>();
 				List<float> zs = new List<float>();
-				List<ControlKeyframe> keyframes = new List<ControlKeyframe>(myControlKeyframes.OrderBy(k => k.myTime));
+				List<Keyframe> keyframes = new List<Keyframe>(myKeyframes.OrderBy(k => k.myTime));
 				if(keyframes.Count < 3)
 					return;
 
 				for(int i=0; i<keyframes.Count; i++) {
-					ControlEntry ce = keyframes[i].myControlEntry.myAnchorOffset;
-					ts.Add(keyframes[i].myTime);
+					ControlKeyframe controlKeyframe = keyframes[i] as ControlKeyframe;
+					ControlEntry ce = controlKeyframe.myControlEntry.myAnchorOffset;
+					ts.Add(controlKeyframe.myTime);
 					xs.Add(ce.myPosition.x);
 					ys.Add(ce.myPosition.y);
 					zs.Add(ce.myPosition.z);
@@ -653,26 +660,27 @@ namespace HaremLife
 				List<ControlPoint> zControlPoints = AutoComputeControlPoints(zs, ts);
 
 				for(int i=0; i<keyframes.Count; i++) {
-					ControlEntryAnchored controlPointIn = keyframes[i].myControlPointIn;
+					ControlKeyframe controlKeyframe = keyframes[i] as ControlKeyframe;
+					ControlEntryAnchored controlPointIn = controlKeyframe.myControlPointIn;
 					if(controlPointIn == null) {
 						controlPointIn = new ControlEntryAnchored(myControlCapture);
-						controlPointIn.setDefaults(keyframes[i].myControlEntry);
+						controlPointIn.setDefaults(controlKeyframe.myControlEntry);
 						controlPointIn.Initialize();
 						myControlCapture.CaptureEntry(controlPointIn);
-						keyframes[i].myControlPointIn = controlPointIn;
+						controlKeyframe.myControlPointIn = controlPointIn;
 					}
 
 					controlPointIn.myAnchorOffset.myPosition.x = xControlPoints[i].In;
 					controlPointIn.myAnchorOffset.myPosition.y = yControlPoints[i].In;
 					controlPointIn.myAnchorOffset.myPosition.z = zControlPoints[i].In;
 
-					ControlEntryAnchored controlPointOut = keyframes[i].myControlPointOut;
+					ControlEntryAnchored controlPointOut = controlKeyframe.myControlPointOut;
 					if(controlPointOut == null) {
 						controlPointOut = new ControlEntryAnchored(myControlCapture);
-						controlPointOut.setDefaults(keyframes[i].myControlEntry);
+						controlPointOut.setDefaults(controlKeyframe.myControlEntry);
 						controlPointOut.Initialize();
 						myControlCapture.CaptureEntry(controlPointOut);
-						keyframes[i].myControlPointOut = controlPointOut;
+						controlKeyframe.myControlPointOut = controlPointOut;
 					}
 
 					controlPointOut.myAnchorOffset.myPosition.x = xControlPoints[i].Out;
@@ -682,9 +690,8 @@ namespace HaremLife
 			}
 		}
 
-		private class MorphTimeline {
+		private class MorphTimeline : Timeline {
 			public MorphCapture myMorphCapture;
-			public List<MorphKeyframe> myMorphKeyframes = new List<MorphKeyframe>();
 
 			public MorphTimeline(MorphCapture morphCapture) {
 				myMorphCapture = morphCapture;
@@ -692,17 +699,30 @@ namespace HaremLife
 
 			public void SetEndpoints(float startMorphEntry,
 									 float endMorphEntry) {
-				if(myMorphKeyframes.Count < 2) {
-					MorphKeyframe keyframe = new MorphKeyframe("first");
-					keyframe.myMorphEntry = startMorphEntry;
-					myMorphKeyframes.Add(keyframe);
+				myKeyframes.Add(new MorphKeyframe("first", startMorphEntry));
+				myKeyframes.Add(new MorphKeyframe("last", endMorphEntry));
+				ComputeControlPoints();
+			}
 
-					keyframe = new MorphKeyframe("last");
-					keyframe.myMorphEntry = endMorphEntry;
-					myMorphKeyframes.Add(keyframe);
-				} else {
-					myMorphKeyframes.First().myMorphEntry = startMorphEntry;
-					myMorphKeyframes.Last().myMorphEntry = endMorphEntry;
+			public override void ComputeControlPoints() {
+				List<float> ts = new List<float>();
+				List<float> vs = new List<float>();
+				List<Keyframe> keyframes = new List<Keyframe>(myKeyframes.OrderBy(k => k.myTime));
+				if(keyframes.Count < 3)
+					return;
+
+				for(int i=0; i<keyframes.Count; i++) {
+					MorphKeyframe morphKeyframe = keyframes[i] as MorphKeyframe;
+					ts.Add(morphKeyframe.myTime);
+					vs.Add(morphKeyframe.myMorphEntry);
+				}
+
+				List<ControlPoint> controlPoints = AutoComputeControlPoints(vs, ts);
+
+				for(int i=0; i<keyframes.Count; i++) {
+					MorphKeyframe morphKeyframe = keyframes[i] as MorphKeyframe;
+					morphKeyframe.myControlPointIn = controlPoints[i].In;
+					morphKeyframe.myControlPointOut = controlPoints[i].Out;
 				}
 			}
 		}
@@ -848,13 +868,14 @@ namespace HaremLife
 				foreach(var t in myControlTimelines) {
 					ControlTimeline timeline = t.Value;
 					ControlCapture capture = t.Key;
-					capture.SetTransition(timeline.myControlKeyframes);
+
+					capture.SetTransition(timeline.myKeyframes);
 				}
 
 				foreach(var t in myMorphTimelines) {
 					MorphTimeline timeline = t.Value;
 					MorphCapture capture = t.Key;
-					capture.SetTransition(timeline.myMorphKeyframes);
+					capture.SetTransition(timeline.myKeyframes);
 				}
 			}
 		}
@@ -1077,11 +1098,15 @@ namespace HaremLife
 			}
 		}
 
-		private class ControlKeyframe
+		private class Keyframe
 		{
 			public float myTime;
 			public bool myIsFirst = false;
 			public bool myIsLast = false;
+		}
+
+		private class ControlKeyframe : Keyframe
+		{
 			public ControlEntryAnchored myControlEntry;
 			public ControlEntryAnchored myControlPointIn;
 			public ControlEntryAnchored myControlPointOut;
@@ -1106,15 +1131,14 @@ namespace HaremLife
 			}
 		}
 
-		private class MorphKeyframe
+		private class MorphKeyframe : Keyframe
 		{
-			public float myTime;
-			public bool myIsFirst = false;
-			public bool myIsLast = false;
 			public MorphCapture myCapture;
 			public float myMorphEntry;
+			public float myControlPointIn;
+			public float myControlPointOut;
 
-			public MorphKeyframe(string firstOrLast)
+			public MorphKeyframe(string firstOrLast, float entry)
 			{
 				if(String.Equals(firstOrLast, "first")) {
 					myTime = 0;
@@ -1124,12 +1148,13 @@ namespace HaremLife
 					myTime = 1;
 					myIsLast = true;
 				}
+				myMorphEntry = entry;
 			}
 
-			public MorphKeyframe(MVRScript script, MorphCapture capture, float morphEntry)
+			public MorphKeyframe(float time, float entry)
 			{
-				myCapture = capture;
-				myMorphEntry = morphEntry;
+				myTime = time;
+				myMorphEntry = entry;
 			}
 		}
 
@@ -1215,15 +1240,15 @@ namespace HaremLife
 				entry.setDefaults(oldEntry);
 			}
 
-			public void SetTransition(List<ControlKeyframe> keyframes)
+			public void SetTransition(List<Keyframe> keyframes)
 			{
-				myCurve = new List<ControlKeyframe>(keyframes.OrderBy(k => k.myTime));
+				myCurve = new List<ControlKeyframe>(keyframes.Cast<ControlKeyframe>().OrderBy(k => k.myTime));
 				for(int i=0; i<keyframes.Count; i++) {
-					keyframes[i].myControlEntry.Initialize();
-					if(keyframes[i].myControlPointIn != null)
-						keyframes[i].myControlPointIn.Initialize();
-					if(keyframes[i].myControlPointOut != null)
-						keyframes[i].myControlPointOut.Initialize();
+					myCurve[i].myControlEntry.Initialize();
+					if(myCurve[i].myControlPointIn != null)
+						myCurve[i].myControlPointIn.Initialize();
+					if(myCurve[i].myControlPointOut != null)
+						myCurve[i].myControlPointOut.Initialize();
 				}
 			}
 
@@ -1604,14 +1629,12 @@ namespace HaremLife
 			}
 		}
 
-
 		private class MorphCapture
 		{
 			public string mySID;
 			public DAZMorph myMorph;
 			public DAZCharacterSelector.Gender myGender;
-			private float[] myCurve = new float[MAX_STATES];
-			private int myEntryCount = 0;
+			private List<MorphKeyframe> myCurve = new List<MorphKeyframe>();
 			public bool myApply = true;
 
 			// used when adding a capture
@@ -1662,19 +1685,15 @@ namespace HaremLife
 				state.myMorphEntries[this] = myMorph.morphValue;
 			}
 
-			public void SetTransition(List<MorphKeyframe> keyframes)
+			public void SetTransition(List<Keyframe> keyframes)
 			{
-				myEntryCount = keyframes.Count;
-				bool identical = true;
-				float morphValue = myMorph.morphValue;
+				myCurve.Clear();
+				List<Keyframe> orderedKeyframes = new List<Keyframe>(keyframes.OrderBy(k => k.myTime));
 
-				for(int i=0; i<myEntryCount; i++) {
-					myCurve[i] = keyframes[i].myMorphEntry;
-					identical &= (myCurve[i] == morphValue);
+				for(int i=0; i<keyframes.Count; i++) {
+					MorphKeyframe morphKeyframe = orderedKeyframes[i] as MorphKeyframe;
+					myCurve.Add(morphKeyframe);
 				}
-
-				if (identical)
-					myEntryCount = 0; // nothing to do, save some performance
 			}
 
 			public void UpdateCurve(float t)
@@ -1683,47 +1702,70 @@ namespace HaremLife
 					return;
 				}
 
-				switch (myEntryCount)
+				MorphKeyframe k1 = myCurve[0];
+				MorphKeyframe k2 = myCurve[1];
+				for (int i=1; i<myCurve.Count; ++i) {
+					if(k2.myTime < t) {
+						k1 = myCurve[i];
+						k2 = myCurve[i+1];
+					} else {
+						break;
+					}
+				}
+
+				t = (t-k1.myTime)/(k2.myTime-k1.myTime);
+
+				int entryCount = 2;
+				if(k1.myControlPointOut != null && k2.myControlPointIn != null)
+					entryCount = 4;
+
+				switch (entryCount)
 				{
 					case 4:
-						myMorph.morphValue = EvalBezierCubic(t);
+						myMorph.morphValue = EvalBezierCubic(t, k1, k2);
 						break;
-					case 3:
-						myMorph.morphValue = EvalBezierQuadratic(t);
-						break;
+					// case 3:
+					// 	myMorph.morphValue = EvalBezierQuadratic(t);
+					// 	break;
 					case 2:
-						myMorph.morphValue = EvalBezierLinear(t);
+						myMorph.morphValue = EvalBezierLinear(t, k1, k2);
 						break;
 					default:
-						myMorph.morphValue = myCurve[0];
+						myMorph.morphValue = myCurve[0].myMorphEntry;
 						break;
 				}
 			}
 
-			private float EvalBezierLinear(float t)
-			{
-				return Mathf.LerpUnclamped(myCurve[0], myCurve[1], t);
+			private float EvalBezierLinear(float t, MorphKeyframe k1, MorphKeyframe k2) {
+				float c1 = k1.myMorphEntry;
+				float c2 = k2.myMorphEntry;
+				return Mathf.LerpUnclamped(c1, c2, t);
 			}
 
-			private float EvalBezierQuadratic(float t)
-			{
-				// evaluating using Bernstein polynomials
-				float s = 1.0f - t;
-				return      (s*s) * myCurve[0]
-					 + (2.0f*s*t) * myCurve[1]
-					 +      (t*t) * myCurve[2];
-			}
+			// private float EvalBezierQuadratic(float t)
+			// {
+			// 	// evaluating using Bernstein polynomials
+			// 	float s = 1.0f - t;
+			// 	return      (s*s) * myCurve[0]
+			// 		 + (2.0f*s*t) * myCurve[1]
+			// 		 +      (t*t) * myCurve[2];
+			// }
 
-			private float EvalBezierCubic(float t)
+			private float EvalBezierCubic(float t, MorphKeyframe k1, MorphKeyframe k2)
 			{
-				// evaluating using Bernstein polynomials
+				float c1 = k1.myMorphEntry;
+				float c2 = k2.myMorphEntry;
+				float o = k1.myControlPointOut;
+				float i = k2.myControlPointIn;
+
+				// evaluating cubic Bézier curve using Bernstein polynomials
 				float s = 1.0f - t;
 				float t2 = t*t;
 				float s2 = s*s;
-				return      (s*s2) * myCurve[0]
-					 + (3.0f*s2*t) * myCurve[1]
-					 + (3.0f*s*t2) * myCurve[2]
-					 +      (t*t2) * myCurve[3];
+				return      (s*s2) * c1
+					 + (3.0f*s2*t) * o
+					 + (3.0f*s*t2) * i
+					 +      (t*t2) * c2;
 			}
 
 			public bool IsValid()

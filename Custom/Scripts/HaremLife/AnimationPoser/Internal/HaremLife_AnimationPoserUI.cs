@@ -29,6 +29,8 @@ namespace HaremLife
 		private UIDynamicPopup myCapturesMorphPopup;
 		private JSONStorableString myCapturesMorphFullname;
 		private JSONStorableBool myStateAutoTransition;
+		private JSONStorableStringChooser myKeyframeCaptureType;
+		private JSONStorableStringChooser myKeyframeCaptureList;
 		private JSONStorableStringChooser myAnchorCaptureList;
 		private JSONStorableStringChooser myAnchorModeList;
 		private JSONStorableStringChooser myAnchorTypeListA;
@@ -69,6 +71,11 @@ namespace HaremLife
 		private JSONStorableFloat myGlobalDefaultWaitDurationMax;
 
 		private bool myIsFullRefresh = true;
+
+		private readonly List<string> myCaptureTypes = new List<string>() {
+			"Controller",
+			"Morph",
+		};
 
 		private readonly List<string> myAnchorModes = new List<string>() {
 			"World",
@@ -149,6 +156,11 @@ namespace HaremLife
 
 			myMainState = new JSONStorableStringChooser("State", stateItems, "", "State");
 			myMainState.setCallbackFunction += UISelectStateAndRefresh;
+
+			myKeyframeCaptureType = new JSONStorableStringChooser("Capture Type", myCaptureTypes, "Controller", "Capture Type");
+			myKeyframeCaptureType.setCallbackFunction += (string v) => UIRefreshMenu();
+			myKeyframeCaptureList = new JSONStorableStringChooser("Control Capture", new List<string>(), "", "Control Capture");
+			myKeyframeCaptureList.setCallbackFunction += (string v) => UIRefreshMenu();
 
 			myAnchorCaptureList = new JSONStorableStringChooser("ControlCapture", new List<string>(), "", "Control Capture");
 			myAnchorCaptureList.setCallbackFunction += (string v) => UIRefreshMenu();
@@ -1282,6 +1294,8 @@ namespace HaremLife
 				return;
 			}
 
+			CreateMenuInfoOneLine("<size=30><b>Transition Selector</b></size>", true);
+
 			// collect transitions
 			List<UITransition> transitions = new List<UITransition>(state.myTransitions.Count);
 			for (int i=0; i<state.myTransitions.Count; ++i)
@@ -1380,19 +1394,33 @@ namespace HaremLife
 
 				CreateMenuInfoOneLine("<size=30><b>Transition Settings</b></size>", true);
 
-				List<string> captures = new List<string>(myCurrentLayer.myControlCaptures.Count);
-				for (int i=0; i<myCurrentLayer.myControlCaptures.Count; ++i)
-					captures.Add(myCurrentLayer.myControlCaptures[i].myName);
-				myAnchorCaptureList.choices = captures;
-				if (captures.Count == 0)
-					myAnchorCaptureList.valNoCallback = "";
-				else if (!captures.Contains(myAnchorCaptureList.val))
-					myAnchorCaptureList.valNoCallback = captures[0];
-				CreateMenuPopup(myAnchorCaptureList, false);
+				CreateMenuInfoOneLine("<size=30><b>Capture Selector</b></size>", false);
 
-				ControlCapture controlCapture = myCurrentLayer.myControlCaptures.Find(cc => cc.myName == myAnchorCaptureList.val);
-				if (controlCapture == null)
-					return;
+				CreateMenuPopup(myKeyframeCaptureType, false);
+
+				List<string> captures;
+				if(myKeyframeCaptureType.val == myCaptureTypes[0]) {
+					captures = new List<string>(myCurrentLayer.myControlCaptures.Count);
+					for (int i=0; i<myCurrentLayer.myControlCaptures.Count; ++i)
+						captures.Add(myCurrentLayer.myControlCaptures[i].myName);
+					myKeyframeCaptureList.choices = captures;
+					if (captures.Count == 0)
+						myKeyframeCaptureList.valNoCallback = "";
+					else if (!captures.Contains(myKeyframeCaptureList.val))
+						myKeyframeCaptureList.valNoCallback = captures[0];
+					CreateMenuPopup(myKeyframeCaptureList, false);
+				} else {
+					captures = new List<string>(myCurrentLayer.myMorphCaptures.Count);
+					for (int i=0; i<myCurrentLayer.myMorphCaptures.Count; ++i)
+						// captures.Add(myCurrentLayer.myMorphCaptures[i].myMorph.resolvedDisplayName);
+						captures.Add(myCurrentLayer.myMorphCaptures[i].mySID);
+					myKeyframeCaptureList.choices = captures;
+					if (captures.Count == 0)
+						myKeyframeCaptureList.valNoCallback = "";
+					else if (!captures.Contains(myKeyframeCaptureList.val))
+						myKeyframeCaptureList.valNoCallback = captures[0];
+					CreateMenuPopup(myKeyframeCaptureList, false);
+				}
 
 				CreateMenuSpacer(30, false);
 
@@ -1401,56 +1429,60 @@ namespace HaremLife
 				myTimelineTime = new JSONStorableFloat("Time", myTimelineTime == null ?
 														0 : myTimelineTime.val, 0.00f, 1.0f, true, true);
 
-				ControlTimeline controlTimeline;
-				if(!transition.myControlTimelines.TryGetValue(controlCapture, out controlTimeline))
-					return;
+				Timeline timeline;
+
+				if(myKeyframeCaptureType.val == myCaptureTypes[0]) {
+					ControlCapture controlCapture = myCurrentLayer.myControlCaptures.Find(cc => cc.myName == myKeyframeCaptureList.val);
+					if (controlCapture == null)
+						return;
+
+					if(!transition.myControlTimelines.Keys.Contains(controlCapture))
+						return;
+
+					timeline = transition.myControlTimelines[controlCapture];
+				} else {
+					MorphCapture morphCapture = myCurrentLayer.myMorphCaptures.Find(cc => cc.mySID == myKeyframeCaptureList.val);
+					if (morphCapture == null)
+						return;
+
+					if(!transition.myMorphTimelines.Keys.Contains(morphCapture))
+						return;
+
+					timeline = transition.myMorphTimelines[morphCapture];
+
+				}
 
 				myTimelineTime.setCallbackFunction = (float v) => {
+					Utils.RemoveUIElements(this, myElements);
+
 					foreach(var ct in transition.myControlTimelines) {
-						Utils.RemoveUIElements(this, myElements);
 						ControlCapture capt = ct.Key;
 						ControlTimeline tmln = ct.Value;
 
-						capt.SetTransition(tmln.myControlKeyframes);
+						capt.SetTransition(tmln.myKeyframes);
 						capt.UpdateCurve(v);
 					}
 
-					ControlKeyframe keyframe = controlTimeline.myControlKeyframes.FirstOrDefault(
-						k => Math.Abs(k.myTime - myTimelineTime.val) < 0.01
-					);
+					foreach(var ct in transition.myMorphTimelines) {
+						MorphCapture capt = ct.Key;
+						MorphTimeline tmln = ct.Value;
 
-					if (keyframe == null) {
-						UIDynamicButton uid = Utils.SetupButton(this, "Add Keyframe", () => {
-							ControlEntryAnchored entry;
-							entry = new ControlEntryAnchored(controlCapture);
-							entry.Initialize();
-							controlCapture.CaptureEntry(entry);
-
-							keyframe = new ControlKeyframe(v, entry);
-							controlTimeline.AddKeyframe(keyframe);
-							UIRefreshMenu();
-						}, true);
-						myElements.Add(uid);
-						myMenuElements.Add(uid);
-					} else if(!keyframe.myIsFirst && !keyframe.myIsLast) {
-						UIDynamicButton uid = Utils.SetupButton(this, "Remove Keyframe", () => {
-							controlTimeline.RemoveKeyframe(keyframe);
-							UIRefreshMenu();
-						}, true);
-						myElements.Add(uid);
-						myMenuElements.Add(uid);
+						capt.SetTransition(tmln.myKeyframes);
+						capt.UpdateCurve(v);
 					}
+
+					UIUpdateTimelineSlider(timeline, v, myElements);
 				};
 
 				CreateMenuSlider(myTimelineTime, true);
-				myTimelineTime.val = 0;
+				UIUpdateTimelineSlider(timeline, myTimelineTime.val, myElements);
 
-				List <ControlKeyframe> keyframes = new List<ControlKeyframe>(
-					controlTimeline.myControlKeyframes.OrderBy(k => k.myTime)
+				List <Keyframe> keyframes = new List<Keyframe>(
+					timeline.myKeyframes.OrderBy(k => k.myTime)
 				);
 
 				CreateMenuButton("Go To Next Keyframe", () => {
-					ControlKeyframe nextKeyframe = keyframes.FirstOrDefault(
+					Keyframe nextKeyframe = keyframes.FirstOrDefault(
 						k => k.myTime > myTimelineTime.val
 					);
 
@@ -1458,12 +1490,47 @@ namespace HaremLife
 				}, true);
 
 				CreateMenuButton("Go To Previous Keyframe", () => {
-					ControlKeyframe previousKeyframe = keyframes.LastOrDefault(
+					Keyframe previousKeyframe = keyframes.LastOrDefault(
 						k => k.myTime < myTimelineTime.val
 					);
 
 					myTimelineTime.val = previousKeyframe.myTime;
 				}, true);
+			}
+		}
+
+		private void UIUpdateTimelineSlider(Timeline timeline, float v, List<object> myElements) {
+			Keyframe keyframe = timeline.myKeyframes.FirstOrDefault(
+				k => Math.Abs(k.myTime - myTimelineTime.val) < 0.01
+			);
+
+			if (keyframe == null) {
+				UIDynamicButton uid = Utils.SetupButton(this, "Add Keyframe", () => {
+					if(timeline is ControlTimeline) {
+						ControlCapture controlCapture = myCurrentLayer.myControlCaptures.Find(cc => cc.myName == myKeyframeCaptureList.val);
+
+						ControlEntryAnchored entry;
+						entry = new ControlEntryAnchored(controlCapture);
+						entry.Initialize();
+						controlCapture.CaptureEntry(entry);
+
+						keyframe = new ControlKeyframe(v, entry);
+					} else {
+						MorphCapture morphCapture = myCurrentLayer.myMorphCaptures.Find(cc => cc.mySID == myKeyframeCaptureList.val);
+						keyframe = new MorphKeyframe(v, morphCapture.myMorph.morphValue);
+					}
+					timeline.AddKeyframe(keyframe);
+					UIRefreshMenu();
+				}, true);
+				myElements.Add(uid);
+				myMenuElements.Add(uid);
+			} else if(!keyframe.myIsFirst && !keyframe.myIsLast) {
+				UIDynamicButton uid = Utils.SetupButton(this, "Remove Keyframe", () => {
+					timeline.RemoveKeyframe(keyframe);
+					UIRefreshMenu();
+				}, true);
+				myElements.Add(uid);
+				myMenuElements.Add(uid);
 			}
 		}
 
