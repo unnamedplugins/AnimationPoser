@@ -638,12 +638,12 @@ namespace HaremLife
 				myEndEntry = endControlEntry;
 
 				ControlEntry startEntry = new ControlEntry(myControlCapture);
-				startEntry.myTransform = startControlEntry.myTransform;
-				myKeyframes.Add(new ControlKeyframe("first", startControlEntry));
+				startEntry.myTransform = ControlTransform.Identity();
+				myKeyframes.Add(new ControlKeyframe("first", startEntry));
 
 				ControlEntry endEntry = new ControlEntry(myControlCapture);
-				endEntry.myTransform = endControlEntry.myTransform;
-				myKeyframes.Add(new ControlKeyframe("last", endControlEntry));
+				endEntry.myTransform = ControlTransform.Identity();
+				myKeyframes.Add(new ControlKeyframe("last", endEntry));
 
 				ComputeControlPoints();
 			}
@@ -1268,10 +1268,19 @@ namespace HaremLife
 
 			public void UpdateCurve(float t)
 			{
-				myTimeline.myStartEntry.UpdateTransform();
-				myTimeline.myEndEntry.UpdateTransform();
+				ControlEntryAnchored startEntry = myTimeline.myStartEntry;
+				ControlEntryAnchored endEntry = myTimeline.myEndEntry;
+
+				startEntry.UpdateTransform();
+				endEntry.UpdateTransform();
 
 				//t = ArcLengthParametrization(t);
+
+				ControlTransform virtualAnchor = new ControlTransform(
+					myTimeline.myStartEntry.myTransform,
+					myTimeline.myEndEntry.myTransform,
+					t
+				);
 
 				List<ControlKeyframe> curve = new List<ControlKeyframe>(
 					myTimeline.myKeyframes.Cast<ControlKeyframe>().OrderBy(k => k.myTime)
@@ -1306,13 +1315,20 @@ namespace HaremLife
 					rc3 = k2.myControlPointIn.myTransform.myRotation;
 				}
 
+				ControlTransform transform = virtualAnchor.Compose(
+					new ControlTransform(
+						EvalBezier(t, c1, c2, c3, c4),
+						EvalBezier(t, rc1, rc2, rc3, rc4)
+					)
+				);
+
 				if (myApplyPosition)
 //	 && k2.myControlEntry.myPositionState != FreeControllerV3.PositionState.Off
-					myTransform.position = EvalBezier(t, c1, c2, c3, c4);
+					myTransform.position = transform.myPosition;
 
 				if (myApplyRotation)
 //  && k2.myControlEntry.myRotationState != FreeControllerV3.RotationState.Off
-					myTransform.rotation = EvalBezier(t, rc1, rc2, rc3, rc4);
+					myTransform.rotation = transform.myRotation;
 			}
 
 			public void UpdateState(State state)
@@ -1375,6 +1391,13 @@ namespace HaremLife
 				return new ControlTransform(
 					-(Quaternion.Inverse(myRotation) * myPosition),
 					Quaternion.Inverse(myRotation)
+				);
+			}
+
+			public static ControlTransform Identity() {
+				return new ControlTransform(
+					Vector3.zero,
+					Quaternion.identity
 				);
 			}
 		}
