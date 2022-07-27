@@ -431,18 +431,21 @@ namespace HaremLife
 				if(!paused) {
 					myClock = Mathf.Min(myClock + Time.deltaTime*myCurrentAnimation.mySpeed, 100000.0f);
 
-					// if a transition is possible but not yet chosen and the state duration is up
-					if(myClock >= myDuration && myTransition == null) {
-						SetNextTransition();
-					} else if (myTransition != null) {
-						float t = Smooth(myTransition.myEaseOutDuration, myTransition.myEaseInDuration, myTransition.myDuration, myClock-myDuration);
-						UpdateCurve(t);
+					if(myClock >= myDuration) {
+						if(myTransition == null) {
+							SetNextTransition();
+						} else {
+							float t = Smooth(myTransition.myEaseOutDuration, myTransition.myEaseInDuration, myTransition.myDuration, myClock-myDuration);
+							UpdateCurve(t);
 
-						if (myClock >= myDuration + myTransition.myDuration + myTransitionNoise)
-							ArriveAtState();
-					} else {
-						UpdateState();
+							if (myClock >= myDuration + myTransition.myDuration + myTransitionNoise)
+								ArriveAtState();
+
+							return;
+						}
 					}
+
+					UpdateState();
 				}
 			}
 
@@ -529,6 +532,7 @@ namespace HaremLife
 				} else {
 					transition = new Transition(sourceState, targetState);
 				}
+
 				transition.StartTransition(myTriggerActionsNeedingUpdate);
 				float transitionNoise = UnityEngine.Random.Range(-transition.myDurationNoise, transition.myDurationNoise);
 
