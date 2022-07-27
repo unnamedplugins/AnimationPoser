@@ -348,7 +348,6 @@ namespace HaremLife
 			public List<ControlCapture> myControlCaptures = new List<ControlCapture>();
 			public List<MorphCapture> myMorphCaptures = new List<MorphCapture>();
 			private Transition myTransition;
-			private float myTransitionNoise = 0.0f;
 			public float myClock = 0.0f;
 			public float myDuration = 1.0f;
 			private List<TriggerActionDiscrete> myTriggerActionsNeedingUpdate = new List<TriggerActionDiscrete>();
@@ -392,68 +391,29 @@ namespace HaremLife
 				}
 			}
 
-			public float Smooth(float a, float b, float d, float t)
-			{
-				d = Mathf.Max(d, 0.01f);
-				t = Mathf.Clamp(t, 0.0f, d);
-				if (a+b>d)
-				{
-					float scale = d/(a+b);
-					a *= scale;
-					b *= scale;
-				}
-				float n = d - 0.5f*(a+b);
-				float s = d - t;
-
-				// This is based on using the SmoothStep function (3x^2 - 2x^3) for velocity: https://en.wikipedia.org/wiki/Smoothstep
-				// The result is a 3-piece curve consiting of a linear part in the middle and the integral of SmoothStep at both
-				// ends. Additionally there is some scaling to connect the parts properly.
-				// The resulting combined curve has smooth velocity and continuous acceleration/deceleration.
-				float ta = t / a;
-				float sb = s / b;
-				if (t < a)
-					return (a - 0.5f*t) * (ta*ta*ta/n);
-				else if (s >= b)
-					return (t - 0.5f*a) / n;
-				else
-					return (0.5f*s - b) * (sb*sb*sb/n) + 1.0f;
-			}
-
 			public void UpdateLayer()
 			{
-				for (int i=0; i<myTriggerActionsNeedingUpdate.Count; ++i){
+				for (int i=0; i<myTriggerActionsNeedingUpdate.Count; ++i)
 					myTriggerActionsNeedingUpdate[i].Update();
-				}
 				myTriggerActionsNeedingUpdate.RemoveAll(a => !a.timerActive);
 
+				float deltaTime = Time.deltaTime*myCurrentAnimation.mySpeed;
+
 				bool paused = myPaused && myTransition == null && myStateChain.Count == 0;
-
-				if(!paused) {
-					myClock = Mathf.Min(myClock + Time.deltaTime*myCurrentAnimation.mySpeed, 100000.0f);
-
+				if(!paused && myMenuItem != MENU_TIMELINES) {
+					myClock = Mathf.Min(myClock + deltaTime, 100000.0f);
 					if(myClock >= myDuration) {
 						if(myTransition == null) {
 							SetNextTransition();
 						} else {
-							float t = Smooth(myTransition.myEaseOutDuration, myTransition.myEaseInDuration, myTransition.myDuration, myClock-myDuration);
-							UpdateCurve(t);
-
-							if (myClock >= myDuration + myTransition.myDuration + myTransitionNoise)
+							myTransition.Advance(deltaTime);
+							if (myTransition.myFinished)
 								ArriveAtState();
-
 							return;
 						}
 					}
-
 					UpdateState();
 				}
-			}
-
-			public void UpdateCurve(float t) {
-				for (int i=0; i<myControlCaptures.Count; ++i)
-					myControlCaptures[i].UpdateCurve(t);
-				for (int i=0; i<myMorphCaptures.Count; ++i)
-					myMorphCaptures[i].UpdateCurve(t);
 			}
 
 			public void UpdateState() {
@@ -534,48 +494,48 @@ namespace HaremLife
 				}
 
 				transition.StartTransition(myTriggerActionsNeedingUpdate);
-				float transitionNoise = UnityEngine.Random.Range(-transition.myDurationNoise, transition.myDurationNoise);
 
 				if(targetState.myAnimation() != sourceState.myAnimation()) {
 					Animation animation = targetState.myAnimation();
 					Layer targetLayer = targetState.myLayer;
 
+					float noise = UnityEngine.Random.Range(-transition.myDurationNoise, transition.myDurationNoise);
+
 					foreach(var l in animation.myLayers) {
 						Layer layer = l.Value;
 						if(layer == targetLayer || transition.mySyncTargets.Keys.Contains(layer))
 							continue;
-						layer.GoToAnyState(transition.myDuration, transitionNoise);
+						layer.GoToAnyState(transition.myDuration, noise);
 					}
 
-					targetLayer.BlendTo(targetState, transition.myDuration, transitionNoise);
+					targetLayer.BlendTo(targetState, transition.myDuration, noise);
 					targetLayer.myStateChain = new List<State>(myStateChain);
 
 					SetAnimation(animation);
 				} else {
-					SetTransition(transition, transitionNoise);
+					SetTransition(transition);
 				}
 			}
 
-			public void GoToAnyState(float transitionDuration, float transitionNoise) {
+			public void GoToAnyState(float transitionDuration, float noise) {
 				if(myCurrentState == null) {
 					List<string> states = myStates.Keys.ToList();
 					states.Sort();
 					if(states.Count() > 0)
-						BlendTo(myStates[states[0]], transitionDuration, transitionNoise);
+						BlendTo(myStates[states[0]], transitionDuration, noise);
 				} else
-					BlendTo(myCurrentState, transitionDuration, transitionNoise);
+					BlendTo(myCurrentState, transitionDuration, noise);
 			}
 
-			public void BlendTo(State targetState, float transitionDuration, float transitionNoise) {
+			public void BlendTo(State targetState, float transitionDuration, float noise) {
 				Transition transition = new Transition(CreateBlendState(), targetState, transitionDuration);
-				SetTransition(transition, transitionNoise);
+				SetTransition(transition);
+				myTransition.myNoise = noise;
 			}
 
-			public void SetTransition(Transition transition, float transitionNoise) {
-				transition.Set();
-
+			public void SetTransition(Transition transition, float t=0) {
+				transition.Set(t);
 				myTransition = transition;
-				myTransitionNoise = transitionNoise;
 			}
 		}
 
@@ -752,6 +712,9 @@ namespace HaremLife
 
 		private class Transition : BaseTransition
 		{
+			public float myTime;
+			public float myNoise;
+			public bool myFinished;
 			public float myEaseInDuration;
 			public float myEaseOutDuration;
 			public float myDuration;
@@ -887,11 +850,13 @@ namespace HaremLife
 				}
 			}
 
-			public void Set() {
+			public void Set(float v=0) {
+				myFinished = false;
+				myTime = v * myDuration;
+				myNoise = UnityEngine.Random.Range(-myDurationNoise, myDurationNoise);
 				foreach(var t in myControlTimelines) {
 					ControlTimeline timeline = t.Value;
 					ControlCapture capture = t.Key;
-
 					capture.SetTransition(timeline);
 				}
 
@@ -900,6 +865,23 @@ namespace HaremLife
 					MorphCapture capture = t.Key;
 					capture.SetTransition(timeline.myKeyframes);
 				}
+
+				UpdateCurve();
+			}
+
+			public void Advance(float deltaTime) {
+				myTime += deltaTime;
+				UpdateCurve();
+			}
+
+			public void UpdateCurve() {
+				float s = Smooth(myEaseOutDuration, myEaseInDuration, myDuration+myNoise, myTime);
+				foreach(ControlCapture capture in myControlTimelines.Keys.ToList())
+					capture.UpdateCurve(s);
+				foreach(MorphCapture capture in myMorphTimelines.Keys.ToList())
+					capture.UpdateCurve(s);
+				if(s>=1)
+					myFinished = true;
 			}
 		}
 
@@ -1413,7 +1395,6 @@ namespace HaremLife
 			public ControlEntry(ControlCapture controlCapture)
 			{
 				myControlCapture = controlCapture;
-				// Initialize();
 			}
 		}
 

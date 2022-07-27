@@ -248,6 +248,33 @@ namespace HaremLife
             return Quaternion.SlerpUnclamped(temp1, temp2, t);
         }
 
+        private static float Smooth(float a, float b, float d, float t)
+        {
+            d = Mathf.Max(d, 0.01f);
+            t = Mathf.Clamp(t, 0.0f, d);
+            if (a+b>d)
+            {
+                float scale = d/(a+b);
+                a *= scale;
+                b *= scale;
+            }
+            float n = d - 0.5f*(a+b);
+            float s = d - t;
+
+            // This is based on using the SmoothStep function (3x^2 - 2x^3) for velocity: https://en.wikipedia.org/wiki/Smoothstep
+            // The result is a 3-piece curve consiting of a linear part in the middle and the integral of SmoothStep at both
+            // ends. Additionally there is some scaling to connect the parts properly.
+            // The resulting combined curve has smooth velocity and continuous acceleration/deceleration.
+            float ta = t / a;
+            float sb = s / b;
+            if (t < a)
+                return (a - 0.5f*t) * (ta*ta*ta/n);
+            else if (s >= b)
+                return (t - 0.5f*a) / n;
+            else
+                return (0.5f*s - b) * (sb*sb*sb/n) + 1.0f;
+        }
+
         // private static float ArcLengthParametrization(float t)
         // {
         // 	if (myEntryCount <= 2 || myEntryCount > 4){

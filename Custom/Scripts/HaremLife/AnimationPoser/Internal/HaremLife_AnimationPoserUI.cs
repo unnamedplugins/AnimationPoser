@@ -17,7 +17,7 @@ namespace HaremLife
 		private List<UIDynamic> myMenuCached = new List<UIDynamic>();
 		private List<object> myMenuElements = new List<object>();
 
-		private int myMenuItem = 0;
+		private static int myMenuItem = 0;
 		private UIDynamicTabBar myMenuTabBar;
 		private static JSONStorableStringChooser myMainAnimation;
 		private static JSONStorableStringChooser myMainState;
@@ -1429,6 +1429,7 @@ namespace HaremLife
 				myTimelineTime = new JSONStorableFloat("Time", myTimelineTime == null ?
 														0 : myTimelineTime.val, 0.00f, 1.0f, true, true);
 
+				myTimelineTime.valNoCallback = transition.myTime;
 				Timeline timeline;
 
 				if(myKeyframeCaptureType.val == myCaptureTypes[0]) {
@@ -1454,23 +1455,7 @@ namespace HaremLife
 
 				myTimelineTime.setCallbackFunction = (float v) => {
 					Utils.RemoveUIElements(this, myElements);
-
-					foreach(var ct in transition.myControlTimelines) {
-						ControlCapture capt = ct.Key;
-						ControlTimeline tmln = ct.Value;
-
-						capt.SetTransition(tmln);
-						capt.UpdateCurve(v);
-					}
-
-					foreach(var ct in transition.myMorphTimelines) {
-						MorphCapture capt = ct.Key;
-						MorphTimeline tmln = ct.Value;
-
-						capt.SetTransition(tmln.myKeyframes);
-						capt.UpdateCurve(v);
-					}
-
+					myCurrentLayer.SetTransition(transition, v);
 					UIUpdateTimelineSlider(timeline, v, myElements);
 				};
 
