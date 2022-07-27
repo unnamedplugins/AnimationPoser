@@ -1354,6 +1354,11 @@ namespace HaremLife
 				myRotation = transform.myRotation;
 			}
 
+			public ControlTransform(Transform transform1, Transform transform2, float blendRatio) {
+				myPosition = Vector3.LerpUnclamped(transform1.position, transform2.position, blendRatio);
+				myRotation = Quaternion.SlerpUnclamped(transform1.rotation, transform2.rotation, blendRatio);
+			}
+
 			public ControlTransform(ControlTransform transform1, ControlTransform transform2, float blendRatio) {
 				myPosition = Vector3.LerpUnclamped(transform1.myPosition, transform2.myPosition, blendRatio);
 				myRotation = Quaternion.SlerpUnclamped(transform1.myRotation, transform2.myRotation, blendRatio);
@@ -1397,8 +1402,8 @@ namespace HaremLife
 			public FreeControllerV3.PositionState myPositionState;
 			public FreeControllerV3.RotationState myRotationState;
 			public ControlTransform myAnchorOffset;
-			public ControlTransform myAnchorATransform;
-			public ControlTransform myAnchorBTransform;
+			public Transform myAnchorATransform;
+			public Transform myAnchorBTransform;
 			public int myAnchorMode = ANCHORMODE_SINGLE;
 			public int myAnchorAType = ANCHORTYPE_OBJECT;
 			public int myAnchorBType = ANCHORTYPE_OBJECT;
@@ -1462,14 +1467,14 @@ namespace HaremLife
 				}
 			}
 
-			private ControlTransform GetTransform(string atomName, string controlName, int anchorType)
+			private Transform GetTransform(string atomName, string controlName, int anchorType)
 			{
 				Atom atom = null;
 				if (anchorType == ControlEntryAnchored.ANCHORTYPE_OBJECT)
 					atom = SuperController.singleton.GetAtomByUid(atomName);
 				else if(myRoles.Keys.Contains(atomName))
 					atom = myRoles[atomName].myPerson;
-				return new ControlTransform(atom?.GetStorableByID(controlName)?.transform);
+				return atom?.GetStorableByID(controlName)?.transform;
 			}
 
 			public void UpdateInstant()
@@ -1486,7 +1491,7 @@ namespace HaremLife
 				{
 					if (myAnchorATransform == null)
 						return null;
-					virtualAnchor = myAnchorATransform;
+					virtualAnchor = new ControlTransform(myAnchorATransform);
 				} else {
 					if (myAnchorATransform == null || myAnchorBTransform == null)
 						return null;
