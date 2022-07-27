@@ -1464,6 +1464,7 @@ namespace HaremLife
 
 			public void Initialize()
 			{
+				GetAnchorTransforms();
 				UpdateInstant();
 			}
 
@@ -1482,12 +1483,19 @@ namespace HaremLife
 				}
 				else
 				{
-					myAnchorATransform = GetTransform(myAnchorAAtom, myAnchorAControl, myAnchorAType);
+					myAnchorATransform = GetTransform("A");
 					if (myAnchorMode == ANCHORMODE_BLEND)
-						myAnchorBTransform = GetTransform(myAnchorBAtom, myAnchorBControl, myAnchorBType);
+						myAnchorBTransform = GetTransform("B");
 					else
 						myAnchorBTransform = null;
 				}
+			}
+
+			public Transform GetTransform(string anchor) {
+				if(anchor == "A")
+					return GetTransform(myAnchorAAtom, myAnchorAControl, myAnchorAType);
+				else
+					return GetTransform(myAnchorBAtom, myAnchorBControl, myAnchorBType);
 			}
 
 			private Transform GetTransform(string atomName, string controlName, int anchorType)
