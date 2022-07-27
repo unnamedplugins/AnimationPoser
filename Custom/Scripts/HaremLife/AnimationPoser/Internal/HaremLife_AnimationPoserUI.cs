@@ -1459,7 +1459,7 @@ namespace HaremLife
 						ControlCapture capt = ct.Key;
 						ControlTimeline tmln = ct.Value;
 
-						capt.SetTransition(tmln.myKeyframes);
+						capt.SetTransition(tmln);
 						capt.UpdateCurve(v);
 					}
 

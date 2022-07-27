@@ -263,10 +263,10 @@ namespace HaremLife
 								JSONClass ctlkfm = new JSONClass();
 								ControlKeyframe keyframe = keyframes[j];
 								ctlkfm["T"].AsFloat = keyframe.myTime;
-								ctlkfm["X"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myPosition.x;
-								ctlkfm["Y"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myPosition.y;
-								ctlkfm["Z"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myPosition.z;
-								Vector3 rotation = keyframe.myControlEntry.myAnchorOffset.myRotation.eulerAngles;
+								ctlkfm["X"].AsFloat = keyframe.myControlEntry.myTransform.myPosition.x;
+								ctlkfm["Y"].AsFloat = keyframe.myControlEntry.myTransform.myPosition.y;
+								ctlkfm["Z"].AsFloat = keyframe.myControlEntry.myTransform.myPosition.z;
+								Vector3 rotation = keyframe.myControlEntry.myTransform.myRotation.eulerAngles;
 								ctlkfm["RX"].AsFloat = rotation.x;
 								ctlkfm["RY"].AsFloat = rotation.y;
 								ctlkfm["RZ"].AsFloat = rotation.z;
@@ -654,14 +654,11 @@ namespace HaremLife
 						ControlEntryAnchored ce = new ControlEntryAnchored(cc);
 						ce.myPositionState = getPositionState(ceclass["PositionState"]);
 						ce.myRotationState = getRotationState(ceclass["RotationState"]);
-						ce.myAnchorOffset.myPosition.x = ceclass["PX"].AsFloat;
-						ce.myAnchorOffset.myPosition.y = ceclass["PY"].AsFloat;
-						ce.myAnchorOffset.myPosition.z = ceclass["PZ"].AsFloat;
-						Vector3 rotation;
-						rotation.x = ceclass["RX"].AsFloat;
-						rotation.y = ceclass["RY"].AsFloat;
-						rotation.z = ceclass["RZ"].AsFloat;
-						ce.myAnchorOffset.myRotation.eulerAngles = rotation;
+						ce.myAnchorOffset = new ControlTransform(
+							new Vector3(ceclass["PX"].AsFloat, ceclass["PY"].AsFloat, ceclass["PZ"].AsFloat),
+							Quaternion.Euler(ceclass["RX"].AsFloat, ceclass["RY"].AsFloat, ceclass["RZ"].AsFloat)
+						);
+
 						ce.myAnchorMode = ceclass["AnchorMode"].AsInt;
 						if (ce.myAnchorMode >= ControlEntryAnchored.ANCHORMODE_SINGLE)
 						{
@@ -778,59 +775,24 @@ namespace HaremLife
 									continue;
 
 								ControlTimeline timeline = new ControlTimeline(capture);
+								timeline.SetEndpoints(
+									transition.mySourceState.myControlEntries[capture],
+									transition.myTargetState.myControlEntries[capture]
+								);
 
 								JSONArray kfms = ctltml["ControlKeyframes"].AsArray;
 
-								for (int k=0; k<kfms.Count; ++k)
+								for (int k=1; k<kfms.Count-1; ++k)
 								{
 									JSONClass kfm = kfms[k].AsObject;
 
-									ControlEntryAnchored ce = new ControlEntryAnchored(capture);
-									ce.myAnchorOffset.myPosition.x = kfm["X"].AsFloat;
-									ce.myAnchorOffset.myPosition.y = kfm["Y"].AsFloat;
-									ce.myAnchorOffset.myPosition.z = kfm["Z"].AsFloat;
-									Vector3 rotation;
-									rotation.x = kfm["RX"].AsFloat;
-									rotation.y = kfm["RY"].AsFloat;
-									rotation.z = kfm["RZ"].AsFloat;
-									ce.myAnchorOffset.myRotation.eulerAngles = rotation;
+									ControlEntry ce = new ControlEntry(capture);
+									ce.myTransform = new ControlTransform(
+										new Vector3(kfm["X"].AsFloat, kfm["Y"].AsFloat, kfm["Z"].AsFloat),
+										Quaternion.Euler(kfm["RX"].AsFloat, kfm["RY"].AsFloat, kfm["RZ"].AsFloat)
+									);
 
-									ControlEntryAnchored firstCe = transition.mySourceState.myControlEntries[capture];
-									ce.myPositionState = firstCe.myPositionState;
-									ce.myRotationState = firstCe.myRotationState;
-									ce.myAnchorMode = firstCe.myAnchorMode;
-									if (ce.myAnchorMode >= ControlEntryAnchored.ANCHORMODE_SINGLE)
-									{
-										ce.myDampingTime = firstCe.myDampingTime;
-										ce.myAnchorAType = firstCe.myAnchorAType;
-										ce.myAnchorAAtom = firstCe.myAnchorAAtom;
-										ce.myAnchorAControl = firstCe.myAnchorAControl;
-
-										if (ce.myAnchorAAtom == "[Self]")
-											ce.myAnchorAAtom = containingAtom.uid;
-									}
-									if (ce.myAnchorMode == ControlEntryAnchored.ANCHORMODE_BLEND)
-									{
-										ce.myAnchorBType = firstCe.myAnchorBType;
-										ce.myAnchorBAtom = firstCe.myAnchorBAtom;
-										ce.myAnchorBControl = firstCe.myAnchorBControl;
-										ce.myBlendRatio = firstCe.myBlendRatio;
-
-										if (ce.myAnchorBAtom == "[Self]")
-											ce.myAnchorBAtom = containingAtom.uid;
-									}
-									ce.Initialize();
-
-									ControlKeyframe keyframe;
-									if(k==0) {
-										keyframe = new ControlKeyframe("first", ce);
-									} else if(k==kfms.Count-1) {
-										keyframe = new ControlKeyframe("last", ce);
-									} else {
-										keyframe = new ControlKeyframe(kfm["T"].AsFloat, ce);
-									}
-
-									timeline.AddKeyframe(keyframe);
+									timeline.AddKeyframe(new ControlKeyframe(kfm["T"].AsFloat, ce));
 								}
 								transition.myControlTimelines[capture] = timeline;
 							}
@@ -1175,48 +1137,48 @@ namespace HaremLife
 					rzentry["c"] = "3";
 					rwentry["c"] = "3";
 
-					xentry["v"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myPosition.x;
-					yentry["v"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myPosition.y;
-					zentry["v"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myPosition.z;
-					rxentry["v"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myRotation.x;
-					ryentry["v"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myRotation.y;
-					rzentry["v"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myRotation.z;
-					rwentry["v"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myRotation.w;
+					xentry["v"].AsFloat = keyframe.myControlEntry.myTransform.myPosition.x;
+					yentry["v"].AsFloat = keyframe.myControlEntry.myTransform.myPosition.y;
+					zentry["v"].AsFloat = keyframe.myControlEntry.myTransform.myPosition.z;
+					rxentry["v"].AsFloat = keyframe.myControlEntry.myTransform.myRotation.x;
+					ryentry["v"].AsFloat = keyframe.myControlEntry.myTransform.myRotation.y;
+					rzentry["v"].AsFloat = keyframe.myControlEntry.myTransform.myRotation.z;
+					rwentry["v"].AsFloat = keyframe.myControlEntry.myTransform.myRotation.w;
 
 					if(keyframe.myControlPointIn != null) {
-						xentry["i"].AsFloat = keyframe.myControlPointIn.myAnchorOffset.myPosition.x;
-						yentry["i"].AsFloat = keyframe.myControlPointIn.myAnchorOffset.myPosition.y;
-						zentry["i"].AsFloat = keyframe.myControlPointIn.myAnchorOffset.myPosition.z;
-						rxentry["i"].AsFloat = keyframe.myControlPointIn.myAnchorOffset.myRotation.x;
-						ryentry["i"].AsFloat = keyframe.myControlPointIn.myAnchorOffset.myRotation.y;
-						rzentry["i"].AsFloat = keyframe.myControlPointIn.myAnchorOffset.myRotation.z;
-						rwentry["i"].AsFloat = keyframe.myControlPointIn.myAnchorOffset.myRotation.w;
+						xentry["i"].AsFloat = keyframe.myControlPointIn.myTransform.myPosition.x;
+						yentry["i"].AsFloat = keyframe.myControlPointIn.myTransform.myPosition.y;
+						zentry["i"].AsFloat = keyframe.myControlPointIn.myTransform.myPosition.z;
+						rxentry["i"].AsFloat = keyframe.myControlPointIn.myTransform.myRotation.x;
+						ryentry["i"].AsFloat = keyframe.myControlPointIn.myTransform.myRotation.y;
+						rzentry["i"].AsFloat = keyframe.myControlPointIn.myTransform.myRotation.z;
+						rwentry["i"].AsFloat = keyframe.myControlPointIn.myTransform.myRotation.w;
 					} else {
-						xentry["i"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myPosition.x;
-						yentry["i"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myPosition.y;
-						zentry["i"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myPosition.z;
-						rxentry["i"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myRotation.x;
-						ryentry["i"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myRotation.y;
-						rzentry["i"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myRotation.z;
-						rwentry["i"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myRotation.w;
+						xentry["i"].AsFloat = keyframe.myControlEntry.myTransform.myPosition.x;
+						yentry["i"].AsFloat = keyframe.myControlEntry.myTransform.myPosition.y;
+						zentry["i"].AsFloat = keyframe.myControlEntry.myTransform.myPosition.z;
+						rxentry["i"].AsFloat = keyframe.myControlEntry.myTransform.myRotation.x;
+						ryentry["i"].AsFloat = keyframe.myControlEntry.myTransform.myRotation.y;
+						rzentry["i"].AsFloat = keyframe.myControlEntry.myTransform.myRotation.z;
+						rwentry["i"].AsFloat = keyframe.myControlEntry.myTransform.myRotation.w;
 					}
 
 					if(keyframe.myControlPointOut != null) {
-						xentry["o"].AsFloat = keyframe.myControlPointOut.myAnchorOffset.myPosition.x;
-						yentry["o"].AsFloat = keyframe.myControlPointOut.myAnchorOffset.myPosition.y;
-						zentry["o"].AsFloat = keyframe.myControlPointOut.myAnchorOffset.myPosition.z;
-						rxentry["o"].AsFloat = keyframe.myControlPointOut.myAnchorOffset.myRotation.x;
-						ryentry["o"].AsFloat = keyframe.myControlPointOut.myAnchorOffset.myRotation.y;
-						rzentry["o"].AsFloat = keyframe.myControlPointOut.myAnchorOffset.myRotation.z;
-						rwentry["o"].AsFloat = keyframe.myControlPointOut.myAnchorOffset.myRotation.w;
+						xentry["o"].AsFloat = keyframe.myControlPointOut.myTransform.myPosition.x;
+						yentry["o"].AsFloat = keyframe.myControlPointOut.myTransform.myPosition.y;
+						zentry["o"].AsFloat = keyframe.myControlPointOut.myTransform.myPosition.z;
+						rxentry["o"].AsFloat = keyframe.myControlPointOut.myTransform.myRotation.x;
+						ryentry["o"].AsFloat = keyframe.myControlPointOut.myTransform.myRotation.y;
+						rzentry["o"].AsFloat = keyframe.myControlPointOut.myTransform.myRotation.z;
+						rwentry["o"].AsFloat = keyframe.myControlPointOut.myTransform.myRotation.w;
 					} else {
-						xentry["o"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myPosition.x;
-						yentry["o"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myPosition.y;
-						zentry["o"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myPosition.z;
-						rxentry["o"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myRotation.x;
-						ryentry["o"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myRotation.y;
-						rzentry["o"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myRotation.z;
-						rwentry["o"].AsFloat = keyframe.myControlEntry.myAnchorOffset.myRotation.w;
+						xentry["o"].AsFloat = keyframe.myControlEntry.myTransform.myPosition.x;
+						yentry["o"].AsFloat = keyframe.myControlEntry.myTransform.myPosition.y;
+						zentry["o"].AsFloat = keyframe.myControlEntry.myTransform.myPosition.z;
+						rxentry["o"].AsFloat = keyframe.myControlEntry.myTransform.myRotation.x;
+						ryentry["o"].AsFloat = keyframe.myControlEntry.myTransform.myRotation.y;
+						rzentry["o"].AsFloat = keyframe.myControlEntry.myTransform.myRotation.z;
+						rwentry["o"].AsFloat = keyframe.myControlEntry.myTransform.myRotation.w;
 					}
 
 					xlist.Add(xentry);

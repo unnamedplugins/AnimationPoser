@@ -624,6 +624,8 @@ namespace HaremLife
 		}
 
 		private class ControlTimeline : Timeline {
+			public ControlEntryAnchored myStartEntry;
+			public ControlEntryAnchored myEndEntry;
 			public ControlCapture myControlCapture;
 
 			public ControlTimeline(ControlCapture controlCapture) {
@@ -632,8 +634,17 @@ namespace HaremLife
 
 			public void SetEndpoints(ControlEntryAnchored startControlEntry,
 									 ControlEntryAnchored endControlEntry) {
+				myStartEntry = startControlEntry;
+				myEndEntry = endControlEntry;
+
+				ControlEntry startEntry = new ControlEntry(myControlCapture);
+				startEntry.myTransform = startControlEntry.myTransform;
 				myKeyframes.Add(new ControlKeyframe("first", startControlEntry));
+
+				ControlEntry endEntry = new ControlEntry(myControlCapture);
+				endEntry.myTransform = endControlEntry.myTransform;
 				myKeyframes.Add(new ControlKeyframe("last", endControlEntry));
+
 				ComputeControlPoints();
 			}
 
@@ -642,50 +653,58 @@ namespace HaremLife
 				List<float> xs = new List<float>();
 				List<float> ys = new List<float>();
 				List<float> zs = new List<float>();
+				List<float> rxs = new List<float>();
+				List<float> rys = new List<float>();
+				List<float> rzs = new List<float>();
+				List<float> rws = new List<float>();
 				List<Keyframe> keyframes = new List<Keyframe>(myKeyframes.OrderBy(k => k.myTime));
 				if(keyframes.Count < 3)
 					return;
 
 				for(int i=0; i<keyframes.Count; i++) {
 					ControlKeyframe controlKeyframe = keyframes[i] as ControlKeyframe;
-					ControlEntry ce = controlKeyframe.myControlEntry.myAnchorOffset;
+					ControlTransform ce = controlKeyframe.myControlEntry.myTransform;
 					ts.Add(controlKeyframe.myTime);
 					xs.Add(ce.myPosition.x);
 					ys.Add(ce.myPosition.y);
 					zs.Add(ce.myPosition.z);
+					rxs.Add(ce.myRotation.x);
+					rys.Add(ce.myRotation.y);
+					rzs.Add(ce.myRotation.z);
+					rws.Add(ce.myRotation.w);
 				}
 
 				List<ControlPoint> xControlPoints = AutoComputeControlPoints(xs, ts);
 				List<ControlPoint> yControlPoints = AutoComputeControlPoints(ys, ts);
 				List<ControlPoint> zControlPoints = AutoComputeControlPoints(zs, ts);
+				List<ControlPoint> rxControlPoints = AutoComputeControlPoints(rxs, ts);
+				List<ControlPoint> ryControlPoints = AutoComputeControlPoints(rys, ts);
+				List<ControlPoint> rzControlPoints = AutoComputeControlPoints(rzs, ts);
+				List<ControlPoint> rwControlPoints = AutoComputeControlPoints(rws, ts);
 
 				for(int i=0; i<keyframes.Count; i++) {
 					ControlKeyframe controlKeyframe = keyframes[i] as ControlKeyframe;
-					ControlEntryAnchored controlPointIn = controlKeyframe.myControlPointIn;
+					ControlEntry controlPointIn = controlKeyframe.myControlPointIn;
 					if(controlPointIn == null) {
-						controlPointIn = new ControlEntryAnchored(myControlCapture);
-						controlPointIn.setDefaults(controlKeyframe.myControlEntry);
-						controlPointIn.Initialize();
-						myControlCapture.CaptureEntry(controlPointIn);
+						controlPointIn = new ControlEntry(myControlCapture);
 						controlKeyframe.myControlPointIn = controlPointIn;
 					}
 
-					controlPointIn.myAnchorOffset.myPosition.x = xControlPoints[i].In;
-					controlPointIn.myAnchorOffset.myPosition.y = yControlPoints[i].In;
-					controlPointIn.myAnchorOffset.myPosition.z = zControlPoints[i].In;
+					controlPointIn.myTransform = new ControlTransform(
+						new Vector3(xControlPoints[i].In, yControlPoints[i].In, zControlPoints[i].In),
+						new Quaternion(rxControlPoints[i].In, ryControlPoints[i].In, rzControlPoints[i].In, rwControlPoints[i].In)
+					);
 
-					ControlEntryAnchored controlPointOut = controlKeyframe.myControlPointOut;
+					ControlEntry controlPointOut = controlKeyframe.myControlPointOut;
 					if(controlPointOut == null) {
-						controlPointOut = new ControlEntryAnchored(myControlCapture);
-						controlPointOut.setDefaults(controlKeyframe.myControlEntry);
-						controlPointOut.Initialize();
-						myControlCapture.CaptureEntry(controlPointOut);
+						controlPointOut = new ControlEntry(myControlCapture);
 						controlKeyframe.myControlPointOut = controlPointOut;
 					}
 
-					controlPointOut.myAnchorOffset.myPosition.x = xControlPoints[i].Out;
-					controlPointOut.myAnchorOffset.myPosition.y = yControlPoints[i].Out;
-					controlPointOut.myAnchorOffset.myPosition.z = zControlPoints[i].Out;
+					controlPointOut.myTransform = new ControlTransform(
+						new Vector3(xControlPoints[i].Out, yControlPoints[i].Out, zControlPoints[i].Out),
+						new Quaternion(rxControlPoints[i].Out, ryControlPoints[i].Out, rzControlPoints[i].Out, rwControlPoints[i].Out)
+					);
 				}
 			}
 		}
@@ -869,7 +888,7 @@ namespace HaremLife
 					ControlTimeline timeline = t.Value;
 					ControlCapture capture = t.Key;
 
-					capture.SetTransition(timeline.myKeyframes);
+					capture.SetTransition(timeline);
 				}
 
 				foreach(var t in myMorphTimelines) {
@@ -1107,11 +1126,11 @@ namespace HaremLife
 
 		private class ControlKeyframe : Keyframe
 		{
-			public ControlEntryAnchored myControlEntry;
-			public ControlEntryAnchored myControlPointIn;
-			public ControlEntryAnchored myControlPointOut;
+			public ControlEntry myControlEntry;
+			public ControlEntry myControlPointIn;
+			public ControlEntry myControlPointOut;
 
-			public ControlKeyframe(string firstOrLast, ControlEntryAnchored entry)
+			public ControlKeyframe(string firstOrLast, ControlEntry entry)
 			{
 				if(String.Equals(firstOrLast, "first")) {
 					myTime = 0;
@@ -1124,7 +1143,7 @@ namespace HaremLife
 				myControlEntry = entry;
 			}
 
-			public ControlKeyframe(float time, ControlEntryAnchored entry)
+			public ControlKeyframe(float time, ControlEntry entry)
 			{
 				myTime = time;
 				myControlEntry = entry;
@@ -1133,7 +1152,6 @@ namespace HaremLife
 
 		private class MorphKeyframe : Keyframe
 		{
-			public MorphCapture myCapture;
 			public float myMorphEntry;
 			public float myControlPointIn;
 			public float myControlPointOut;
@@ -1162,7 +1180,7 @@ namespace HaremLife
 		{
 			public string myName;
 			public Transform myTransform;
-			private List<ControlKeyframe> myCurve = new List<ControlKeyframe>();
+			private ControlTimeline myTimeline;
 			public bool myApplyPosition = true;
 			public bool myApplyRotation = true;
 			FreeControllerV3 myController;
@@ -1186,31 +1204,29 @@ namespace HaremLife
 				if (!state.myControlEntries.TryGetValue(this, out entry))
 				{
 					entry = new ControlEntryAnchored(this);
-					entry.Initialize();
 					state.myControlEntries[this] = entry;
+					CaptureEntry(entry);
+					return;
+				} else {
+					ControlTransform oldTransform = new ControlTransform(entry.myAnchorOffset);
+
+					CaptureEntry(entry);
+
+					if(state.myIsRootState)
+						TransformLayer(state, state.myLayer, oldTransform);
 				}
-
-				Quaternion oldRotation = entry.myAnchorOffset.myRotation;
-				Vector3 oldPosition = entry.myAnchorOffset.myPosition;
-
-				CaptureEntry(entry);
-
-				if(state.myIsRootState)
-					TransformLayer(state, state.myLayer, oldPosition, oldRotation);
 			}
 
-			public void TransformLayer(State rootState, Layer layer, Vector3 oldRootPosition, Quaternion oldRootRotation) {
+			public void TransformLayer(State rootState, Layer layer, ControlTransform oldTransform) {
 				foreach(var s in layer.myStates) {
 					State st = s.Value;
 					if(st != rootState) {
 						ControlEntryAnchored rootCe = rootState.myControlEntries[this];
 						ControlEntryAnchored ce = st.myControlEntries[this];
 
-						Quaternion transformRotation = rootCe.myAnchorOffset.myRotation * Quaternion.Inverse(oldRootRotation);
-						Vector3 transformPosition = myTransform.position - oldRootPosition;
-
-						ce.myAnchorOffset.myPosition = rootCe.myAnchorOffset.myPosition + transformRotation * (ce.myAnchorOffset.myPosition - oldRootPosition);
-						ce.myAnchorOffset.myRotation = transformRotation * ce.myAnchorOffset.myRotation;
+						ce.myAnchorOffset = rootCe.myAnchorOffset.Compose(
+							oldTransform.Inverse().Compose(ce.myAnchorOffset)
+						);
 					}
 				}
 			}
@@ -1225,8 +1241,7 @@ namespace HaremLife
 					positionState = myController.currentPositionState;
 					rotationState = myController.currentRotationState;
 				}
-				entry.Capture(myTransform.position, myTransform.rotation,
-								positionState, rotationState);
+				entry.Capture(new ControlTransform(myTransform), positionState, rotationState);
 			}
 
 			public void setDefaults(State state, State oldState)
@@ -1240,36 +1255,33 @@ namespace HaremLife
 				entry.setDefaults(oldEntry);
 			}
 
-			public void SetTransition(List<Keyframe> keyframes)
+			public void SetTransition(ControlTimeline timeline)
 			{
-				myCurve = new List<ControlKeyframe>(keyframes.Cast<ControlKeyframe>().OrderBy(k => k.myTime));
-				for(int i=0; i<keyframes.Count; i++) {
-					myCurve[i].myControlEntry.Initialize();
-					if(myCurve[i].myControlPointIn != null)
-						myCurve[i].myControlPointIn.Initialize();
-					if(myCurve[i].myControlPointOut != null)
-						myCurve[i].myControlPointOut.Initialize();
-				}
+				myTimeline = timeline;
 			}
 
 			public void UpdateControllerStates() {
-				ControlEntryAnchored entry = myCurve.Last().myControlEntry;
+				ControlEntryAnchored entry = myTimeline.myEndEntry;
 				myController.currentPositionState = entry.myPositionState;
 				myController.currentRotationState = entry.myRotationState;
 			}
 
 			public void UpdateCurve(float t)
 			{
-				for (int i=0; i<myCurve.Count; ++i)
-					myCurve[i].myControlEntry.Update();
+				myTimeline.myStartEntry.UpdateTransform();
+				myTimeline.myEndEntry.UpdateTransform();
 
 				//t = ArcLengthParametrization(t);
 
-				ControlKeyframe k1 = myCurve[0];
-				ControlKeyframe k2 = myCurve[1];
-				for (int i=1; i<myCurve.Count; ++i) {
+				List<ControlKeyframe> curve = new List<ControlKeyframe>(
+					myTimeline.myKeyframes.Cast<ControlKeyframe>().OrderBy(k => k.myTime)
+				);
+
+				ControlKeyframe k1 = curve[0];
+				ControlKeyframe k2 = curve[1];
+				for (int i=1; i<curve.Count; ++i) {
 					if(k2.myTime < t) {
-						k1 = myCurve[i]; k2 = myCurve[i+1];
+						k1 = curve[i]; k2 = curve[i+1];
 					} else {
 						break;
 					}
@@ -1281,23 +1293,25 @@ namespace HaremLife
 				Quaternion rc1, rc4; Quaternion? rc2, rc3;
 				c2=c3=null; rc2=rc3=null;
 
-				c1 = k1.myControlEntry.myEntry.myPosition;
-				rc1 = k1.myControlEntry.myEntry.myRotation;
-				c4 = k2.myControlEntry.myEntry.myPosition;
-				rc4 = k2.myControlEntry.myEntry.myRotation;
+				c1 = k1.myControlEntry.myTransform.myPosition;
+				rc1 = k1.myControlEntry.myTransform.myRotation;
+				c4 = k2.myControlEntry.myTransform.myPosition;
+				rc4 = k2.myControlEntry.myTransform.myRotation;
 				if(k1.myControlPointOut != null) {
-					c2 = k1.myControlPointOut.myEntry.myPosition;
-					rc2 = k1.myControlPointOut.myEntry.myRotation;
+					c2 = k1.myControlPointOut.myTransform.myPosition;
+					rc2 = k1.myControlPointOut.myTransform.myRotation;
 				}
 				if(k2.myControlPointIn != null) {
-					c3 = k2.myControlPointIn.myEntry.myPosition;
-					rc3 = k2.myControlPointIn.myEntry.myRotation;
+					c3 = k2.myControlPointIn.myTransform.myPosition;
+					rc3 = k2.myControlPointIn.myTransform.myRotation;
 				}
-	
-				if (myApplyPosition && k2.myControlEntry.myPositionState != FreeControllerV3.PositionState.Off)
+
+				if (myApplyPosition)
+//	 && k2.myControlEntry.myPositionState != FreeControllerV3.PositionState.Off
 					myTransform.position = EvalBezier(t, c1, c2, c3, c4);
 
-				if (myApplyRotation && k2.myControlEntry.myRotationState != FreeControllerV3.RotationState.Off)
+				if (myApplyRotation)
+//  && k2.myControlEntry.myRotationState != FreeControllerV3.RotationState.Off
 					myTransform.rotation = EvalBezier(t, rc1, rc2, rc3, rc4);
 			}
 
@@ -1306,11 +1320,11 @@ namespace HaremLife
 				ControlEntryAnchored entry;
 				if (state.myControlEntries.TryGetValue(this, out entry))
 				{
-					entry.Update();
+					entry.UpdateTransform();
 					if (myApplyPosition)
-						myTransform.position = entry.myEntry.myPosition;
+						myTransform.position = entry.myTransform.myPosition;
 					if (myApplyRotation)
-						myTransform.rotation = entry.myEntry.myRotation;
+						myTransform.rotation = entry.myTransform.myRotation;
 				}
 			}
 
@@ -1320,13 +1334,58 @@ namespace HaremLife
 			}
 		}
 
-		private struct ControlEntry
+		private class ControlTransform
 		{
-			public Quaternion myRotation;
 			public Vector3 myPosition;
+			public Quaternion myRotation;
+
+			public ControlTransform(Vector3 position, Quaternion rotation) {
+				myPosition = position;
+				myRotation = rotation;
+			}
+
+			public ControlTransform(Transform transform) {
+				myPosition = transform.position;
+				myRotation = transform.rotation;
+			}
+
+			public ControlTransform(ControlTransform transform) {
+				myPosition = transform.myPosition;
+				myRotation = transform.myRotation;
+			}
+
+			public ControlTransform(ControlTransform transform1, ControlTransform transform2, float blendRatio) {
+				myPosition = Vector3.LerpUnclamped(transform1.myPosition, transform2.myPosition, blendRatio);
+				myRotation = Quaternion.SlerpUnclamped(transform1.myRotation, transform2.myRotation, blendRatio);
+			}
+
+			public ControlTransform Compose(ControlTransform transform) {
+				return new ControlTransform(
+					myPosition + myRotation * transform.myPosition,
+					myRotation * transform.myRotation
+				);
+			}
+
+			public ControlTransform Inverse() {
+				return new ControlTransform(
+					-(Quaternion.Inverse(myRotation) * myPosition),
+					Quaternion.Inverse(myRotation)
+				);
+			}
+		}
+		
+		private class ControlEntry {
+			public ControlTransform myTransform;
+			public ControlCapture myControlCapture;
+
+			public ControlEntry(ControlCapture controlCapture)
+			{
+				myControlCapture = controlCapture;
+				// Initialize();
+			}
 		}
 
-		private class ControlEntryAnchored
+		private class ControlEntryAnchored : ControlEntry
 		{
 			public const int ANCHORMODE_WORLD = 0;
 			public const int ANCHORMODE_SINGLE = 1;
@@ -1335,12 +1394,11 @@ namespace HaremLife
 			public const int ANCHORTYPE_OBJECT = 0;
 			public const int ANCHORTYPE_ROLE = 1;
 
-			public ControlEntry myEntry;
 			public FreeControllerV3.PositionState myPositionState;
 			public FreeControllerV3.RotationState myRotationState;
-			public ControlEntry myAnchorOffset;
-			public Transform myAnchorATransform;
-			public Transform myAnchorBTransform;
+			public ControlTransform myAnchorOffset;
+			public ControlTransform myAnchorATransform;
+			public ControlTransform myAnchorBTransform;
 			public int myAnchorMode = ANCHORMODE_SINGLE;
 			public int myAnchorAType = ANCHORTYPE_OBJECT;
 			public int myAnchorBType = ANCHORTYPE_OBJECT;
@@ -1351,17 +1409,15 @@ namespace HaremLife
 			public string myAnchorBAtom;
 			public string myAnchorAControl = "control";
 			public string myAnchorBControl = "control";
-			public ControlCapture myControlCapture;
 
-			public ControlEntryAnchored(ControlCapture controlCapture)
+			public ControlEntryAnchored(ControlCapture controlCapture) : base(controlCapture)
 			{
 				Atom containingAtom = myPlugin.GetContainingAtom();
 				if (containingAtom.type != "Person" || controlCapture.myName == "control")
 					myAnchorMode = ANCHORMODE_WORLD;
 				myAnchorAAtom = myAnchorBAtom = containingAtom.uid;
-				myControlCapture = controlCapture;
 
-				Initialize();
+				GetAnchorTransforms();
 			}
 
 			public void setDefaults(ControlEntryAnchored entry)
@@ -1380,18 +1436,16 @@ namespace HaremLife
 
 			public void Initialize()
 			{
-				GetTransforms();
 				UpdateInstant();
 			}
 
 			public void AdjustAnchor()
 			{
-				GetTransforms();
-				Capture(myEntry.myPosition, myEntry.myRotation,
-							myPositionState, myRotationState);
+				GetAnchorTransforms();
+				Capture(myTransform, myPositionState, myRotationState);
 			}
 
-			private void GetTransforms()
+			private void GetAnchorTransforms()
 			{
 				if (myAnchorMode == ANCHORMODE_WORLD)
 				{
@@ -1408,96 +1462,83 @@ namespace HaremLife
 				}
 			}
 
-			private Transform GetTransform(string atomName, string controlName, int anchorType)
+			private ControlTransform GetTransform(string atomName, string controlName, int anchorType)
 			{
 				Atom atom = null;
 				if (anchorType == ControlEntryAnchored.ANCHORTYPE_OBJECT)
 					atom = SuperController.singleton.GetAtomByUid(atomName);
 				else if(myRoles.Keys.Contains(atomName))
 					atom = myRoles[atomName].myPerson;
-				return atom?.GetStorableByID(controlName)?.transform;
+				return new ControlTransform(atom?.GetStorableByID(controlName)?.transform);
 			}
 
 			public void UpdateInstant()
 			{
 				float dampingTime = myDampingTime;
 				myDampingTime = 0.0f;
-				Update();
+				UpdateTransform();
 				myDampingTime = dampingTime;
 			}
 
-			public void Update()
+			public ControlTransform GetVirtualAnchorTransform() {
+				ControlTransform virtualAnchor;
+				if (myAnchorMode == ANCHORMODE_SINGLE)
+				{
+					if (myAnchorATransform == null)
+						return null;
+					virtualAnchor = myAnchorATransform;
+				} else {
+					if (myAnchorATransform == null || myAnchorBTransform == null)
+						return null;
+					virtualAnchor = new ControlTransform(myAnchorATransform, myAnchorBTransform, myBlendRatio);
+				}
+				return virtualAnchor;
+			}
+
+			public void UpdateTransform()
 			{
 				if (myAnchorMode == ANCHORMODE_WORLD)
 				{
-					myEntry = myAnchorOffset;
+					myTransform = myAnchorOffset;
 				}
 				else
 				{
-					ControlEntry anchor;
-					if (myAnchorMode == ANCHORMODE_SINGLE)
-					{
-						if (myAnchorATransform == null)
-							return;
-						anchor.myPosition = myAnchorATransform.position;
-						anchor.myRotation = myAnchorATransform.rotation;
-					} else {
-						if (myAnchorATransform == null || myAnchorBTransform == null)
-							return;
-						anchor.myPosition = Vector3.LerpUnclamped(myAnchorATransform.position, myAnchorBTransform.position, myBlendRatio);
-						anchor.myRotation = Quaternion.SlerpUnclamped(myAnchorATransform.rotation, myAnchorBTransform.rotation, myBlendRatio);
-					}
-					anchor.myPosition = anchor.myPosition + anchor.myRotation * myAnchorOffset.myPosition;
-					anchor.myRotation = anchor.myRotation * myAnchorOffset.myRotation;
+					ControlTransform anchor = GetVirtualAnchorTransform();
+					if(anchor == null)
+						return;
 
 					if (myDampingTime >= 0.001f)
 					{
 						float t = Mathf.Clamp01(Time.deltaTime / myDampingTime);
-						myEntry.myPosition = Vector3.LerpUnclamped(myEntry.myPosition, anchor.myPosition, t);
-						myEntry.myRotation = Quaternion.SlerpUnclamped(myEntry.myRotation, anchor.myRotation, t);
+						myTransform = new ControlTransform(myTransform, anchor.Compose(myAnchorOffset), t);
 					}
 					else
 					{
-						myEntry = anchor;
+						myTransform = anchor.Compose(myAnchorOffset);
 					}
 				}
 			}
 
-			public void Capture(Vector3 position, Quaternion rotation,
+			public void Capture(ControlTransform transform,
 									FreeControllerV3.PositionState positionState,
 									FreeControllerV3.RotationState rotationState)
 			{
 				myPositionState = positionState;
 				myRotationState = rotationState;
 
-				myEntry.myPosition = position;
-				myEntry.myRotation = rotation;
+				myTransform = transform;
 
 				if (myAnchorMode == ANCHORMODE_WORLD)
 				{
-					myAnchorOffset.myPosition = position;
-					myAnchorOffset.myRotation = rotation;
+					myAnchorOffset = new ControlTransform(transform);
 				}
 				else
 				{
-					ControlEntry root;
-					if (myAnchorMode == ANCHORMODE_SINGLE)
-					{
-						if (myAnchorATransform == null){
-							return;
-						}
-						root.myPosition = myAnchorATransform.position;
-						root.myRotation = myAnchorATransform.rotation;
-					} else {
-						if (myAnchorATransform == null || myAnchorBTransform == null){
-							return;
-						}
-						root.myPosition = Vector3.LerpUnclamped(myAnchorATransform.position, myAnchorBTransform.position, myBlendRatio);
-						root.myRotation = Quaternion.SlerpUnclamped(myAnchorATransform.rotation, myAnchorBTransform.rotation, myBlendRatio);
-					}
+					ControlTransform anchor = GetVirtualAnchorTransform();
+					if(anchor == null)
+						return;
 
-					myAnchorOffset.myPosition = Quaternion.Inverse(root.myRotation) * (position - root.myPosition);
-					myAnchorOffset.myRotation = Quaternion.Inverse(root.myRotation) * rotation;
+					myAnchorOffset = anchor.Inverse().Compose(transform);
 				}
 			}
 		}

@@ -195,7 +195,7 @@ namespace HaremLife
 					sphereIndex++;
 
 					material.color = DebugGetStateColor(state);
-					Vector3 position = ce.myEntry.myPosition;
+					Vector3 position = ce.myTransform.myPosition;
 					Vector3 localScale = DEBUG_CUBE_REGULAR_VECTOR;
 					matrix.SetTRS(position, Quaternion.identity, localScale);
 					Graphics.DrawMesh(myDebugSphereMesh, matrix, material, gameObject.layer, null, 0, null, castShadows: false, receiveShadows: false);
@@ -332,7 +332,7 @@ namespace HaremLife
 					ControlEntryAnchored ce;
 					if (!myDebugTransition[j].myControlEntries.TryGetValue(cc, out ce))
 						continue;
-					myDebugLinePositions[j] = ce.myEntry.myPosition;
+					myDebugLinePositions[j] = ce.myTransform.myPosition;
 				}
 
 				Color32 startColor = DebugGetStateColor(myDebugTransition[0]);
@@ -445,8 +445,8 @@ namespace HaremLife
 					continue;
 
 				int vertex = myDebugLineVertices.Count;
-				myDebugLineVertices.Add(ceSource.myEntry.myPosition);
-				myDebugLineVertices.Add(ceTarget.myEntry.myPosition);
+				myDebugLineVertices.Add(ceSource.myTransform.myPosition);
+				myDebugLineVertices.Add(ceTarget.myTransform.myPosition);
 				myDebugLineColors.Add(color);
 				myDebugLineColors.Add(DEBUG_TRANSITION_COLOR);
 				myDebugLineIndices.Add(vertex);
