@@ -3080,6 +3080,9 @@ namespace HaremLife
 			controlEntry.myDampingTime = myAnchorDampingTime.val;
 
 			int anchorTypeA = myAnchorTypes.FindIndex(m => m == myAnchorTypeListA.val);
+			if(anchorTypeA < 0)
+				anchorTypeA = 0;
+
 			controlEntry.myAnchorAType = anchorTypeA;
 
 			if (anchorMode >= ControlEntryAnchored.ANCHORMODE_SINGLE)
