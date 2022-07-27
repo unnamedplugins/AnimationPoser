@@ -399,19 +399,23 @@ namespace HaremLife
 
 				float deltaTime = Time.deltaTime*myCurrentAnimation.mySpeed;
 
-				bool paused = myPaused && myTransition == null && myStateChain.Count == 0;
-				if(!paused && myMenuItem != MENU_TIMELINES) {
-					myClock = Mathf.Min(myClock + deltaTime, 100000.0f);
-					if(myClock >= myDuration) {
-						if(myTransition == null) {
-							SetNextTransition();
-						} else {
-							myTransition.Advance(deltaTime);
-							if (myTransition.myFinished)
-								ArriveAtState();
-							return;
+				if(myMenuItem == MENU_TIMELINES)
+					return;
+
+				if(myClock >= myDuration) {
+					if(myTransition != null) {
+						myTransition.Advance(deltaTime);
+						if (myTransition.myFinished) {
+							ArriveAtState();
 						}
+						return;
+					} else {
+						SetNextTransition();
 					}
+				}
+
+				if(!myPaused) {
+					myClock = Mathf.Min(myClock + deltaTime, 100000.0f);
 					UpdateState();
 				}
 			}

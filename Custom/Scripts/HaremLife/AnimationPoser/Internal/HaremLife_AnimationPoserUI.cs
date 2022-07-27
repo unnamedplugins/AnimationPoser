@@ -1456,6 +1456,7 @@ namespace HaremLife
 				myTimelineTime.setCallbackFunction = (float v) => {
 					Utils.RemoveUIElements(this, myElements);
 					myCurrentLayer.SetTransition(transition, v);
+					myCurrentLayer.myStateChain.Clear();
 					UIUpdateTimelineSlider(timeline, v, myElements);
 				};
 
