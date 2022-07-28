@@ -1166,7 +1166,9 @@ namespace HaremLife
 				myAnchorCaptureList.valNoCallback = captures[0];
 			CreateMenuPopup(myAnchorCaptureList, false);
 
-			CreateMenuButton("Set anchor for all states in this layer", UISetAnchorForAllStates, false);
+			CreateMenuButton("Set anchor for all states in this layer", UISetAnchorForAllStates, true);
+			CreateMenuButton("Set anchor for all controllers in this state", UISetAnchorForAllControllers, true);
+			CreateMenuButton("Set anchor for all controllers and states", UISetAnchorForAllControllersAndStates, true);
 
 			ControlCapture controlCapture = myCurrentLayer.myControlCaptures.Find(cc => cc.myName == myAnchorCaptureList.val);
 			if (controlCapture == null)
@@ -3137,12 +3139,11 @@ namespace HaremLife
 			UIRefreshMenu();
 		}
 
-		private void UISetAnchorForState(State state)
+		private void UISetAnchorForStateAndCapture(State state, ControlCapture controlCapture)
 		{
 			if (state == null)
 				return;
 
-			ControlCapture controlCapture = myCurrentLayer.myControlCaptures.Find(cc => cc.myName == myAnchorCaptureList.val);
 			if (controlCapture == null)
 				return;
 
@@ -3183,6 +3184,14 @@ namespace HaremLife
 			controlEntry.AdjustAnchor();
 		}
 
+
+
+		private void UISetAnchorForState(State state)
+		{
+			ControlCapture controlCapture = myCurrentLayer.myControlCaptures.Find(cc => cc.myName == myAnchorCaptureList.val);
+			UISetAnchorForStateAndCapture(state, controlCapture);
+		}
+
 		private void UISetAnchors()
 		{
 			State state = UIGetState();
@@ -3196,6 +3205,24 @@ namespace HaremLife
 				UISetAnchorForState(s.Value);
 			UIRefreshMenu();
 		}
+
+		private void UISetAnchorForAllControllers()
+		{
+			foreach(ControlCapture cc in myCurrentLayer.myControlCaptures)
+				UISetAnchorForStateAndCapture(myCurrentLayer.myCurrentState, cc);
+			UIRefreshMenu();
+		}
+
+		private void UISetAnchorForAllControllersAndStates()
+		{
+			foreach(var s in myCurrentLayer.myStates) {
+				foreach(ControlCapture cc in myCurrentLayer.myControlCaptures)
+					UISetAnchorForStateAndCapture(s.Value, cc);
+			}
+			UIRefreshMenu();
+		}
+
+
 
 		private void UISetAnchorsBlendDamp()
 		{
