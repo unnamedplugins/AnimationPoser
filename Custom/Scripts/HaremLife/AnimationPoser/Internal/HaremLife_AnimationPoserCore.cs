@@ -1529,7 +1529,7 @@ namespace HaremLife
 					}
 					
 					if (entry.myAnchorMode != ControlEntryAnchored.ANCHORMODE_WORLD) {
-						if (entry.myAnchorAControl != "control") {
+						if (entry.myAnchorAControl != "control" || entry.myAnchorMode == ControlEntryAnchored.ANCHORMODE_BLEND) {
 							entry.UpdateInstant();
 						}
 					}
