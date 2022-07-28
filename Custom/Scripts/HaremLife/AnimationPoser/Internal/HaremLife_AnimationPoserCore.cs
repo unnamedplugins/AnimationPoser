@@ -759,6 +759,11 @@ namespace HaremLife
 //  && k2.myControlEntry.myRotationState != FreeControllerV3.RotationState.Off
 					myControlCapture.myTransform.rotation = transform.myRotation;
 			}
+
+			public void UpdateControllerStates() {
+				myControlCapture.SetPositionState(myEndEntry.myPositionState);
+				myControlCapture.SetRotationState(myEndEntry.myRotationState);
+			}
 		}
 
 		private class MorphTimeline : Timeline {
@@ -911,8 +916,8 @@ namespace HaremLife
 			public void EndTransition(List<TriggerActionDiscrete> triggerActionsNeedingUpdate) {
 				SendEndTransitionTriggers(triggerActionsNeedingUpdate);
 
-				for (int i=0; i<myTargetState.myLayer.myControlCaptures.Count; ++i)
-					myTargetState.myLayer.myControlCaptures[i].UpdateControllerStates();
+				foreach (ControlTimeline timeline in myControlTimelines.Values.ToList())
+					timeline.UpdateControllerStates();
 			}
 
 			public void SendStartTransitionTriggers(List<TriggerActionDiscrete> triggerActionsNeedingUpdate) {
@@ -1323,12 +1328,19 @@ namespace HaremLife
 				}
 			}
 
-
 			public FreeControllerV3.PositionState GetPositionState() {
 				if(myController.name == "control")
 					return FreeControllerV3.PositionState.On;
 				else
 					return myController.currentPositionState;
+			}
+
+			public void SetPositionState(FreeControllerV3.PositionState state) {
+				myController.currentPositionState = state;
+			}
+
+			public void SetRotationState(FreeControllerV3.RotationState state) {
+				myController.currentRotationState = state;
 			}
 
 			public FreeControllerV3.RotationState GetRotationState() {
@@ -1355,12 +1367,6 @@ namespace HaremLife
 				if (!oldState.myControlEntries.TryGetValue(this, out oldEntry))
 					return;
 				entry.setDefaults(oldEntry);
-			}
-
-			public void UpdateControllerStates() {
-				ControlEntryAnchored entry = myTimeline.myEndEntry;
-				myController.currentPositionState = entry.myPositionState;
-				myController.currentRotationState = entry.myRotationState;
 			}
 
 			public void UpdateState(State state)
