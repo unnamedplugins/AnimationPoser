@@ -1085,6 +1085,8 @@ namespace HaremLife
 				myFinished = false;
 				myTime = v;
 				myNoise = UnityEngine.Random.Range(-myDurationNoise, myDurationNoise);
+				mySourceState.InitializeEntries();
+				myTargetState.InitializeEntries();
 				UpdateCurve();
 			}
 
@@ -1322,6 +1324,11 @@ namespace HaremLife
 			{
 				ExitBeginTrigger = other?.ExitBeginTrigger;
 				ExitEndTrigger = other?.ExitEndTrigger;
+			}
+
+			public void InitializeEntries() {
+				foreach(var ce in myControlEntries)
+					ce.Value.Initialize();
 			}
 		}
 
