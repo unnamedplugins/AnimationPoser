@@ -845,6 +845,7 @@ namespace HaremLife
 						keyframe.myControlEntry.myTransform
 					);
 					keyframe.myTime = keyframe.myTime * transition1Duration/totalDuration;
+					keyframe.myIsLast = false;
 				}
 
 				for (int i=1; i<timeline2.myKeyframes.Count; ++i) {

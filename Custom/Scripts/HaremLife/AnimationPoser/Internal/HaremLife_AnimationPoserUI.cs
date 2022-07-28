@@ -1514,8 +1514,6 @@ namespace HaremLife
 						);
 
 						foreach(ControlTimeline tmln in transition1.myControlTimelines.Values.ToList()) {
-							ControlCapture capture = tmln.myControlCapture;
-
 							for (int i=1; i<tmln.myKeyframes.Count-1; ++i) {
 								ControlKeyframe keyframe = tmln.myKeyframes[i] as ControlKeyframe;
 								keyframe.myControlEntry.myTransform = tmln.GetVirtualAnchor(
