@@ -679,11 +679,13 @@ namespace HaremLife
 				myStartEntry = startControlEntry;
 				myEndEntry = endControlEntry;
 
-				if(myKeyframes.Count < 2) {
+				if(myKeyframes.FirstOrDefault(k=>k.myIsFirst) == null) {
 					ControlEntry startEntry = new ControlEntry(myControlCapture);
 					startEntry.myTransform = ControlTransform.Identity();
 					AddKeyframe(new ControlKeyframe("first", startEntry));
+				}
 
+				if(myKeyframes.FirstOrDefault(k=>k.myIsLast) == null) {
 					ControlEntry endEntry = new ControlEntry(myControlCapture);
 					endEntry.myTransform = ControlTransform.Identity();
 					AddKeyframe(new ControlKeyframe("last", endEntry));
