@@ -578,7 +578,12 @@ namespace HaremLife
 			public List<Keyframe> myKeyframes = new List<Keyframe>();
 
 			public void AddKeyframe(Keyframe keyframe) {
-				myKeyframes.Add(keyframe);
+				int i;
+				for(i=0; i<myKeyframes.Count; i++) {
+					if(myKeyframes[i].myTime > keyframe.myTime)
+						break;
+				}
+				myKeyframes.Insert(i, keyframe);
 				ComputeControlPoints();
 			}
 
@@ -613,11 +618,11 @@ namespace HaremLife
 
 				ControlEntry startEntry = new ControlEntry(myControlCapture);
 				startEntry.myTransform = ControlTransform.Identity();
-				myKeyframes.Add(new ControlKeyframe("first", startEntry));
+				AddKeyframe(new ControlKeyframe("first", startEntry));
 
 				ControlEntry endEntry = new ControlEntry(myControlCapture);
 				endEntry.myTransform = ControlTransform.Identity();
-				myKeyframes.Add(new ControlKeyframe("last", endEntry));
+				AddKeyframe(new ControlKeyframe("last", endEntry));
 
 				ComputeControlPoints();
 			}
@@ -646,6 +651,7 @@ namespace HaremLife
 			}
 
 			public override void ComputeControlPoints() {
+				myKeyframes = new List<Keyframe>(myKeyframes.OrderBy(k => k.myTime));
 				List<float> ts = new List<float>();
 				List<float> xs = new List<float>();
 				List<float> ys = new List<float>();
@@ -654,12 +660,11 @@ namespace HaremLife
 				List<float> rys = new List<float>();
 				List<float> rzs = new List<float>();
 				List<float> rws = new List<float>();
-				List<Keyframe> keyframes = new List<Keyframe>(myKeyframes.OrderBy(k => k.myTime));
-				if(keyframes.Count < 3)
+				if(myKeyframes.Count < 3)
 					return;
 
-				for(int i=0; i<keyframes.Count; i++) {
-					ControlKeyframe controlKeyframe = keyframes[i] as ControlKeyframe;
+				for(int i=0; i<myKeyframes.Count; i++) {
+					ControlKeyframe controlKeyframe = myKeyframes[i] as ControlKeyframe;
 					ControlTransform ce = controlKeyframe.myControlEntry.myTransform;
 					ts.Add(controlKeyframe.myTime);
 					xs.Add(ce.myPosition.x);
@@ -679,8 +684,8 @@ namespace HaremLife
 				List<ControlPoint> rzControlPoints = AutoComputeControlPoints(rzs, ts);
 				List<ControlPoint> rwControlPoints = AutoComputeControlPoints(rws, ts);
 
-				for(int i=0; i<keyframes.Count; i++) {
-					ControlKeyframe controlKeyframe = keyframes[i] as ControlKeyframe;
+				for(int i=0; i<myKeyframes.Count; i++) {
+					ControlKeyframe controlKeyframe = myKeyframes[i] as ControlKeyframe;
 					ControlEntry controlPointIn = controlKeyframe.myControlPointIn;
 					if(controlPointIn == null) {
 						controlPointIn = new ControlEntry(myControlCapture);
@@ -709,17 +714,15 @@ namespace HaremLife
 			{
 				//t = ArcLengthParametrization(t);
 
-				List<ControlKeyframe> curve = new List<ControlKeyframe>(
-					myKeyframes.Cast<ControlKeyframe>().OrderBy(k => k.myTime)
-				);
-
+				myKeyframes = new List<Keyframe>(myKeyframes.OrderBy(k => k.myTime));
 				ControlTransform virtualAnchor = GetVirtualAnchor(t);
 
-				ControlKeyframe k1 = curve[0];
-				ControlKeyframe k2 = curve[1];
-				for (int i=1; i<curve.Count; ++i) {
+				ControlKeyframe k1 = myKeyframes[0] as ControlKeyframe;
+				ControlKeyframe k2 = myKeyframes[1] as ControlKeyframe;
+				for (int i=1; i<myKeyframes.Count; ++i) {
 					if(k2.myTime < t) {
-						k1 = curve[i]; k2 = curve[i+1];
+						k1 = myKeyframes[i] as ControlKeyframe;
+						k2 = myKeyframes[i+1] as ControlKeyframe;
 					} else {
 						break;
 					}
@@ -807,15 +810,12 @@ namespace HaremLife
 				if (!myMorphCapture.myApply)
 					return;
 
-				List<MorphKeyframe> curve = new List<MorphKeyframe>(
-					myKeyframes.Cast<MorphKeyframe>().OrderBy(k => k.myTime)
-				);
-
-				MorphKeyframe k1 = curve[0];
-				MorphKeyframe k2 = curve[1];
-				for (int i=1; i<curve.Count; ++i) {
+				MorphKeyframe k1 = myKeyframes[0] as MorphKeyframe;
+				MorphKeyframe k2 = myKeyframes[1] as MorphKeyframe;
+				for (int i=1; i<myKeyframes.Count; ++i) {
 					if(k2.myTime < t) {
-						k1 = curve[i]; k2 = curve[i+1];
+						k1 = myKeyframes[i] as MorphKeyframe;
+						k2 = myKeyframes[i+1] as MorphKeyframe;
 					} else {
 						break;
 					}
