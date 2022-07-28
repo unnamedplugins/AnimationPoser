@@ -1493,13 +1493,20 @@ namespace HaremLife
 			if (keyframe == null) {
 				UIDynamicButton uid = Utils.SetupButton(this, "Add Keyframe", () => {
 					if(timeline is ControlTimeline) {
+						ControlTimeline controlTimeline = timeline as ControlTimeline;
 						ControlCapture controlCapture = myCurrentLayer.myControlCaptures.Find(cc => cc.myName == myKeyframeCaptureList.val);
 
 						ControlEntryAnchored entry;
 						entry = new ControlEntryAnchored(controlCapture);
-						entry.Initialize();
 						controlCapture.CaptureEntry(entry);
+						entry.Initialize();
 
+						keyframe = new ControlKeyframe(v, entry);
+
+						ControlTransform virtualAnchor = new ControlTransform(
+							controlTimeline.myStartEntry.myTransform, controlTimeline.myEndEntry.myTransform, v
+						);
+						entry.myTransform = virtualAnchor.Inverse().Compose(entry.myTransform);
 						keyframe = new ControlKeyframe(v, entry);
 					} else {
 						MorphCapture morphCapture = myCurrentLayer.myMorphCaptures.Find(cc => cc.mySID == myKeyframeCaptureList.val);
