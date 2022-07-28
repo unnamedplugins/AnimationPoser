@@ -862,6 +862,7 @@ namespace HaremLife
 						keyframe.myControlEntry.myTransform
 					);
 					keyframe.myTime = keyframe.myTime * transition1Duration/totalDuration;
+					keyframe.myIsLast = false;
 				}
 
 				for (int i=1; i<timeline2.myKeyframes.Count; ++i) {
@@ -1101,6 +1102,8 @@ namespace HaremLife
 				myFinished = false;
 				myTime = v;
 				myNoise = UnityEngine.Random.Range(-myDurationNoise, myDurationNoise);
+				mySourceState.InitializeEntries();
+				myTargetState.InitializeEntries();
 				UpdateCurve();
 			}
 
@@ -1338,6 +1341,11 @@ namespace HaremLife
 			{
 				ExitBeginTrigger = other?.ExitBeginTrigger;
 				ExitEndTrigger = other?.ExitEndTrigger;
+			}
+
+			public void InitializeEntries() {
+				foreach(var ce in myControlEntries)
+					ce.Value.Initialize();
 			}
 		}
 
