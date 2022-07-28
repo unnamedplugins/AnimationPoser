@@ -1201,7 +1201,6 @@ namespace HaremLife
 					ControlTransform oldTransform = new ControlTransform(entry.myAnchorOffset);
 
 					CaptureEntry(entry);
-
 					if(state.myIsRootState)
 						TransformLayer(state, state.myLayer, oldTransform);
 				}
@@ -1221,17 +1220,27 @@ namespace HaremLife
 				}
 			}
 
+
+			public FreeControllerV3.PositionState GetPositionState() {
+				if(myController.name == "control")
+					return FreeControllerV3.PositionState.On;
+				else
+					return myController.currentPositionState;
+			}
+
+			public FreeControllerV3.RotationState GetRotationState() {
+				if(myController.name == "control")
+					return FreeControllerV3.RotationState.On;
+				else
+					return myController.currentRotationState;
+			}
+
 			public void CaptureEntry(ControlEntryAnchored entry) {
-				FreeControllerV3.PositionState positionState;
-				FreeControllerV3.RotationState rotationState;
-				if(myController.name == "control") {
-					positionState = FreeControllerV3.PositionState.On;
-					rotationState = FreeControllerV3.RotationState.On;
-				} else {
-					positionState = myController.currentPositionState;
-					rotationState = myController.currentRotationState;
-				}
-				entry.Capture(new ControlTransform(myTransform), positionState, rotationState);
+				entry.Capture(
+					new ControlTransform(myTransform),
+					GetPositionState(),
+					GetRotationState()
+				);
 			}
 
 			public void setDefaults(State state, State oldState)
