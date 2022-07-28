@@ -1473,7 +1473,7 @@ namespace HaremLife
 				) {
 					CreateMenuInfo("This will turn the current state into a keyframe for a combined transition. All other transitions to/from that state will be removed.", 100, false);
 					CreateMenuButton("Merge transitions", () => {
-						State currentState = myCurrentLayer.myCurrentState;
+						State currentState = UIGetState();
 						Transition transition1 = baseTransition2 as Transition;
 						Transition transition2 = transition;
 

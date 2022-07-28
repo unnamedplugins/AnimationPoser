@@ -730,6 +730,7 @@ namespace HaremLife
 				if(myKeyframes.Count < 3)
 					return;
 
+
 				for(int i=0; i<myKeyframes.Count; i++) {
 					ControlKeyframe controlKeyframe = myKeyframes[i] as ControlKeyframe;
 					ControlTransform ce = controlKeyframe.myControlEntry.myTransform;
