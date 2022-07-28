@@ -797,6 +797,30 @@ namespace HaremLife
 				myControlCapture.SetPositionState(myEndEntry.myPositionState);
 				myControlCapture.SetRotationState(myEndEntry.myRotationState);
 			}
+
+			public void Merge(ControlTimeline timeline2, float transition1Duration, float transition2Duration) {
+				float totalDuration = transition1Duration + transition2Duration;
+
+				for (int i=0; i<myKeyframes.Count; ++i) {
+					ControlKeyframe keyframe = myKeyframes[i] as ControlKeyframe;
+					keyframe.myControlEntry.myTransform = GetVirtualAnchor(keyframe.myTime).Compose(
+						keyframe.myControlEntry.myTransform
+					);
+					keyframe.myTime = keyframe.myTime * transition1Duration/totalDuration;
+				}
+
+				for (int i=1; i<timeline2.myKeyframes.Count; ++i) {
+					ControlKeyframe keyframe = timeline2.myKeyframes[i] as ControlKeyframe;
+					keyframe.myControlEntry.myTransform = timeline2.GetVirtualAnchor(keyframe.myTime).Compose(
+						keyframe.myControlEntry.myTransform
+					);
+					keyframe.myTime = transition1Duration/totalDuration + keyframe.myTime * transition2Duration/totalDuration;
+					myKeyframes.Add(keyframe);
+				}
+
+				myKeyframes.Remove(myKeyframes[0]);
+				myKeyframes.Remove(myKeyframes[myKeyframes.Count-1]);
+			}
 		}
 
 		private class MorphTimeline : Timeline {
@@ -858,6 +882,23 @@ namespace HaremLife
 				float c4 = k2.myMorphEntry;
 
 				myMorphCapture.myMorph.morphValue = EvalBezier(t, c1, c2, c3, c4);
+			}
+
+			public void Merge(Timeline timeline2, float transition1Duration, float transition2Duration) {
+				float totalDuration = transition1Duration + transition2Duration;
+
+				for (int i=0; i<myKeyframes.Count; ++i) {
+					myKeyframes[i].myTime = myKeyframes[i].myTime * transition1Duration/totalDuration;
+				}
+
+				for (int i=1; i<timeline2.myKeyframes.Count; ++i) {
+					timeline2.myKeyframes[i].myTime = transition1Duration/totalDuration
+										+ timeline2.myKeyframes[i].myTime * transition2Duration/totalDuration;
+					myKeyframes.Add(timeline2.myKeyframes[i]);
+				}
+
+				myKeyframes.Remove(myKeyframes[0]);
+				myKeyframes.Remove(myKeyframes[myKeyframes.Count-1]);
 			}
 		}
 

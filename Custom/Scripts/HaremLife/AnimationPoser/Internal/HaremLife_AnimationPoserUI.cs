@@ -45,10 +45,13 @@ namespace HaremLife
 		private JSONStorableStringChooser myAvoidList;
 		private JSONStorableStringChooser myTargetAnimationList;
 		private JSONStorableStringChooser myTargetLayerList;
+		private JSONStorableStringChooser myTargetStateList;
+		private JSONStorableStringChooser myTargetAnimationList2;
+		private JSONStorableStringChooser myTargetLayerList2;
+		private JSONStorableStringChooser myTargetStateList2;
 		private JSONStorableStringChooser mySourceAnimationList;
 		private JSONStorableStringChooser mySourceLayerList;
 		private JSONStorableStringChooser mySourceStateList;
-		private JSONStorableStringChooser myTargetStateList;
 		private JSONStorableStringChooser mySyncRoleList;
 		private JSONStorableStringChooser mySyncLayerList;
 		private JSONStorableStringChooser mySyncStateList;
@@ -1283,20 +1286,20 @@ namespace HaremLife
 			}
 		}
 
-		private void CreateTimelinesMenu()
-		{
-			CreateMenuInfoOneLine("<size=30><b>Timelines</b></size>", false);
-
+		private BaseTransition TransitionDropdown(
+			ref JSONStorableStringChooser targetAnimationList,
+			ref JSONStorableStringChooser targetLayerList,
+			ref JSONStorableStringChooser targetStateList,
+			bool existing = false,
+			bool incoming = false
+		) {
 			State state;
 			if (!myCurrentLayer.myStates.TryGetValue(myMainState.val, out state))
 			{
 				CreateMenuInfo("You need to add some states before you can add transitions.", 100, false);
-				return;
+				return null;
 			}
 
-			CreateMenuInfoOneLine("<size=30><b>Transition Selector</b></size>", true);
-
-			// collect transitions
 			List<UITransition> transitions = new List<UITransition>(state.myTransitions.Count);
 			for (int i=0; i<state.myTransitions.Count; ++i)
 				transitions.Add(new UITransition(state.myTransitions[i].myTargetState, false, true));
@@ -1315,14 +1318,14 @@ namespace HaremLife
 			}
 			transitions.Sort((UITransition a, UITransition b) => a.state.myName.CompareTo(b.state.myName));
 
-			myTargetAnimationList = CreateDropDown(
+			targetAnimationList = CreateDropDown(
 				CastDict(myAnimations).ToDictionary(entry => (string)entry.Key, entry => (AnimationObject)entry.Value),
-				myTargetAnimationList,
+				targetAnimationList,
 				"Target Animation"
 			);
 			Animation targetAnimation;
-			if(!myAnimations.TryGetValue(myTargetAnimationList.val, out targetAnimation)){
-				return;
+			if(!myAnimations.TryGetValue(targetAnimationList.val, out targetAnimation)){
+				return null;
 			};
 
 			Layer targetLayer;
@@ -1336,41 +1339,51 @@ namespace HaremLife
 				singleChoice = true;
 				mySingleChoice = myCurrentLayer as AnimationObject;
 			}
-			myTargetLayerList = CreateDropDown(
+			targetLayerList = CreateDropDown(
 				CastDict(targetAnimation.myLayers).ToDictionary(entry => (string)entry.Key, entry => (AnimationObject)entry.Value),
-				myTargetLayerList,
+				targetLayerList,
 				"Target Layer",
 				singleChoice:singleChoice,
 				mySingleChoice:mySingleChoice
 			);
-			if(!targetAnimation.myLayers.TryGetValue(myTargetLayerList.val, out targetLayer))
-				return;
+			if(!targetAnimation.myLayers.TryGetValue(targetLayerList.val, out targetLayer))
+				return null;
 
 			List<string> availableStates = new List<string>();
 			foreach (var s in targetLayer.myStates)
 			{
 				State target = s.Value;
-				if (state == target || state.getIncomingTransition(target) == null)
-					continue;
+				if(existing) {
+					if(incoming) {
+						if (state == target || target.getIncomingTransition(state) == null)
+							continue;
+					} else {
+						if (state == target || state.getIncomingTransition(target) == null)
+							continue;
+					}
+				} else {
+					if (state == target)
+						continue;
+				}
 				availableStates.Add(target.myName);
 			}
 			availableStates.Sort();
 
-			myTargetStateList = PopulateJSONChooserSelection(
+			targetStateList = PopulateJSONChooserSelection(
 				availableStates,
-				myTargetStateList,
+				targetStateList,
 				"Target State"
 			);
 
-			if(myTargetAnimationList.choices.Count > 0) {
-				CreateMenuPopup(myTargetAnimationList, false);
+			if(targetAnimationList.choices.Count > 0) {
+				CreateMenuPopup(targetAnimationList, false);
 			}
-			if(myTargetLayerList.choices.Count > 0) {
-				CreateMenuPopup(myTargetLayerList, false);
+			if(targetLayerList.choices.Count > 0) {
+				CreateMenuPopup(targetLayerList, false);
 			}
-			if (myTargetStateList.choices.Count > 0)
+			if (targetStateList.choices.Count > 0)
 			{
-				CreateMenuPopup(myTargetStateList, false);
+				CreateMenuPopup(targetStateList, false);
 			}
 			else if (transitions.Count == 0)
 			{
@@ -1378,11 +1391,32 @@ namespace HaremLife
 			}
 
 			State targetState;
-			targetLayer.myStates.TryGetValue(myTargetStateList.val, out targetState);
-			BaseTransition baseTransition = state.getIncomingTransition(targetState);
+			targetLayer.myStates.TryGetValue(targetStateList.val, out targetState);
+			if(targetState == null)
+				return null;
+
+			targetState.getIncomingTransition(state);
+			if(incoming)
+				return targetState.getIncomingTransition(state);
+			else
+				return state.getIncomingTransition(targetState);
+		}
+
+		private void CreateTimelinesMenu()
+		{
+			CreateMenuInfoOneLine("<size=30><b>Timelines</b></size>", false);
+
+			BaseTransition baseTransition = TransitionDropdown(
+				ref myTargetAnimationList,
+				ref myTargetLayerList,
+				ref myTargetStateList,
+				true
+			);
 
 			if(baseTransition != null && baseTransition is Transition && baseTransition.mySourceState.myAnimation() == baseTransition.myTargetState.myAnimation()) {
 				Transition transition = baseTransition as Transition;
+
+				CreateMenuInfoOneLine("<size=30><b>Import/Export from VamTimeline</b></size>", true);
 
 				CreateLoadButton("Load Timeline", (string url) => {
 					UILoadTimelineJSON(url, transition);
@@ -1392,7 +1426,7 @@ namespace HaremLife
 					UISaveTimelineJSON(url, transition);
 				}, TIMELINE_DIRECTORY, "json"), true);
 
-				CreateMenuInfoOneLine("<size=30><b>Transition Settings</b></size>", true);
+				CreateMenuInfoOneLine("<size=30><b>Timeline:</b></size>", true);
 
 				CreateMenuInfoOneLine("<size=30><b>Capture Selector</b></size>", false);
 
@@ -1420,6 +1454,82 @@ namespace HaremLife
 					else if (!captures.Contains(myKeyframeCaptureList.val))
 						myKeyframeCaptureList.valNoCallback = captures[0];
 					CreateMenuPopup(myKeyframeCaptureList, false);
+				}
+
+				CreateMenuInfoOneLine("<size=30><b>Merge transitions:</b></size>", false);
+
+				BaseTransition baseTransition2 = TransitionDropdown(
+					ref myTargetAnimationList2,
+					ref myTargetLayerList2,
+					ref myTargetStateList2,
+					true, true
+				);
+
+				if(
+					baseTransition2 != null &&
+					baseTransition2 is Transition &&
+					baseTransition2.mySourceState.myAnimation() == baseTransition2.myTargetState.myAnimation() &&
+					baseTransition2 != baseTransition
+				) {
+					CreateMenuInfo("This will turn the current state into a keyframe for a combined transition. All other transitions to/from that state will be removed.", 100, false);
+					CreateMenuButton("Merge transitions", () => {
+						State currentState = myCurrentLayer.myCurrentState;
+						Transition transition1 = baseTransition2 as Transition;
+						Transition transition2 = transition;
+
+						myCurrentLayer.myStates.Remove(currentState.myName);
+
+						currentState.myTransitions.Clear();
+						foreach (var s in myCurrentLayer.myStates)
+						{
+							State source = s.Value;
+							List<BaseTransition> toRemove = new List<BaseTransition>();
+							foreach(BaseTransition tr in source.myTransitions) {
+								if(tr.myTargetState == currentState)
+									toRemove.Add(tr);
+							}
+
+							foreach(BaseTransition tr in toRemove) {
+								source.myTransitions.Remove(tr);
+							}
+						}
+
+						foreach(ControlTimeline tmln in transition1.myControlTimelines.Values.ToList()) {
+							ControlCapture capture = tmln.myControlCapture;
+							ControlTimeline tmln2 = transition2.myControlTimelines[capture];
+							tmln.Merge(tmln2, transition1.myDuration, transition2.myDuration);
+						}
+
+						foreach(MorphTimeline tmln in transition1.myMorphTimelines.Values.ToList()) {
+							MorphCapture capture = tmln.myMorphCapture;
+							MorphTimeline tmln2 = transition2.myMorphTimelines[capture];
+							tmln.Merge(tmln2, transition1.myDuration, transition2.myDuration);
+						}
+
+						transition1.myDuration = transition1.myDuration + transition2.myDuration;
+
+						transition1.SetEndpoints(
+							transition1.mySourceState,
+							transition2.myTargetState
+						);
+
+						foreach(ControlTimeline tmln in transition1.myControlTimelines.Values.ToList()) {
+							ControlCapture capture = tmln.myControlCapture;
+
+							for (int i=1; i<tmln.myKeyframes.Count-1; ++i) {
+								ControlKeyframe keyframe = tmln.myKeyframes[i] as ControlKeyframe;
+								keyframe.myControlEntry.myTransform = tmln.GetVirtualAnchor(
+									keyframe.myTime
+								).Inverse().Compose(keyframe.myControlEntry.myTransform);
+							}
+
+							tmln.ComputeControlPoints();
+						}
+
+						transition1.mySourceState.myTransitions.Add(transition1);
+
+						UIRefreshMenu();
+					}, false);
 				}
 
 				CreateMenuSpacer(30, false);
@@ -1584,59 +1694,12 @@ namespace HaremLife
 			}
 			transitions.Sort((UITransition a, UITransition b) => a.state.myName.CompareTo(b.state.myName));
 
-			myTargetAnimationList = CreateDropDown(
-				CastDict(myAnimations).ToDictionary(entry => (string)entry.Key, entry => (AnimationObject)entry.Value),
-				myTargetAnimationList,
-				"Target Animation"
-			);
-			Animation targetAnimation;
-			if(!myAnimations.TryGetValue(myTargetAnimationList.val, out targetAnimation)){
-				return;
-			};
-
-			Layer targetLayer;
-			List<string> availableLayers = new List<string>();
-			bool singleChoice = false;
-			AnimationObject mySingleChoice = null;
-			if(targetAnimation != myCurrentAnimation) {
-				singleChoice = false;
-				mySingleChoice = null;
-			} else {
-				singleChoice = true;
-				mySingleChoice = myCurrentLayer as AnimationObject;
-			}
-			myTargetLayerList = CreateDropDown(
-				CastDict(targetAnimation.myLayers).ToDictionary(entry => (string)entry.Key, entry => (AnimationObject)entry.Value),
-				myTargetLayerList,
-				"Target Layer",
-				singleChoice:singleChoice,
-				mySingleChoice:mySingleChoice
-			);
-			if(!targetAnimation.myLayers.TryGetValue(myTargetLayerList.val, out targetLayer))
-				return;
-
-			List<string> availableStates = new List<string>();
-			foreach (var s in targetLayer.myStates)
-			{
-				State target = s.Value;
-				if (state == target)
-					continue;
-				availableStates.Add(target.myName);
-			}
-			availableStates.Sort();
-
-			myTargetStateList = PopulateJSONChooserSelection(
-				availableStates,
-				myTargetStateList,
-				"Target State"
+			BaseTransition baseTransition = TransitionDropdown(
+				ref myTargetAnimationList,
+				ref myTargetLayerList,
+				ref myTargetStateList
 			);
 
-			if(myTargetAnimationList.choices.Count > 0) {
-				CreateMenuPopup(myTargetAnimationList, false);
-			}
-			if(myTargetLayerList.choices.Count > 0) {
-				CreateMenuPopup(myTargetLayerList, false);
-			}
 			if (myTargetStateList.choices.Count > 0)
 			{
 				CreateMenuPopup(myTargetStateList, false);
@@ -1648,10 +1711,6 @@ namespace HaremLife
 				CreateMenuInfoOneLine("<size=30><b>Entire Layer Transitions</b></size>", false);
 				CreateMenuButton("Add Sequential Transitions", UIAddSequentialTransitions, false);
 				CreateMenuButton("Add All Transitions", UIAddAllTransitions, false);
-			}
-			else if (transitions.Count == 0)
-			{
-				CreateMenuInfo("You need to add a second state before you can add transitions.", 100, false);
 			}
 
 			for (int i=0; i<transitions.Count; ++i)
@@ -1667,10 +1726,6 @@ namespace HaremLife
 					() => UIRemoveTransition(state, target), false
 				);
 			}
-
-			State targetState;
-			targetLayer.myStates.TryGetValue(myTargetStateList.val, out targetState);
-			BaseTransition baseTransition = state.getIncomingTransition(targetState);
 
 			if(baseTransition != null && baseTransition is Transition) {
 				Transition transition = baseTransition as Transition;
