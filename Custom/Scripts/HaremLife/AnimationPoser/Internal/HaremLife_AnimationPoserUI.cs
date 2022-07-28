@@ -1456,11 +1456,11 @@ namespace HaremLife
 					Utils.RemoveUIElements(this, myElements);
 					myCurrentLayer.SetTransition(transition, v);
 					myCurrentLayer.myStateChain.Clear();
-					UIUpdateTimelineSlider(timeline, v, myElements);
+					UIUpdateTimelineSlider(transition, timeline, v, myElements);
 				};
 
 				CreateMenuSlider(myTimelineTime, true);
-				UIUpdateTimelineSlider(timeline, myTimelineTime.val, myElements);
+				UIUpdateTimelineSlider(transition, timeline, myTimelineTime.val, myElements);
 
 				List <Keyframe> keyframes = new List<Keyframe>(
 					timeline.myKeyframes.OrderBy(k => k.myTime)
@@ -1484,7 +1484,7 @@ namespace HaremLife
 			}
 		}
 
-		private void UIUpdateTimelineSlider(Timeline timeline, float v, List<object> myElements) {
+		private void UIUpdateTimelineSlider(Transition transition, Timeline timeline, float v, List<object> myElements) {
 			Keyframe keyframe = timeline.myKeyframes.FirstOrDefault(
 				k => Math.Abs(k.myTime - myTimelineTime.val) < 0.01
 			);
@@ -1506,6 +1506,47 @@ namespace HaremLife
 	
 				uid = Utils.SetupButton(this, "Remove Keyframe", () => {
 					timeline.RemoveKeyframe(keyframe);
+					UIRefreshMenu();
+				}, true);
+				myElements.Add(uid);
+				myMenuElements.Add(uid);
+
+				uid = Utils.SetupButton(this, "Turn Keyframe into State", () => {
+					State newState = AddState();
+					myCurrentState = newState;
+
+					Transition newTransition = new Transition(transition);
+					newTransition.myTargetState = newState;
+					myCurrentState.myTransitions.Add(newTransition);
+
+					foreach(ControlTimeline tmln in transition.myControlTimelines.Values.ToList()) {
+						ControlCapture capture = tmln.myControlCapture;
+						ControlTimeline newTimeline = new ControlTimeline(capture);
+						tmln.Split(v, transition.myDuration, newTimeline);
+						newTransition.myControlTimelines[capture] = newTimeline;
+					}
+
+					foreach(MorphTimeline tmln in transition.myMorphTimelines.Values.ToList()) {
+						MorphCapture capture = tmln.myMorphCapture;
+						MorphTimeline newTimeline = new MorphTimeline(capture);
+						tmln.Split(v, transition.myDuration, newTimeline);
+						newTransition.myMorphTimelines[capture] = newTimeline;
+					}
+
+					float duration = transition.myDuration;
+					transition.myDuration = v * duration;
+					newTransition.myDuration = (1-v) * duration;
+
+					newTransition.SetEndpoints(
+						myCurrentState,
+						transition.myTargetState
+					);
+
+					transition.SetEndpoints(
+						transition.mySourceState,
+						myCurrentState
+					);
+
 					UIRefreshMenu();
 				}, true);
 				myElements.Add(uid);
@@ -2753,13 +2794,17 @@ namespace HaremLife
 			return;
 		}
 
-		private void UIAddState()
-		{
+		private State AddState() {
 			string name = FindNewName("State", "states", new List<string>(myCurrentLayer.myStates.Keys));
 			if (name == null)
-				return;
+				return null;
 
-			CreateState(name);
+			return CreateState(name);
+		}
+
+		private void UIAddState()
+		{
+			AddState();
 			myMainState.choices = myCurrentLayer.myStates.Keys.ToList();
 			myMainState.val = name;
 			UIRefreshMenu();
