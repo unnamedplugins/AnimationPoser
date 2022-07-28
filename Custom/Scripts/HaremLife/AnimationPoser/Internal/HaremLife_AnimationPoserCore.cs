@@ -641,8 +641,8 @@ namespace HaremLife
 			}
 
 			public override void UpdateKeyframe(Keyframe keyframe) {
-				CaptureKeyframe(keyframe.myTime);
 				RemoveKeyframe(keyframe);
+				CaptureKeyframe(keyframe.myTime);
 			}
 
 			public override void ComputeControlPoints() {
@@ -704,6 +704,61 @@ namespace HaremLife
 					);
 				}
 			}
+
+			public void UpdateCurve(float t)
+			{
+				//t = ArcLengthParametrization(t);
+
+				List<ControlKeyframe> curve = new List<ControlKeyframe>(
+					myKeyframes.Cast<ControlKeyframe>().OrderBy(k => k.myTime)
+				);
+
+				ControlTransform virtualAnchor = GetVirtualAnchor(t);
+
+				ControlKeyframe k1 = curve[0];
+				ControlKeyframe k2 = curve[1];
+				for (int i=1; i<curve.Count; ++i) {
+					if(k2.myTime < t) {
+						k1 = curve[i]; k2 = curve[i+1];
+					} else {
+						break;
+					}
+				}
+
+				t = (t-k1.myTime)/(k2.myTime-k1.myTime);
+
+				Vector3 c1, c4; Vector3? c2, c3;
+				Quaternion rc1, rc4; Quaternion? rc2, rc3;
+				c2=c3=null; rc2=rc3=null;
+
+				c1 = k1.myControlEntry.myTransform.myPosition;
+				rc1 = k1.myControlEntry.myTransform.myRotation;
+				c4 = k2.myControlEntry.myTransform.myPosition;
+				rc4 = k2.myControlEntry.myTransform.myRotation;
+				if(k1.myControlPointOut != null) {
+					c2 = k1.myControlPointOut.myTransform.myPosition;
+					rc2 = k1.myControlPointOut.myTransform.myRotation;
+				}
+				if(k2.myControlPointIn != null) {
+					c3 = k2.myControlPointIn.myTransform.myPosition;
+					rc3 = k2.myControlPointIn.myTransform.myRotation;
+				}
+
+				ControlTransform transform = virtualAnchor.Compose(
+					new ControlTransform(
+						EvalBezier(t, c1, c2, c3, c4),
+						EvalBezier(t, rc1, rc2, rc3, rc4)
+					)
+				);
+
+				if (myControlCapture.myApplyPosition)
+//	 && k2.myControlEntry.myPositionState != FreeControllerV3.PositionState.Off
+					myControlCapture.myTransform.position = transform.myPosition;
+
+				if (myControlCapture.myApplyRotation)
+//  && k2.myControlEntry.myRotationState != FreeControllerV3.RotationState.Off
+					myControlCapture.myTransform.rotation = transform.myRotation;
+			}
 		}
 
 		private class MorphTimeline : Timeline {
@@ -740,6 +795,34 @@ namespace HaremLife
 					morphKeyframe.myControlPointIn = controlPoints[i].In;
 					morphKeyframe.myControlPointOut = controlPoints[i].Out;
 				}
+			}
+
+			public void UpdateCurve(float t)
+			{
+				if (!myMorphCapture.myApply)
+					return;
+
+				List<MorphKeyframe> curve = new List<MorphKeyframe>(
+					myKeyframes.Cast<MorphKeyframe>().OrderBy(k => k.myTime)
+				);
+
+				MorphKeyframe k1 = curve[0];
+				MorphKeyframe k2 = curve[1];
+				for (int i=1; i<curve.Count; ++i) {
+					if(k2.myTime < t) {
+						k1 = curve[i]; k2 = curve[i+1];
+					} else {
+						break;
+					}
+				}
+
+				t = (t-k1.myTime)/(k2.myTime-k1.myTime);
+				float c1 = k1.myMorphEntry;
+				float c2 = k1.myControlPointOut;
+				float c3 = k2.myControlPointIn;
+				float c4 = k2.myMorphEntry;
+
+				myMorphCapture.myMorph.morphValue = EvalBezier(t, c1, c2, c3, c4);
 			}
 		}
 
@@ -885,34 +968,25 @@ namespace HaremLife
 
 			public void Set(float v=0) {
 				myFinished = false;
-				myTime = v * myDuration;
+				myTime = v;
 				myNoise = UnityEngine.Random.Range(-myDurationNoise, myDurationNoise);
-				foreach(var t in myControlTimelines) {
-					ControlTimeline timeline = t.Value;
-					ControlCapture capture = t.Key;
-					capture.SetTransition(timeline);
-				}
-
-				foreach(var t in myMorphTimelines) {
-					MorphTimeline timeline = t.Value;
-					MorphCapture capture = t.Key;
-					capture.SetTransition(timeline.myKeyframes);
-				}
-
 				UpdateCurve();
 			}
 
 			public void Advance(float deltaTime) {
-				myTime += deltaTime;
+				myTime += deltaTime / (myDuration+myNoise);
 				UpdateCurve();
 			}
 
 			public void UpdateCurve() {
-				float s = Smooth(myEaseOutDuration, myEaseInDuration, myDuration+myNoise, myTime);
-				foreach(ControlCapture capture in myControlTimelines.Keys.ToList())
-					capture.UpdateCurve(s);
-				foreach(MorphCapture capture in myMorphTimelines.Keys.ToList())
-					capture.UpdateCurve(s);
+				float s = Smooth(myEaseOutDuration, myEaseInDuration, 1, myTime);
+				foreach(ControlTimeline timeline in myControlTimelines.Values.ToList()) {
+					timeline.myStartEntry.UpdateTransform();
+					timeline.myEndEntry.UpdateTransform();
+					timeline.UpdateCurve(s);
+				}
+				foreach(MorphTimeline timeline in myMorphTimelines.Values.ToList())
+					timeline.UpdateCurve(s);
 				if(s>=1)
 					myFinished = true;
 			}
@@ -1283,74 +1357,10 @@ namespace HaremLife
 				entry.setDefaults(oldEntry);
 			}
 
-			public void SetTransition(ControlTimeline timeline)
-			{
-				myTimeline = timeline;
-			}
-
 			public void UpdateControllerStates() {
 				ControlEntryAnchored entry = myTimeline.myEndEntry;
 				myController.currentPositionState = entry.myPositionState;
 				myController.currentRotationState = entry.myRotationState;
-			}
-
-			public void UpdateCurve(float t)
-			{
-				ControlEntryAnchored startEntry = myTimeline.myStartEntry;
-				ControlEntryAnchored endEntry = myTimeline.myEndEntry;
-
-				startEntry.UpdateTransform();
-				endEntry.UpdateTransform();
-
-				//t = ArcLengthParametrization(t);
-
-				List<ControlKeyframe> curve = new List<ControlKeyframe>(
-					myTimeline.myKeyframes.Cast<ControlKeyframe>().OrderBy(k => k.myTime)
-				);
-
-				ControlKeyframe k1 = curve[0];
-				ControlKeyframe k2 = curve[1];
-				for (int i=1; i<curve.Count; ++i) {
-					if(k2.myTime < t) {
-						k1 = curve[i]; k2 = curve[i+1];
-					} else {
-						break;
-					}
-				}
-
-				t = (t-k1.myTime)/(k2.myTime-k1.myTime);
-
-				Vector3 c1, c4; Vector3? c2, c3;
-				Quaternion rc1, rc4; Quaternion? rc2, rc3;
-				c2=c3=null; rc2=rc3=null;
-
-				c1 = k1.myControlEntry.myTransform.myPosition;
-				rc1 = k1.myControlEntry.myTransform.myRotation;
-				c4 = k2.myControlEntry.myTransform.myPosition;
-				rc4 = k2.myControlEntry.myTransform.myRotation;
-				if(k1.myControlPointOut != null) {
-					c2 = k1.myControlPointOut.myTransform.myPosition;
-					rc2 = k1.myControlPointOut.myTransform.myRotation;
-				}
-				if(k2.myControlPointIn != null) {
-					c3 = k2.myControlPointIn.myTransform.myPosition;
-					rc3 = k2.myControlPointIn.myTransform.myRotation;
-				}
-
-				ControlTransform transform = myTimeline.GetVirtualAnchor(t).Compose(
-					new ControlTransform(
-						EvalBezier(t, c1, c2, c3, c4),
-						EvalBezier(t, rc1, rc2, rc3, rc4)
-					)
-				);
-
-				if (myApplyPosition)
-//	 && k2.myControlEntry.myPositionState != FreeControllerV3.PositionState.Off
-					myTransform.position = transform.myPosition;
-
-				if (myApplyRotation)
-//  && k2.myControlEntry.myRotationState != FreeControllerV3.RotationState.Off
-					myTransform.rotation = transform.myRotation;
 			}
 
 			public void UpdateState(State state)
@@ -1605,7 +1615,6 @@ namespace HaremLife
 			public string mySID;
 			public DAZMorph myMorph;
 			public DAZCharacterSelector.Gender myGender;
-			private List<MorphKeyframe> myCurve = new List<MorphKeyframe>();
 			public bool myApply = true;
 
 			// used when adding a capture
@@ -1654,40 +1663,6 @@ namespace HaremLife
 			public void CaptureEntry(State state)
 			{
 				state.myMorphEntries[this] = myMorph.morphValue;
-			}
-
-			public void SetTransition(List<Keyframe> keyframes)
-			{
-				myCurve.Clear();
-				List<Keyframe> orderedKeyframes = new List<Keyframe>(keyframes.OrderBy(k => k.myTime));
-
-				for(int i=0; i<keyframes.Count; i++) {
-					MorphKeyframe morphKeyframe = orderedKeyframes[i] as MorphKeyframe;
-					myCurve.Add(morphKeyframe);
-				}
-			}
-
-			public void UpdateCurve(float t)
-			{
-				if (!myApply)
-					return;
-
-				MorphKeyframe k1 = myCurve[0];
-				MorphKeyframe k2 = myCurve[1];
-				for (int i=1; i<myCurve.Count; ++i) {
-					if(k2.myTime < t) {
-						k1 = myCurve[i]; k2 = myCurve[i+1];
-					} else {
-						break;
-					}
-				}
-
-				t = (t-k1.myTime)/(k2.myTime-k1.myTime);
-				float c1 = k1.myMorphEntry;
-				float c2 = k1.myControlPointOut;
-				float c3 = k2.myControlPointIn;
-				float c4 = k2.myMorphEntry;
-				myMorph.morphValue = EvalBezier(t, c1, c2, c3, c4);
 			}
 
 			public bool IsValid()
