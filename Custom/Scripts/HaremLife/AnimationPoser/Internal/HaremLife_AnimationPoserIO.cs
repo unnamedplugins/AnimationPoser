@@ -970,6 +970,8 @@ namespace HaremLife
 					new Quaternion(rxlist[xlist.Count-1]["v"].AsFloat, rylist[xlist.Count-1]["v"].AsFloat, rzlist[xlist.Count-1]["v"].AsFloat, rwlist[xlist.Count-1]["v"].AsFloat)
 				), endEntry.myControlCapture.GetPositionState(), endEntry.myControlCapture.GetRotationState());
 
+				timeline.SetEndpoints(startEntry, endEntry);
+
 				for (int j=1; j<xlist.Count-1; ++j)
 				{
 					float time = xlist[j]["t"].AsFloat/xlist[xlist.Count-1]["t"].AsFloat;
@@ -984,7 +986,8 @@ namespace HaremLife
 					ce.myTransform = virtualAnchor.Inverse().Compose(ce.myTransform);
 					timeline.AddKeyframe(new ControlKeyframe(time, ce));
 				}
-				timeline.SetEndpoints(startEntry, endEntry);
+
+				timeline.ComputeControlPoints();
 				transition.myControlTimelines[capture] = timeline;
 			}
 

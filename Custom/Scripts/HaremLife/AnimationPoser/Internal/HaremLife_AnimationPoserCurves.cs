@@ -36,18 +36,15 @@ namespace HaremLife
 
         private static void InitializeArrays(int n)
         {
-            if (_w == null || _w.Length < n + 1)
-            {
-                _w = new float[n + 1];
-                _p1 = new float[n + 1];
-                _p2 = new float[n];
-                _a = new float[n * 2];
-                _b = new float[n * 2];
-                _c = new float[n * 2];
-                _d = new float[n * 2];
-                _r = new float[n * 2];
-                _p = new float[n * 2];
-            }
+            _w = new float[n + 1];
+            _p1 = new float[n + 1];
+            _p2 = new float[n];
+            _a = new float[n * 2];
+            _b = new float[n * 2];
+            _c = new float[n * 2];
+            _d = new float[n * 2];
+            _r = new float[n * 2];
+            _p = new float[n * 2];
         }
 
         private static void Weighting(List<float> times, int n)
