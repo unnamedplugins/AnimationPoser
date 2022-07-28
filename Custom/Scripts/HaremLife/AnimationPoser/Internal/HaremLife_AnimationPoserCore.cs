@@ -358,10 +358,43 @@ namespace HaremLife
 				myAnimation = myCurrentAnimation;
 			}
 
+			public void AddCapture(ControlCapture capture) {
+				myControlCaptures.Add(capture);
+				foreach (var s in myStates) {
+					State state = s.Value;
+					capture.CaptureEntry(state);
+				}
+
+				foreach (var s in myStates) {
+					State state = s.Value;
+					foreach(BaseTransition t in state.myTransitions) {
+						if(t is Transition) {
+							Transition transition = t as Transition;
+							transition.SetEndpoints(transition.mySourceState, transition.myTargetState);
+						}
+					}
+				}
+			}
+
+			public void RemoveCapture(ControlCapture capture) {
+				myControlCaptures.Remove(capture);
+				foreach(State s in myStates.Values.ToList()) {
+					foreach(BaseTransition t in s.myTransitions) {
+						if(t is Transition) {
+							Transition transition = t as Transition;
+							if(transition.myControlTimelines.Keys.Contains(capture))
+								transition.myControlTimelines.Remove(capture);
+						}
+					}
+					s.myControlEntries.Remove(capture);
+				}
+			}
+
 			public void CaptureState(State state)
 			{
-				for (int i=0; i<myControlCaptures.Count; ++i)
+				for (int i=0; i<myControlCaptures.Count; ++i) {
 					myControlCaptures[i].CaptureEntry(state);
+				}
 				for (int i=0; i<myMorphCaptures.Count; ++i)
 					myMorphCaptures[i].CaptureEntry(state);
 			}
@@ -646,13 +679,15 @@ namespace HaremLife
 				myStartEntry = startControlEntry;
 				myEndEntry = endControlEntry;
 
-				ControlEntry startEntry = new ControlEntry(myControlCapture);
-				startEntry.myTransform = ControlTransform.Identity();
-				AddKeyframe(new ControlKeyframe("first", startEntry));
+				if(myKeyframes.Count < 2) {
+					ControlEntry startEntry = new ControlEntry(myControlCapture);
+					startEntry.myTransform = ControlTransform.Identity();
+					AddKeyframe(new ControlKeyframe("first", startEntry));
 
-				ControlEntry endEntry = new ControlEntry(myControlCapture);
-				endEntry.myTransform = ControlTransform.Identity();
-				AddKeyframe(new ControlKeyframe("last", endEntry));
+					ControlEntry endEntry = new ControlEntry(myControlCapture);
+					endEntry.myTransform = ControlTransform.Identity();
+					AddKeyframe(new ControlKeyframe("last", endEntry));
+				}
 
 				ComputeControlPoints();
 			}

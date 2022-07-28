@@ -1174,8 +1174,6 @@ namespace HaremLife
 			if (controlCapture == null)
 				return;
 
-			CreateMenuSpacer(30, false);
-
 			ControlEntryAnchored controlEntry;
 			if (!state.myControlEntries.TryGetValue(controlCapture, out controlEntry))
 				return;
@@ -2648,17 +2646,13 @@ namespace HaremLife
 		private void UIAddControlCapture()
 		{
 			ControlCapture cc = new ControlCapture(this, myCapturesControlList.val);
-			myCurrentLayer.myControlCaptures.Add(cc);
-			foreach (var state in myCurrentLayer.myStates)
-				cc.CaptureEntry(state.Value);
+			myCurrentLayer.AddCapture(cc);
 			UIRefreshMenu();
 		}
 
 		private void UIRemoveControlCapture(ControlCapture cc)
 		{
-			myCurrentLayer.myControlCaptures.Remove(cc);
-			foreach (var state in myCurrentLayer.myStates)
-				state.Value.myControlEntries.Remove(cc);
+			myCurrentLayer.RemoveCapture(cc);
 			UIRefreshMenu();
 		}
 
