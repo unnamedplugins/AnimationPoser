@@ -1450,7 +1450,6 @@ namespace HaremLife
 						return;
 
 					timeline = transition.myMorphTimelines[morphCapture];
-
 				}
 
 				myTimelineTime.setCallbackFunction = (float v) => {
@@ -1492,33 +1491,20 @@ namespace HaremLife
 
 			if (keyframe == null) {
 				UIDynamicButton uid = Utils.SetupButton(this, "Add Keyframe", () => {
-					if(timeline is ControlTimeline) {
-						ControlTimeline controlTimeline = timeline as ControlTimeline;
-						ControlCapture controlCapture = myCurrentLayer.myControlCaptures.Find(cc => cc.myName == myKeyframeCaptureList.val);
-
-						ControlEntryAnchored entry;
-						entry = new ControlEntryAnchored(controlCapture);
-						controlCapture.CaptureEntry(entry);
-						entry.Initialize();
-
-						keyframe = new ControlKeyframe(v, entry);
-
-						ControlTransform virtualAnchor = new ControlTransform(
-							controlTimeline.myStartEntry.myTransform, controlTimeline.myEndEntry.myTransform, v
-						);
-						entry.myTransform = virtualAnchor.Inverse().Compose(entry.myTransform);
-						keyframe = new ControlKeyframe(v, entry);
-					} else {
-						MorphCapture morphCapture = myCurrentLayer.myMorphCaptures.Find(cc => cc.mySID == myKeyframeCaptureList.val);
-						keyframe = new MorphKeyframe(v, morphCapture.myMorph.morphValue);
-					}
-					timeline.AddKeyframe(keyframe);
+					timeline.CaptureKeyframe(v);
 					UIRefreshMenu();
 				}, true);
 				myElements.Add(uid);
 				myMenuElements.Add(uid);
 			} else if(!keyframe.myIsFirst && !keyframe.myIsLast) {
-				UIDynamicButton uid = Utils.SetupButton(this, "Remove Keyframe", () => {
+				UIDynamicButton uid = Utils.SetupButton(this, "Update Keyframe", () => {
+					timeline.UpdateKeyframe(keyframe);
+					UIRefreshMenu();
+				}, true);
+				myElements.Add(uid);
+				myMenuElements.Add(uid);
+	
+				uid = Utils.SetupButton(this, "Remove Keyframe", () => {
 					timeline.RemoveKeyframe(keyframe);
 					UIRefreshMenu();
 				}, true);

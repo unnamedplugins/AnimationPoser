@@ -589,6 +589,12 @@ namespace HaremLife
 
 			public virtual void ComputeControlPoints() {
 			}
+
+			public virtual void CaptureKeyframe(float time) {
+			}
+
+			public virtual void UpdateKeyframe(Keyframe keyframe) {
+			}
 		}
 
 		private class ControlTimeline : Timeline {
@@ -614,6 +620,29 @@ namespace HaremLife
 				myKeyframes.Add(new ControlKeyframe("last", endEntry));
 
 				ComputeControlPoints();
+			}
+
+			public ControlTransform GetVirtualAnchor(float time) {
+				return new ControlTransform(myStartEntry.myTransform, myEndEntry.myTransform, time);
+			}
+
+			public ControlEntryAnchored GenerateEntry(float time) {
+				ControlEntryAnchored entry;
+				entry = new ControlEntryAnchored(myControlCapture);
+				myControlCapture.CaptureEntry(entry);
+				entry.Initialize();
+				entry.myTransform = GetVirtualAnchor(time).Inverse().Compose(entry.myTransform);
+				return entry;
+			}
+
+			public override void CaptureKeyframe(float time) {
+				ControlEntryAnchored entry = GenerateEntry(time);
+				AddKeyframe(new ControlKeyframe(time, entry));
+			}
+
+			public override void UpdateKeyframe(Keyframe keyframe) {
+				CaptureKeyframe(keyframe.myTime);
+				RemoveKeyframe(keyframe);
 			}
 
 			public override void ComputeControlPoints() {
@@ -1275,12 +1304,6 @@ namespace HaremLife
 
 				//t = ArcLengthParametrization(t);
 
-				ControlTransform virtualAnchor = new ControlTransform(
-					myTimeline.myStartEntry.myTransform,
-					myTimeline.myEndEntry.myTransform,
-					t
-				);
-
 				List<ControlKeyframe> curve = new List<ControlKeyframe>(
 					myTimeline.myKeyframes.Cast<ControlKeyframe>().OrderBy(k => k.myTime)
 				);
@@ -1314,7 +1337,7 @@ namespace HaremLife
 					rc3 = k2.myControlPointIn.myTransform.myRotation;
 				}
 
-				ControlTransform transform = virtualAnchor.Compose(
+				ControlTransform transform = myTimeline.GetVirtualAnchor(t).Compose(
 					new ControlTransform(
 						EvalBezier(t, c1, c2, c3, c4),
 						EvalBezier(t, rc1, rc2, rc3, rc4)
