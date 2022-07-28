@@ -262,9 +262,20 @@ namespace HaremLife
 				myNeedRefresh = false;
 			}
 			DebugUpdateUI();
-
-			foreach (var layer in myCurrentAnimation.myLayers)
-				layer.Value.UpdateLayer();
+			
+			bool isGrabbing = myCurrentAnimation.myLayers.Values.Any(layer => {
+				return layer.myCurrentState.myControlEntries.Values.Any(controlEntry => {
+					return controlEntry.myControlCapture.myController.isGrabbing;
+				});
+			});
+			
+			if (isGrabbing) {
+				foreach (var layer in myCurrentAnimation.myLayers)
+					layer.Value.UpdateAnchors();
+			} else {
+				foreach (var layer in myCurrentAnimation.myLayers)
+					layer.Value.UpdateLayer();
+			}
 		}
 
 		private void OnAtomRename(string oldid, string newid)
@@ -456,6 +467,12 @@ namespace HaremLife
 			public void UpdateState() {
 				for (int i=0; i<myControlCaptures.Count; ++i)
 					myControlCaptures[i].UpdateState(myCurrentState);
+			}
+
+			public void UpdateAnchors() {
+				for (int i = 0; i < myControlCaptures.Count; ++i) {
+					myControlCaptures[i].UpdateAnchored(myCurrentState);
+				}
 			}
 
 			public void ArriveAtState() {
@@ -1390,7 +1407,7 @@ namespace HaremLife
 			private ControlTimeline myTimeline;
 			public bool myApplyPosition = true;
 			public bool myApplyRotation = true;
-			FreeControllerV3 myController;
+			public readonly FreeControllerV3 myController;
 
 			private static Quaternion[] ourTempQuaternions = new Quaternion[3];
 			private static float[] ourTempDistances = new float[DISTANCE_SAMPLES[DISTANCE_SAMPLES.Length-1] + 2];
@@ -1483,11 +1500,31 @@ namespace HaremLife
 				ControlEntryAnchored entry;
 				if (state.myControlEntries.TryGetValue(this, out entry))
 				{
+					if (entry.myControlCapture.myController.isGrabbing)
+					{
+						return;
+					}
 					entry.UpdateTransform();
 					if (myApplyPosition)
 						myTransform.position = entry.myTransform.myPosition;
 					if (myApplyRotation)
 						myTransform.rotation = entry.myTransform.myRotation;
+				}
+			}
+			
+			public void UpdateAnchored(State state) {
+				ControlEntryAnchored entry;
+				if (state.myControlEntries.TryGetValue(this, out entry))
+				{
+					if (entry.myControlCapture.myController.isGrabbing) {
+						return;
+					}
+					
+					if (entry.myAnchorMode != ControlEntryAnchored.ANCHORMODE_WORLD) {
+						if (entry.myAnchorAControl != "control") {
+							entry.UpdateInstant();
+						}
+					}
 				}
 			}
 
@@ -1659,6 +1696,8 @@ namespace HaremLife
 				float dampingTime = myDampingTime;
 				myDampingTime = 0.0f;
 				UpdateTransform();
+				myControlCapture.myTransform.position = myTransform.myPosition;
+				myControlCapture.myTransform.rotation = myTransform.myRotation;
 				myDampingTime = dampingTime;
 			}
 
