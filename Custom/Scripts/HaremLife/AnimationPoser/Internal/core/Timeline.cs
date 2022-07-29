@@ -57,6 +57,20 @@ namespace HaremLife
 				newTimeline.myKeyframes.Remove(newTimeline.myKeyframes[n-splitIndex-1]);
 			}
 
+            public int BinarySearch(float t) {
+				Keyframe k1 = myKeyframes.First();
+				Keyframe k2 = myKeyframes.Last();
+                int n = myKeyframes.Count()-1;
+                int m = 0;
+                while(n != m) {
+                    if(myKeyframes[n].myTime > t)
+						n = m + (int) Math.Floor(n/2.0);
+                    else
+						m = n - (int) Math.Floor(n/2.0);
+				}
+                return n;
+            }
+
 			public virtual void ComputeControlPoints() {
 			}
 

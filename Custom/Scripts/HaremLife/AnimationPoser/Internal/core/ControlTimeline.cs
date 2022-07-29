@@ -129,16 +129,9 @@ namespace HaremLife
 				myKeyframes = new List<Keyframe>(myKeyframes.OrderBy(k => k.myTime));
 				ControlTransform virtualAnchor = GetVirtualAnchor(t);
 
-				ControlKeyframe k1 = myKeyframes[0] as ControlKeyframe;
-				ControlKeyframe k2 = myKeyframes[1] as ControlKeyframe;
-				for (int i=1; i<myKeyframes.Count; ++i) {
-					if(k2.myTime < t) {
-						k1 = myKeyframes[i] as ControlKeyframe;
-						k2 = myKeyframes[i+1] as ControlKeyframe;
-					} else {
-						break;
-					}
-				}
+                int n = BinarySearch(t);
+				ControlKeyframe k1 = myKeyframes[n] as ControlKeyframe;
+				ControlKeyframe k2 = myKeyframes[n+1] as ControlKeyframe;
 
 				t = (t-k1.myTime)/(k2.myTime-k1.myTime);
 
