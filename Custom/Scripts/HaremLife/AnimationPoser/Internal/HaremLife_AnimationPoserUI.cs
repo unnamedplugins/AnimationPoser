@@ -713,7 +713,8 @@ namespace HaremLife
 			myCurrentLayer = null;
 			myCurrentState = null;
 			SetAnimation(animation);
-			animation.InitAnimationLayers();
+			if(myStateAutoTransition.val)
+				animation.InitAnimationLayers();
 			myPlayPaused.val = initPlayPaused;
 
 			UIRefreshMenu();
