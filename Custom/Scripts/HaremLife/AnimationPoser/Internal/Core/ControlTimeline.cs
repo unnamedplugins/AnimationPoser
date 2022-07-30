@@ -134,28 +134,16 @@ namespace HaremLife
 
 				t = (t-k1.myTime)/(k2.myTime-k1.myTime);
 
-				Vector3 c1, c4; Vector3? c2, c3;
-				Quaternion rc1, rc4; Quaternion? rc2, rc3;
-				c2=c3=null; rc2=rc3=null;
+				ControlTransform c1 = k1.myControlEntry.myTransform, c4 = k2.myControlEntry.myTransform;
+				ControlTransform c2=null, c3=null;
 
-				c1 = k1.myControlEntry.myTransform.myPosition;
-				rc1 = k1.myControlEntry.myTransform.myRotation;
-				c4 = k2.myControlEntry.myTransform.myPosition;
-				rc4 = k2.myControlEntry.myTransform.myRotation;
-				if(k1.myControlPointOut != null) {
-					c2 = k1.myControlPointOut.myTransform.myPosition;
-					rc2 = k1.myControlPointOut.myTransform.myRotation;
-				}
-				if(k2.myControlPointIn != null) {
-					c3 = k2.myControlPointIn.myTransform.myPosition;
-					rc3 = k2.myControlPointIn.myTransform.myRotation;
-				}
+				if(k1.myControlPointOut != null)
+					c2 = k1.myControlPointOut.myTransform;
+				if(k2.myControlPointIn != null)
+					c3 = k2.myControlPointIn.myTransform;
 
 				ControlTransform transform = virtualAnchor.Compose(
-					new ControlTransform(
-						EvalBezier(t, c1, c2, c3, c4),
-						EvalBezier(t, rc1, rc2, rc3, rc4)
-					)
+					EvalBezier(t, c1, c2, c3, c4)
 				);
 
 				if (myControlCapture.myApplyPosition)

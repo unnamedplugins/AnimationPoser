@@ -170,16 +170,17 @@ namespace HaremLife
             return EvalBezierLinear(t, c1, c4);
         }
 
-		private static Vector3 EvalBezier(float t, Vector3 c1, Vector3? c2, Vector3? c3, Vector3 c4) {
+		private static ControlTransform EvalBezier(float t, ControlTransform c1, ControlTransform c2, ControlTransform c3, ControlTransform c4) {
             if(c2 != null && c3 != null)
-                return EvalBezierCubic(t, c1, c2 ??new Vector3(), c3 ??new Vector3(), c4);
-            return EvalBezierLinear(t, c1, c4);
-        }
-
-		private static Quaternion EvalBezier(float t, Quaternion c1, Quaternion? c2, Quaternion? c3, Quaternion c4) {
-            if(c2 != null && c3 != null)
-                return EvalBezierCubic(t, c1, c2 ??new Quaternion(), c3 ??new Quaternion(), c4);
-            return EvalBezierLinear(t, c1, c4);
+                return new ControlTransform(
+                    EvalBezierCubic(t, c1.myPosition, c2.myPosition, c3.myPosition, c4.myPosition),
+                    EvalBezierCubic(t, c1.myRotation, c2.myRotation, c3.myRotation, c4.myRotation)
+                );
+            else
+                return new ControlTransform(
+                    EvalBezierLinear(t, c1.myPosition, c4.myPosition),
+                    EvalBezierLinear(t, c1.myRotation, c4.myRotation)
+                );
         }
 
         private static float EvalBezierLinear(float t, float c1, float c2) {
