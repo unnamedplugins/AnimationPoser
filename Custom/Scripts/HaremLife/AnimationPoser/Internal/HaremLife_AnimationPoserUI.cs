@@ -2857,9 +2857,9 @@ namespace HaremLife
 
 		private void UIAddState()
 		{
-			AddState();
+			State s = AddState();
 			myMainState.choices = myCurrentLayer.myStates.Keys.ToList();
-			myMainState.val = name;
+			myMainState.val = s.myName;
 			UIRefreshMenu();
 			return;
 		}
