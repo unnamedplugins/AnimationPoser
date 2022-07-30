@@ -1056,15 +1056,15 @@ namespace HaremLife
 				return;
 
 			CreateMenuTwinButton("Duplicate State", UIDuplicateState, "Remove State", UIRemoveState, false);
-			CreateMenuToggle(myStateAutoTransition, false);
 
 			CreateMenuButton("Capture State", UICaptureState, true);
-			CreateMenuButton("Apply Anchors", UIApplyAnchors, true);
+
+			CreateMenuToggle(myStateAutoTransition, true);
 
 			CreateMenuSpacer(15, false);
 
 			CreateMenuInfoOneLine("<size=30><b>State Settings</b></size>", false);
-			CreateMenuSpacer(132, true);
+			CreateMenuSpacer(70, true);
 			JSONStorableString name = new JSONStorableString("State Name", state.myName, UIRenameState);
 			CreateMenuTextInput("Name", name, false);
 
@@ -2971,22 +2971,6 @@ namespace HaremLife
 
 			myCurrentLayer.CaptureState(state);
 			UIRefreshMenu();
-		}
-
-		private void UIApplyAnchors()
-		{
-			foreach (var s in myCurrentLayer.myStates)
-			{
-				State state = s.Value;
-				foreach (var ce in state.myControlEntries)
-				{
-					ControlEntryAnchored entry = ce.Value;
-					entry.UpdateInstant();
-				}
-			}
-
-			for (int i=0; i<myCurrentLayer.myControlCaptures.Count; ++i)
-				myCurrentLayer.myControlCaptures[i].UpdateState(myCurrentState);
 		}
 
 		private void UIRemoveAnimation()
