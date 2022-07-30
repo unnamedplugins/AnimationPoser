@@ -126,7 +126,6 @@ namespace HaremLife
 			{
 				//t = ArcLengthParametrization(t);
 
-				myKeyframes = new List<Keyframe>(myKeyframes.OrderBy(k => k.myTime));
 				ControlTransform virtualAnchor = GetVirtualAnchor(t);
 
                 int n = BinarySearch(t);
