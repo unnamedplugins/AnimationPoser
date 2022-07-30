@@ -1457,7 +1457,7 @@ namespace HaremLife
 					CreateMenuPopup(myKeyframeCaptureList, false);
 				}
 
-				CreateMenuInfoOneLine("<size=30><b>Merge transitions:</b></size>", false);
+				CreateMenuInfoOneLine("<size=30><b>Merge Transitions:</b></size>", false);
 
 				BaseTransition baseTransition2 = TransitionDropdown(
 					ref myTargetAnimationList2,
@@ -2541,10 +2541,9 @@ namespace HaremLife
 			JSONClass jc = LoadJSON(url).AsObject;
 			if (jc != null) {
 				Layer layer = LoadLayer(jc, true);
-				JSONClass layerObj = jc["Layer"].AsObject;
 				myCurrentAnimation.myLayers[layer.myName] = layer;
 				layer.myAnimation = myCurrentAnimation;
-				LoadTransitions(layer, layerObj);
+				LoadTransitions(layer, jc);
 				SetLayer(layer);
 			}
 
