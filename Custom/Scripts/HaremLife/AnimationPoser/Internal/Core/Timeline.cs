@@ -62,13 +62,14 @@ namespace HaremLife
 				Keyframe k2 = myKeyframes.Last();
                 int n = myKeyframes.Count()-1;
                 int m = 0;
-                while(n != m) {
-                    if(myKeyframes[n].myTime >= t)
-						n = m + (int) Math.Floor(n/2.0);
+                while(n != m+1) {
+					int k = (int) Math.Floor((n+m)/2.0);
+                    if(myKeyframes[k].myTime > t)
+						n = k;
                     else
-						m = n - (int) Math.Floor(n/2.0);
+						m = k;
 				}
-                return n;
+                return m;
             }
 
 			public virtual void ComputeControlPoints() {
