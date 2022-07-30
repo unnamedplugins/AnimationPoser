@@ -109,11 +109,11 @@ namespace HaremLife
 				ControlEntryAnchored entry;
 				if (state.myControlEntries.TryGetValue(this, out entry))
 				{
-					if(!myPaused)
-						entry.myIsEditing = false;
-					if (entry.myControlCapture.myController.isGrabbing)
+					if(myPaused)
 						entry.SetEditing();
 					else
+						entry.myIsEditing = false;
+					if (!entry.myControlCapture.myController.isGrabbing)
 						entry.UpdateInstant();
 				}
 			}
