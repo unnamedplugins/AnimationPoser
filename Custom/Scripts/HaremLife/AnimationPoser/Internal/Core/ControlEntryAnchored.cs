@@ -20,7 +20,9 @@ namespace HaremLife
 
 			public FreeControllerV3.PositionState myPositionState;
 			public FreeControllerV3.RotationState myRotationState;
+			public bool myIsEditing = false;
 			public ControlTransform myAnchorOffset;
+			public ControlTransform myEditingAnchorOffset;
 			public Transform myAnchorATransform;
 			public Transform myAnchorBTransform;
 			public int myAnchorMode = ANCHORMODE_SINGLE;
@@ -109,8 +111,10 @@ namespace HaremLife
 				float dampingTime = myDampingTime;
 				myDampingTime = 0.0f;
 				UpdateTransform();
-				myControlCapture.myTransform.position = myTransform.myPosition;
-				myControlCapture.myTransform.rotation = myTransform.myRotation;
+				if (myControlCapture.myApplyPosition)
+					myControlCapture.myTransform.position = myTransform.myPosition;
+				if (myControlCapture.myApplyRotation)
+					myControlCapture.myTransform.rotation = myTransform.myRotation;
 				myDampingTime = dampingTime;
 			}
 
@@ -129,11 +133,21 @@ namespace HaremLife
 				return virtualAnchor;
 			}
 
+			public void SetEditing() {
+				myIsEditing = true;
+				ControlTransform anchor = GetVirtualAnchorTransform();
+				myEditingAnchorOffset = anchor.Inverse().Compose(new ControlTransform(
+					myControlCapture.myTransform
+				));
+			}
+
 			public void UpdateTransform()
 			{
+				ControlTransform offset = myIsEditing ? myEditingAnchorOffset : myAnchorOffset;
+
 				if (myAnchorMode == ANCHORMODE_WORLD)
 				{
-					myTransform = myAnchorOffset;
+					myTransform = offset;
 				}
 				else
 				{
@@ -144,11 +158,11 @@ namespace HaremLife
 					if (myDampingTime >= 0.001f)
 					{
 						float t = Mathf.Clamp01(Time.deltaTime / myDampingTime);
-						myTransform = new ControlTransform(myTransform, anchor.Compose(myAnchorOffset), t);
+						myTransform = new ControlTransform(myTransform, anchor.Compose(offset), t);
 					}
 					else
 					{
-						myTransform = anchor.Compose(myAnchorOffset);
+						myTransform = anchor.Compose(offset);
 					}
 				}
 			}
@@ -157,6 +171,7 @@ namespace HaremLife
 									FreeControllerV3.PositionState positionState,
 									FreeControllerV3.RotationState rotationState)
 			{
+				myIsEditing = false;
 				myPositionState = positionState;
 				myRotationState = rotationState;
 
