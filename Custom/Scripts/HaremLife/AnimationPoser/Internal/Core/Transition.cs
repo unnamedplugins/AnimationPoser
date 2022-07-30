@@ -172,6 +172,7 @@ namespace HaremLife
 				}
 				foreach(MorphTimeline timeline in myMorphTimelines.Values.ToList())
 					timeline.UpdateCurve(s);
+
 				if(s>=1)
 					myFinished = true;
 			}

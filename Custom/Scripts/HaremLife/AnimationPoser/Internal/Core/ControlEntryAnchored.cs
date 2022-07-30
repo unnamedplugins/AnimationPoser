@@ -109,6 +109,8 @@ namespace HaremLife
 				float dampingTime = myDampingTime;
 				myDampingTime = 0.0f;
 				UpdateTransform();
+				myControlCapture.myTransform.position = myTransform.myPosition;
+				myControlCapture.myTransform.rotation = myTransform.myRotation;
 				myDampingTime = dampingTime;
 			}
 

@@ -16,7 +16,7 @@ namespace HaremLife
 			private ControlTimeline myTimeline;
 			public bool myApplyPosition = true;
 			public bool myApplyRotation = true;
-			FreeControllerV3 myController;
+			public readonly FreeControllerV3 myController;
 
 			private static Quaternion[] ourTempQuaternions = new Quaternion[3];
 			private static float[] ourTempDistances = new float[DISTANCE_SAMPLES[DISTANCE_SAMPLES.Length-1] + 2];
@@ -109,11 +109,10 @@ namespace HaremLife
 				ControlEntryAnchored entry;
 				if (state.myControlEntries.TryGetValue(this, out entry))
 				{
-					entry.UpdateTransform();
-					if (myApplyPosition)
-						myTransform.position = entry.myTransform.myPosition;
-					if (myApplyRotation)
-						myTransform.rotation = entry.myTransform.myRotation;
+					if (entry.myControlCapture.myController.isGrabbing)
+						return;
+
+					entry.UpdateInstant();
 				}
 			}
 

@@ -104,6 +104,10 @@ namespace HaremLife
 				if(myMenuItem == MENU_TIMELINES)
 					return;
 
+				if(!myPaused) {
+					myClock = Mathf.Min(myClock + deltaTime, 100000.0f);
+				}
+
 				if(myClock >= myDuration) {
 					if(myTransition != null) {
 						myTransition.Advance(deltaTime);
@@ -116,10 +120,7 @@ namespace HaremLife
 					}
 				}
 
-				if(!myPaused) {
-					myClock = Mathf.Min(myClock + deltaTime, 100000.0f);
-					UpdateState();
-				}
+				UpdateState();
 			}
 
 			public void UpdateState() {
