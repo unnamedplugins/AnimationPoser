@@ -136,9 +136,10 @@ namespace HaremLife
 			public void SetEditing() {
 				myIsEditing = true;
 				ControlTransform anchor = GetVirtualAnchorTransform();
-				myEditingAnchorOffset = anchor.Inverse().Compose(new ControlTransform(
-					myControlCapture.myTransform
-				));
+				if(anchor != null)
+					myEditingAnchorOffset = anchor.Inverse().Compose(new ControlTransform(
+						myControlCapture.myTransform
+					));
 			}
 
 			public void UpdateTransform()

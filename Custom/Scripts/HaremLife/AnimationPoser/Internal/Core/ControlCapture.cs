@@ -113,7 +113,7 @@ namespace HaremLife
 						entry.SetEditing();
 					else
 						entry.myIsEditing = false;
-					if (!entry.myControlCapture.myController.isGrabbing)
+					if (!myController.isGrabbing)
 						entry.UpdateInstant();
 				}
 			}
