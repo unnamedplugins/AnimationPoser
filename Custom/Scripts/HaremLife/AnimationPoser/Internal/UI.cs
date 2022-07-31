@@ -3130,7 +3130,7 @@ namespace HaremLife
 			if (!state.myControlEntries.TryGetValue(controlCapture, out controlEntry))
 				return;
 
-			controlEntry.UpdateInstant();
+			controlEntry.UpdateTransform();
 
 			int anchorMode = myAnchorModes.FindIndex(m => m == myAnchorModeList.val);
 			if (anchorMode >= 0)

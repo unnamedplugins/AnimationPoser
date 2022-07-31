@@ -119,18 +119,20 @@ namespace HaremLife
 			}
 
 			public ControlTransform GetVirtualAnchorTransform() {
-				ControlTransform virtualAnchor;
-				if (myAnchorMode == ANCHORMODE_SINGLE)
+				if (myAnchorMode == ANCHORMODE_WORLD)
+				{
+					return ControlTransform.Identity();
+				}
+				else if (myAnchorMode == ANCHORMODE_SINGLE)
 				{
 					if (myAnchorATransform == null)
 						return null;
-					virtualAnchor = new ControlTransform(myAnchorATransform);
+					return new ControlTransform(myAnchorATransform);
 				} else {
 					if (myAnchorATransform == null || myAnchorBTransform == null)
 						return null;
-					virtualAnchor = new ControlTransform(myAnchorATransform, myAnchorBTransform, myBlendRatio);
+					return new ControlTransform(myAnchorATransform, myAnchorBTransform, myBlendRatio);
 				}
-				return virtualAnchor;
 			}
 
 			public void SetEditing() {
@@ -146,25 +148,18 @@ namespace HaremLife
 			{
 				ControlTransform offset = myIsEditing ? myEditingAnchorOffset : myAnchorOffset;
 
-				if (myAnchorMode == ANCHORMODE_WORLD)
+				ControlTransform anchor = GetVirtualAnchorTransform();
+				if(anchor == null)
+					return;
+
+				if (myDampingTime >= 0.001f)
 				{
-					myTransform = offset;
+					float t = Mathf.Clamp01(Time.deltaTime / myDampingTime);
+					myTransform = new ControlTransform(myTransform, anchor.Compose(offset), t);
 				}
 				else
 				{
-					ControlTransform anchor = GetVirtualAnchorTransform();
-					if(anchor == null)
-						return;
-
-					if (myDampingTime >= 0.001f)
-					{
-						float t = Mathf.Clamp01(Time.deltaTime / myDampingTime);
-						myTransform = new ControlTransform(myTransform, anchor.Compose(offset), t);
-					}
-					else
-					{
-						myTransform = anchor.Compose(offset);
-					}
+					myTransform = anchor.Compose(offset);
 				}
 			}
 
@@ -178,18 +173,11 @@ namespace HaremLife
 
 				myTransform = transform;
 
-				if (myAnchorMode == ANCHORMODE_WORLD)
-				{
-					myAnchorOffset = new ControlTransform(transform);
-				}
-				else
-				{
-					ControlTransform anchor = GetVirtualAnchorTransform();
-					if(anchor == null)
-						return;
+				ControlTransform anchor = GetVirtualAnchorTransform();
+				if(anchor == null)
+					return;
 
-					myAnchorOffset = anchor.Inverse().Compose(transform);
-				}
+				myAnchorOffset = anchor.Inverse().Compose(transform);
 			}
 		}
     }
