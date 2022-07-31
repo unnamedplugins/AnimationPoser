@@ -19,9 +19,9 @@ Internal/Core/Role.cs
 Internal/Core/State.cs
 Internal/Core/Timeline.cs
 Internal/Core/Transition.cs
-Internal/HaremLife_AnimationPoserCore.cs
-Internal/HaremLife_AnimationPoserCurves.cs
-Internal/HaremLife_AnimationPoserIO.cs
-Internal/HaremLife_AnimationPoserDebug.cs
-Internal/HaremLife_AnimationPoserUI.cs
-Internal/HaremLife_Utils.cs
+Internal/Core.cs
+Internal/Curves.cs
+Internal/IO.cs
+Internal/Debug.cs
+Internal/UI.cs
+Internal/Utils.cs
