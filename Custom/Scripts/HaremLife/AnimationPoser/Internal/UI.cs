@@ -1593,6 +1593,19 @@ namespace HaremLife
 
 					myTimelineTime.val = previousKeyframe.myTime;
 				}, true);
+				
+				CreateMenuButton("Go To Current Midpoint", () => {
+					Keyframe nextKeyframe = keyframes.FirstOrDefault(
+						k => k.myTime > myTimelineTime.val
+					);
+					Keyframe previousKeyframe = keyframes.LastOrDefault(
+						k => k.myTime < myTimelineTime.val
+					);
+
+					var midpoint = Math.Truncate((nextKeyframe.myTime + previousKeyframe.myTime) / 2.0f * 100) / 100;
+					
+					myTimelineTime.val = Convert.ToSingle(midpoint);
+				}, true);
 			}
 		}
 
