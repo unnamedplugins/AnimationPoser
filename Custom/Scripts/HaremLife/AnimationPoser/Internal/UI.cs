@@ -2847,8 +2847,10 @@ namespace HaremLife
 		}
 
 		private State AddState() {
-			foreach(var ce in UIGetState().myControlEntries)
-				ce.Value.myIsEditing = false;
+			State s = UIGetState();
+			if(s != null)
+				foreach(var ce in UIGetState().myControlEntries)
+					ce.Value.myIsEditing = false;
 
 			string name = FindNewName("State", "states", new List<string>(myCurrentLayer.myStates.Keys));
 			if (name == null)
