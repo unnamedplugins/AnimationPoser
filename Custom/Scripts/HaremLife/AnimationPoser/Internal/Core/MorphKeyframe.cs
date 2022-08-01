@@ -15,24 +15,16 @@ namespace HaremLife
 			public float myControlPointIn;
 			public float myControlPointOut;
 
-			public MorphKeyframe(string firstOrLast, float entry)
+			public MorphKeyframe(string firstOrLast, float entry) : base(firstOrLast)
 			{
-				if(String.Equals(firstOrLast, "first")) {
-					myTime = 0;
-					myIsFirst = true;
-				}
-				if(String.Equals(firstOrLast, "last")) {
-					myTime = 1;
-					myIsLast = true;
-				}
 				myMorphEntry = entry;
 			}
 
-			public MorphKeyframe(float time, float entry)
+			public MorphKeyframe(float time, float entry) : base(time)
 			{
-				myTime = time;
 				myMorphEntry = entry;
 			}
+
 		}
     }
 }

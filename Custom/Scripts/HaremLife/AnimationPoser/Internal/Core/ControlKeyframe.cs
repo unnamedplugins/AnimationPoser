@@ -15,22 +15,13 @@ namespace HaremLife
 			public ControlEntry myControlPointIn;
 			public ControlEntry myControlPointOut;
 
-			public ControlKeyframe(string firstOrLast, ControlEntry entry)
+			public ControlKeyframe(string firstOrLast, ControlEntry entry) : base(firstOrLast)
 			{
-				if(String.Equals(firstOrLast, "first")) {
-					myTime = 0;
-					myIsFirst = true;
-				}
-				if(String.Equals(firstOrLast, "last")) {
-					myTime = 1;
-					myIsLast = true;
-				}
 				myControlEntry = entry;
 			}
 
-			public ControlKeyframe(float time, ControlEntry entry)
+			public ControlKeyframe(float time, ControlEntry entry) : base(time)
 			{
-				myTime = time;
 				myControlEntry = entry;
 			}
 		}

@@ -16,10 +16,17 @@ namespace HaremLife
 				myMorphCapture = morphCapture;
 			}
 
-			public void SetEndpoints(float startMorphEntry,
-									 float endMorphEntry) {
-				myKeyframes.Add(new MorphKeyframe("first", startMorphEntry));
-				myKeyframes.Add(new MorphKeyframe("last", endMorphEntry));
+			public void SetEndpoints(float startEntry,
+									 float endEntry) {
+
+				if(myKeyframes.FirstOrDefault(k=>k.myIsFirst) == null) {
+					AddKeyframe(new MorphKeyframe("first", startEntry));
+				}
+
+				if(myKeyframes.FirstOrDefault(k=>k.myIsLast) == null) {
+					AddKeyframe(new MorphKeyframe("last", endEntry));
+				}
+
 				ComputeControlPoints();
 			}
 
