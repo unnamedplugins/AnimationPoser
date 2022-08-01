@@ -26,7 +26,7 @@ namespace HaremLife
 			} else {
 				info["Format"] = "HaremLife.AnimationPoser." + format;
 			}
-			info["Version"] = "3.6";
+			info["Version"] = "3.9";
 			string creatorName = UserPreferences.singleton.creatorName;
 			if (string.IsNullOrEmpty(creatorName))
 				creatorName = "Unknown";
