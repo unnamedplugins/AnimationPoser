@@ -776,8 +776,9 @@ namespace HaremLife
 										new Vector3(kfm["X"].AsFloat, kfm["Y"].AsFloat, kfm["Z"].AsFloat),
 										Quaternion.Euler(kfm["RX"].AsFloat, kfm["RY"].AsFloat, kfm["RZ"].AsFloat)
 									);
-									timeline.AddKeyframe(new ControlKeyframe(kfm["T"].AsFloat, ce));
+									timeline.AddKeyframe(new ControlKeyframe(kfm["T"].AsFloat, ce), false);
 								}
+								timeline.ComputeControlPoints();
 								if(ctltml.Keys.Contains("HalfwayRotationX"))
 									timeline.myHalfWayRotation = new Quaternion(
 										ctltml["HalfwayRotationX"].AsFloat,
@@ -815,8 +816,9 @@ namespace HaremLife
 										keyframe = new MorphKeyframe(kfm["T"].AsFloat, kfm["V"].AsFloat);
 									}
 
-									timeline.AddKeyframe(keyframe);
+									timeline.AddKeyframe(keyframe, false);
 								}
+								timeline.ComputeControlPoints();
 								transition.myMorphTimelines[capture] = timeline;
 							}
 						}
@@ -998,7 +1000,7 @@ namespace HaremLife
 						startEntry.myTransform, endEntry.myTransform, time
 					);
 					ce.myTransform = virtualAnchor.Inverse().Compose(ce.myTransform);
-					timeline.AddKeyframe(new ControlKeyframe(time, ce));
+					timeline.AddKeyframe(new ControlKeyframe(time, ce), false);
 				}
 
 				timeline.ComputeControlPoints();

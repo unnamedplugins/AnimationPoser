@@ -12,14 +12,15 @@ namespace HaremLife
 		private class Timeline {
 			public List<Keyframe> myKeyframes = new List<Keyframe>();
 
-			public void AddKeyframe(Keyframe keyframe) {
+			public void AddKeyframe(Keyframe keyframe, bool computeControlPoints = true) {
 				int i;
-				for(i=0; i<myKeyframes.Count; i++) {
-					if(myKeyframes[i].myTime > keyframe.myTime)
-						break;
-				}
+				if(keyframe.myIsFirst)
+					i = 0;
+				else
+					i = BinarySearch(keyframe.myTime)+1;
 				myKeyframes.Insert(i, keyframe);
-				ComputeControlPoints();
+				if(computeControlPoints)
+					ComputeControlPoints();
 			}
 
 			public void RemoveKeyframe(Keyframe keyframe) {
@@ -58,10 +59,18 @@ namespace HaremLife
 			}
 
             public int BinarySearch(float t) {
-				Keyframe k1 = myKeyframes.First();
-				Keyframe k2 = myKeyframes.Last();
                 int n = myKeyframes.Count()-1;
                 int m = 0;
+				if(n == -1) {
+					return -1;
+				} else if(n == 0) {
+					if(myKeyframes.First().myTime > t) 
+						return -1;
+					else
+						return 0;
+				}
+				Keyframe k1 = myKeyframes.First();
+				Keyframe k2 = myKeyframes.Last();
                 while(n != m+1) {
 					int k = (int) Math.Floor((n+m)/2.0);
                     if(myKeyframes[k].myTime > t)
