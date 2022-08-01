@@ -1099,48 +1099,42 @@ namespace HaremLife
 					rzentry["c"] = "3";
 					rwentry["c"] = "3";
 
-					xentry["v"].AsFloat = keyframe.myControlEntry.myTransform.myPosition.x;
-					yentry["v"].AsFloat = keyframe.myControlEntry.myTransform.myPosition.y;
-					zentry["v"].AsFloat = keyframe.myControlEntry.myTransform.myPosition.z;
-					rxentry["v"].AsFloat = keyframe.myControlEntry.myTransform.myRotation.x;
-					ryentry["v"].AsFloat = keyframe.myControlEntry.myTransform.myRotation.y;
-					rzentry["v"].AsFloat = keyframe.myControlEntry.myTransform.myRotation.z;
-					rwentry["v"].AsFloat = keyframe.myControlEntry.myTransform.myRotation.w;
+					ControlTransform transform = timeline.GetVirtualAnchor(keyframe.myTime).Compose(
+						keyframe.myControlEntry.myTransform
+					);
+					Vector3 position = transform.myPosition;
+					Quaternion rotation = transform.myRotation;
 
-					if(keyframe.myControlPointIn != null) {
-						xentry["i"].AsFloat = keyframe.myControlPointIn.myTransform.myPosition.x;
-						yentry["i"].AsFloat = keyframe.myControlPointIn.myTransform.myPosition.y;
-						zentry["i"].AsFloat = keyframe.myControlPointIn.myTransform.myPosition.z;
-						rxentry["i"].AsFloat = keyframe.myControlPointIn.myTransform.myRotation.x;
-						ryentry["i"].AsFloat = keyframe.myControlPointIn.myTransform.myRotation.y;
-						rzentry["i"].AsFloat = keyframe.myControlPointIn.myTransform.myRotation.z;
-						rwentry["i"].AsFloat = keyframe.myControlPointIn.myTransform.myRotation.w;
-					} else {
-						xentry["i"].AsFloat = keyframe.myControlEntry.myTransform.myPosition.x;
-						yentry["i"].AsFloat = keyframe.myControlEntry.myTransform.myPosition.y;
-						zentry["i"].AsFloat = keyframe.myControlEntry.myTransform.myPosition.z;
-						rxentry["i"].AsFloat = keyframe.myControlEntry.myTransform.myRotation.x;
-						ryentry["i"].AsFloat = keyframe.myControlEntry.myTransform.myRotation.y;
-						rzentry["i"].AsFloat = keyframe.myControlEntry.myTransform.myRotation.z;
-						rwentry["i"].AsFloat = keyframe.myControlEntry.myTransform.myRotation.w;
+					xentry["v"].AsFloat = position.x; yentry["v"].AsFloat = position.y; zentry["v"].AsFloat = position.z;
+					rxentry["v"].AsFloat = rotation.x; ryentry["v"].AsFloat = rotation.y; rzentry["v"].AsFloat = rotation.z; rwentry["v"].AsFloat = rotation.w;
+
+					if(keyframe.myControlPointIn == null) {
+						xentry["i"].AsFloat = position.x; yentry["i"].AsFloat = position.y; zentry["i"].AsFloat = position.z;
+						rxentry["i"].AsFloat = rotation.x; ryentry["i"].AsFloat = rotation.y; rzentry["i"].AsFloat = rotation.z; rwentry["i"].AsFloat = rotation.w;
 					}
+					if(keyframe.myControlPointOut == null) {
+						xentry["o"].AsFloat = position.x; yentry["o"].AsFloat = position.y; zentry["o"].AsFloat = position.z;
+						rxentry["o"].AsFloat = rotation.x; ryentry["o"].AsFloat = rotation.y; rzentry["o"].AsFloat = rotation.z; rwentry["o"].AsFloat = rotation.w;
+					}
+					if(keyframe.myControlPointIn != null) {
+						transform = timeline.GetVirtualAnchor(keyframe.myTime).Compose(
+							keyframe.myControlPointIn.myTransform
+						);
+						position = transform.myPosition;
+						rotation = transform.myRotation;
 
+						xentry["i"].AsFloat = position.x; yentry["i"].AsFloat = position.y; zentry["i"].AsFloat = position.z;
+						rxentry["i"].AsFloat = rotation.x; ryentry["i"].AsFloat = rotation.y; rzentry["i"].AsFloat = rotation.z; rwentry["i"].AsFloat = rotation.w;
+					}
 					if(keyframe.myControlPointOut != null) {
-						xentry["o"].AsFloat = keyframe.myControlPointOut.myTransform.myPosition.x;
-						yentry["o"].AsFloat = keyframe.myControlPointOut.myTransform.myPosition.y;
-						zentry["o"].AsFloat = keyframe.myControlPointOut.myTransform.myPosition.z;
-						rxentry["o"].AsFloat = keyframe.myControlPointOut.myTransform.myRotation.x;
-						ryentry["o"].AsFloat = keyframe.myControlPointOut.myTransform.myRotation.y;
-						rzentry["o"].AsFloat = keyframe.myControlPointOut.myTransform.myRotation.z;
-						rwentry["o"].AsFloat = keyframe.myControlPointOut.myTransform.myRotation.w;
-					} else {
-						xentry["o"].AsFloat = keyframe.myControlEntry.myTransform.myPosition.x;
-						yentry["o"].AsFloat = keyframe.myControlEntry.myTransform.myPosition.y;
-						zentry["o"].AsFloat = keyframe.myControlEntry.myTransform.myPosition.z;
-						rxentry["o"].AsFloat = keyframe.myControlEntry.myTransform.myRotation.x;
-						ryentry["o"].AsFloat = keyframe.myControlEntry.myTransform.myRotation.y;
-						rzentry["o"].AsFloat = keyframe.myControlEntry.myTransform.myRotation.z;
-						rwentry["o"].AsFloat = keyframe.myControlEntry.myTransform.myRotation.w;
+						transform = timeline.GetVirtualAnchor(keyframe.myTime).Compose(
+							keyframe.myControlPointIn.myTransform
+						);
+						position = transform.myPosition;
+						rotation = transform.myRotation;
+
+						xentry["o"].AsFloat = position.x; yentry["o"].AsFloat = position.y; zentry["o"].AsFloat = position.z;
+						rxentry["o"].AsFloat = rotation.x; ryentry["o"].AsFloat = rotation.y; rzentry["o"].AsFloat = rotation.z; rwentry["o"].AsFloat = rotation.w;
 					}
 
 					xlist.Add(xentry);
