@@ -57,18 +57,12 @@ namespace HaremLife
 				if (!myMorphCapture.myApply)
 					return;
 
-				MorphKeyframe k1 = myKeyframes[0] as MorphKeyframe;
-				MorphKeyframe k2 = myKeyframes[1] as MorphKeyframe;
-				for (int i=1; i<myKeyframes.Count; ++i) {
-					if(k2.myTime < t) {
-						k1 = myKeyframes[i] as MorphKeyframe;
-						k2 = myKeyframes[i+1] as MorphKeyframe;
-					} else {
-						break;
-					}
-				}
+                int n = BinarySearch(t);
+				MorphKeyframe k1 = myKeyframes[n] as MorphKeyframe;
+				MorphKeyframe k2 = myKeyframes[n+1] as MorphKeyframe;
 
 				t = (t-k1.myTime)/(k2.myTime-k1.myTime);
+
 				float c1 = k1.myMorphEntry;
 				float c2 = k1.myControlPointOut;
 				float c3 = k2.myControlPointIn;
