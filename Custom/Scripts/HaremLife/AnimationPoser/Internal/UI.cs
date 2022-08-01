@@ -1566,6 +1566,9 @@ namespace HaremLife
 					myCurrentLayer.SetTransition(transition, v);
 					myCurrentLayer.myStateChain.Clear();
 					UIUpdateTimelineSlider(transition, timeline, v, myElements);
+					Layer layer = UIGetLayer();
+					if(layer != null)
+						layer.myTransition = null;
 				};
 
 				CreateMenuSlider(myTimelineTime, true);

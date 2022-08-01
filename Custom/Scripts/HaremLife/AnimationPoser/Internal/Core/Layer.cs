@@ -16,7 +16,7 @@ namespace HaremLife
 			public State myCurrentState;
 			public List<ControlCapture> myControlCaptures = new List<ControlCapture>();
 			public List<MorphCapture> myMorphCaptures = new List<MorphCapture>();
-			private Transition myTransition;
+			public Transition myTransition;
 			public float myClock = 0.0f;
 			public float myDuration = 1.0f;
 			private List<TriggerActionDiscrete> myTriggerActionsNeedingUpdate = new List<TriggerActionDiscrete>();

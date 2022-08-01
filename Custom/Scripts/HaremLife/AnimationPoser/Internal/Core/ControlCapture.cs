@@ -13,7 +13,6 @@ namespace HaremLife
 		{
 			public string myName;
 			public Transform myTransform;
-			private ControlTimeline myTimeline;
 			public bool myApplyPosition = true;
 			public bool myApplyRotation = true;
 			public readonly FreeControllerV3 myController;

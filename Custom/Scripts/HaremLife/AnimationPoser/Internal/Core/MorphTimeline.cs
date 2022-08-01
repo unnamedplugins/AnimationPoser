@@ -30,6 +30,16 @@ namespace HaremLife
 				ComputeControlPoints();
 			}
 
+			public override void CaptureKeyframe(float time) {
+				float entry = myMorphCapture.myMorph.morphValue;
+				AddKeyframe(new MorphKeyframe(time, entry));
+			}
+
+			public override void UpdateKeyframe(Keyframe keyframe) {
+				RemoveKeyframe(keyframe);
+				CaptureKeyframe(keyframe.myTime);
+			}
+
 			public override void ComputeControlPoints() {
 				List<float> ts = new List<float>();
 				List<float> vs = new List<float>();
