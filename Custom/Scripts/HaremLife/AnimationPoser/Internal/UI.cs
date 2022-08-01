@@ -1601,8 +1601,13 @@ namespace HaremLife
 					Keyframe previousKeyframe = keyframes.LastOrDefault(
 						k => k.myTime < myTimelineTime.val
 					);
+					Keyframe currentKeyframe = keyframes.FirstOrDefault(
+						k => k.myTime == myTimelineTime.val
+					);
 
-					var midpoint = Math.Truncate((nextKeyframe.myTime + previousKeyframe.myTime) / 2.0f * 100) / 100;
+					var startingKeyframe = currentKeyframe == null ? previousKeyframe : currentKeyframe;
+
+					var midpoint = Math.Truncate((startingKeyframe.myTime + nextKeyframe.myTime) / 2.0f * 100) / 100;
 					
 					myTimelineTime.val = Convert.ToSingle(midpoint);
 				}, true);
