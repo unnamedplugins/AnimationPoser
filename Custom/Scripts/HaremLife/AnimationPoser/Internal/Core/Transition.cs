@@ -54,6 +54,10 @@ namespace HaremLife
 				myAvoids = t.myAvoids;
 			}
 
+			public bool IsCrossAnimation() {
+				return mySourceState.myAnimation() != myTargetState.myAnimation();
+			}
+
 			public void SetEndpoints(State sourceState, State targetState) {
 				mySourceState = sourceState;
 				myTargetState = targetState;

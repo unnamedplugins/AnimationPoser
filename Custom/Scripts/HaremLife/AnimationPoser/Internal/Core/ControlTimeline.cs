@@ -12,6 +12,7 @@ namespace HaremLife
 		private class ControlTimeline : Timeline {
 			public ControlEntryAnchored myStartEntry;
 			public ControlEntryAnchored myEndEntry;
+			public Quaternion? myHalfWayRotation = null;
 			public ControlCapture myControlCapture;
 
 			public ControlTimeline(ControlCapture controlCapture) {
@@ -35,10 +36,30 @@ namespace HaremLife
 					AddKeyframe(new ControlKeyframe("last", endEntry));
 				}
 
+				myHalfWayRotation = Quaternion.Inverse(
+					myStartEntry.myTransform.myRotation
+				) * new ControlTransform(
+					myStartEntry.myTransform,
+					myEndEntry.myTransform,
+					(float) 0.5
+				).myRotation;
+
 				ComputeControlPoints();
 			}
 
+			public void AddKeyframe(Keyframe keyframe) {
+				base.AddKeyframe(keyframe);
+			}
+
 			public ControlTransform GetVirtualAnchor(float time) {
+				if(myHalfWayRotation != null) {
+					ControlTransform halfWayTransform = new ControlTransform(myStartEntry.myTransform, myEndEntry.myTransform, (float) 0.5);
+					halfWayTransform.myRotation = myStartEntry.myTransform.myRotation * (Quaternion) myHalfWayRotation;
+					if(time > 0.5)
+						return new ControlTransform(halfWayTransform, myEndEntry.myTransform, (float) time*2-1);
+					else
+						return new ControlTransform(myStartEntry.myTransform, halfWayTransform, (float) time*2);
+				}
 				return new ControlTransform(myStartEntry.myTransform, myEndEntry.myTransform, time);
 			}
 
@@ -47,8 +68,19 @@ namespace HaremLife
 				entry = new ControlEntryAnchored(myControlCapture);
 				myControlCapture.CaptureEntry(entry);
 				entry.Initialize();
+
+				ControlTransform originalTransform = entry.myTransform;
+
 				entry.myTransform = GetVirtualAnchor(time).Inverse().Compose(entry.myTransform);
+
+				CheckOrientation(entry.myTransform, originalTransform, time);
 				return entry;
+			}
+
+			public void CheckOrientation(ControlTransform transform, ControlTransform originalTransform, float time) {
+				if(GetVirtualAnchor(time).Compose(transform).myRotation != originalTransform.myRotation) {
+					myHalfWayRotation = Quaternion.Inverse((Quaternion) myHalfWayRotation);
+				}
 			}
 
 			public override void CaptureKeyframe(float time) {

@@ -264,6 +264,13 @@ namespace HaremLife
 							}
 
 							JSONClass ctltml = new JSONClass();
+							if(timeline.myHalfWayRotation != null) {
+								Quaternion halfway = (Quaternion) timeline.myHalfWayRotation;
+								ctltml["HalfwayRotationX"].AsFloat = halfway.x;
+								ctltml["HalfwayRotationY"].AsFloat = halfway.y;
+								ctltml["HalfwayRotationZ"].AsFloat = halfway.z;
+								ctltml["HalfwayRotationW"].AsFloat = halfway.w;
+							}
 							ctltml["ControlKeyframes"] = ctlkfms;
 							ctltmls[c.Key.myName] = ctltml;
 						}
@@ -771,6 +778,13 @@ namespace HaremLife
 									);
 									timeline.AddKeyframe(new ControlKeyframe(kfm["T"].AsFloat, ce));
 								}
+								if(ctltml.Keys.Contains("HalfwayRotationX"))
+									timeline.myHalfWayRotation = new Quaternion(
+										ctltml["HalfwayRotationX"].AsFloat,
+										ctltml["HalfwayRotationY"].AsFloat,
+										ctltml["HalfwayRotationZ"].AsFloat,
+										ctltml["HalfwayRotationW"].AsFloat
+								);
 								transition.myControlTimelines[capture] = timeline;
 							}
 						}

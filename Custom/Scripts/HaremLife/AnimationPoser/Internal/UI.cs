@@ -3160,7 +3160,43 @@ namespace HaremLife
 				controlEntry.myAnchorBControl = myAnchorControlListB.val;
 			}
 
+			List<ControlTimeline> timelines = new List<ControlTimeline>();
+			foreach(var src in state.myLayer.myStates) {
+				State source = src.Value;
+				if(source.isReachable(state)) {
+					BaseTransition transition = source.myTransitions.Find(t => t.myTargetState == state);
+					if(transition is Transition && !(transition as Transition).IsCrossAnimation()) {
+						timelines.Add((transition as Transition).myControlTimelines[controlEntry.myControlCapture]);
+					}
+				}
+			}
+			foreach(BaseTransition transition in state.myTransitions)
+				if(transition is Transition && !(transition as Transition).IsCrossAnimation()) {
+					timelines.Add((transition as Transition).myControlTimelines[controlEntry.myControlCapture]);
+				}
+
+			Dictionary<ControlTimeline, Dictionary<Keyframe, ControlTransform>> myTransforms = new Dictionary<ControlTimeline, Dictionary<Keyframe, ControlTransform>>();
+
+			foreach(ControlTimeline timeline in timelines) {
+				myTransforms[timeline] = new Dictionary<Keyframe, ControlTransform>();
+				foreach(Keyframe keyframe in timeline.myKeyframes) {
+					myTransforms[timeline][keyframe] = timeline.GetVirtualAnchor(keyframe.myTime).Compose(
+						(keyframe as ControlKeyframe).myControlEntry.myTransform
+					);
+				}
+			}
+
 			controlEntry.AdjustAnchor();
+
+			foreach(ControlTimeline timeline in timelines) {
+				foreach(Keyframe keyframe in timeline.myKeyframes) {
+					timeline.CheckOrientation(
+						(keyframe as ControlKeyframe).myControlEntry.myTransform,
+						myTransforms[timeline][keyframe],
+						keyframe.myTime
+					);
+				}
+			}
 		}
 
 
